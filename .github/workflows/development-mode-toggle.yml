@@ -9,6 +9,11 @@ on:
         type: string
         required: true
         default: "enable"
+      minimum_supported_lv_version:
+        description: "LabVIEW major version (2020-2025)."
+        type: string
+        required: false
+        default: "2021"
 
   # 2) Triggered manually from the Actions tab
   workflow_dispatch:
@@ -21,6 +26,18 @@ on:
         options:
           - enable
           - disable
+      minimum_supported_lv_version:
+        description: "LabVIEW major version."
+        required: false
+        default: "2021"
+        type: choice
+        options:
+          - "2020"
+          - "2021"
+          - "2022"
+          - "2023"
+          - "2024"
+          - "2025"
 
 jobs:
   toggle-dev-mode:
@@ -61,18 +78,29 @@ jobs:
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            if ('${{ github.event.inputs.mode }}' -eq 'enable') {
-              ./.github/actions/set-development-mode/Set_Development_Mode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            } else {
-              ./.github/actions/revert-development-mode/RevertDevelopmentMode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            }
+            $mode = '${{ github.event.inputs.mode }}'
+            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
+          } else {
+            $mode = '${{ inputs.mode }}'
+            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
           }
-          else {
-            if ('${{ inputs.mode }}' -eq 'enable') {
-              ./.github/actions/set-development-mode/Set_Development_Mode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            } else {
-              ./.github/actions/revert-development-mode/RevertDevelopmentMode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            }
+
+          $scriptArgs = @()
+          if ($lvVersion) {
+            $scriptArgs += @('-MinimumSupportedLVVersion', $lvVersion)
+          }
+          if ($env:GITHUB_WORKSPACE) {
+            $scriptArgs += @('-RelativePath', $env:GITHUB_WORKSPACE)
+          }
+
+          if ($mode -eq 'enable') {
+            & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
+          } else {
+            & ./.github/actions/revert-development-mode/RevertDevelopmentMode.ps1 @scriptArgs
+          }
+
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+            exit $LASTEXITCODE
           }
       #
       # -- SET OUTPUT (JSON) IF SUCCESS --
