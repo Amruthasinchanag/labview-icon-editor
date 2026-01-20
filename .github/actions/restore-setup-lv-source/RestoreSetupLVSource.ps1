@@ -46,7 +46,7 @@ try {
 
     # Check the exit code of the executed command
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "Unzip vi.lib/LabVIEW Icon API from LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) and remove localhost.library path from ini file"
+        Write-Host "Unzipped vi.lib/LabVIEW Icon API from LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit), removed localhost.library path from ini file and renamed lv_icon.lvlibp to lv_icon.ship"
     }
 } catch {
     Write-Host ""
