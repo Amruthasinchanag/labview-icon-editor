@@ -14,6 +14,7 @@
 		<Property Name="server.vi.propertiesEnabled" Type="Bool">true</Property>
 		<Property Name="specify.custom.address" Type="Bool">false</Property>
 		<Item Name="G-CLI" Type="Folder">
+			<Item Name="GetPathsToIconEditorFilesInLVInstallationCLI.vi" Type="VI" URL="../GetPathsToIconEditorFilesInLVInstallationCLI.vi"/>
 			<Item Name="PrepareIESource.vi" Type="VI" URL="../PrepareIESource.vi"/>
 			<Item Name="RestoreSetupLVSource.vi" Type="VI" URL="../RestoreSetupLVSource.vi"/>
 		</Item>
