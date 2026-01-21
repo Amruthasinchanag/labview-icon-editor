@@ -4,8 +4,8 @@ param(
     [ValidateSet('2021')]
     [string]$LabVIEWVersion = '2021',
     [bool]$RunPester = $true,
-    [int]$PollSeconds = 5,
-    [int]$TimeoutMinutes = 5,
+    [int]$PollSeconds = 2,
+    [int]$TimeoutMinutes = 3,
     [bool]$SkipDisableIfAlreadyDisabled = $true
 )
 
@@ -28,7 +28,6 @@ function Start-DevModeRun {
         [bool]$IncludePester
     )
 
-    $startedAt = (Get-Date).ToUniversalTime()
     $args = @(
         'workflow', 'run', 'Toggle Development Mode',
         '--repo', $Repo,
@@ -46,28 +45,6 @@ function Start-DevModeRun {
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to dispatch workflow for mode=$Mode."
     }
-
-    return $startedAt
-}
-
-function Get-LatestRun {
-    param(
-        [datetime]$AfterUtc
-    )
-
-    $runs = & gh run list `
-        --repo $Repo `
-        --workflow 'Toggle Development Mode' `
-        --branch $Ref `
-        --event workflow_dispatch `
-        --limit 10 `
-        --json databaseId,createdAt,status,conclusion,displayTitle,htmlUrl 2>$null | ConvertFrom-Json
-
-    $filtered = $runs | Where-Object {
-        $_.createdAt -and ([datetime]$_.createdAt).ToUniversalTime() -ge $AfterUtc
-    } | Sort-Object { [datetime]$_.createdAt } -Descending
-
-    return $filtered | Select-Object -First 1
 }
 
 function Get-LastCompletedRun {
@@ -81,56 +58,88 @@ function Get-LastCompletedRun {
     return $runs | Where-Object { $_.status -eq 'completed' } | Select-Object -First 1
 }
 
-function Get-RunModeFromLogs {
+function Get-RunModeFromJobs {
     param(
         [int]$RunId
     )
 
-    $log = & gh run view --repo $Repo $RunId --log 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $log) {
+    $run = & gh run view --repo $Repo $RunId --json jobs 2>$null | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or -not $run) {
         return $null
     }
 
-    $matches = [regex]::Matches($log, '"mode"\s*:\s*"(?<mode>enable|disable)"')
-    if ($matches.Count -eq 0) {
-        return $null
-    }
-
-    return $matches[$matches.Count - 1].Groups['mode'].Value
+    $jobName = $run.jobs | Select-Object -ExpandProperty name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($jobName -like '*Enable Dev Mode*') { return 'enable' }
+    if ($jobName -like '*Disable Dev Mode*') { return 'disable' }
+    return $null
 }
 
 function Wait-ForActiveRunToFinish {
-    $activeRuns = & gh run list `
-        --repo $Repo `
-        --workflow 'Toggle Development Mode' `
-        --branch $Ref `
-        --status in_progress `
-        --limit 1 `
-        --json databaseId 2>$null | ConvertFrom-Json
+    foreach ($status in @('queued', 'in_progress')) {
+        $activeRuns = & gh run list `
+            --repo $Repo `
+            --workflow 'Toggle Development Mode' `
+            --branch $Ref `
+            --status $status `
+            --limit 1 `
+            --json databaseId 2>$null | ConvertFrom-Json
 
-    if ($activeRuns -and $activeRuns.databaseId) {
-        Write-Host "Active run detected ($($activeRuns.databaseId)). Waiting for completion..."
-        & gh run watch --repo $Repo $activeRuns.databaseId --exit-status --interval $PollSeconds
-        if ($LASTEXITCODE -ne 0) {
-            throw "Active workflow run failed ($($activeRuns.databaseId))."
+        if ($activeRuns -and $activeRuns.databaseId) {
+            Write-Host "Active run detected ($($activeRuns.databaseId)). Waiting for completion..."
+            & gh run watch --repo $Repo $activeRuns.databaseId --exit-status --interval $PollSeconds
+            if ($LASTEXITCODE -ne 0) {
+                throw "Active workflow run failed ($($activeRuns.databaseId))."
+            }
         }
     }
 }
 
+function Get-LatestRunAfterId {
+    param(
+        [int]$BaselineId
+    )
+
+    $runs = & gh run list `
+        --repo $Repo `
+        --workflow 'Toggle Development Mode' `
+        --branch $Ref `
+        --event workflow_dispatch `
+        --limit 10 `
+        --json databaseId,createdAt,status,conclusion 2>$null | ConvertFrom-Json
+
+    $filtered = $runs | Where-Object { $_.databaseId -gt $BaselineId } | Sort-Object databaseId -Descending
+    return $filtered | Select-Object -First 1
+}
+
 function Wait-ForRun {
     param(
-        [datetime]$AfterUtc,
+        [int]$BaselineId,
         [string]$Mode
     )
 
     $deadline = (Get-Date).ToUniversalTime().AddMinutes($TimeoutMinutes)
     do {
-        $run = Get-LatestRun -AfterUtc $AfterUtc
+        $run = Get-LatestRunAfterId -BaselineId $BaselineId
         if ($run) {
-            Write-Host ("Workflow run found: {0} ({1})" -f $run.databaseId, $run.htmlUrl)
+            $runMode = Get-RunModeFromJobs -RunId $run.databaseId
+            if ($runMode -and $runMode -ne $Mode) {
+                Write-Host ("Found run {0} for mode '{1}', waiting for mode '{2}'." -f $run.databaseId, $runMode, $Mode)
+                Start-Sleep -Seconds $PollSeconds
+                continue
+            }
+
+            Write-Host ("Workflow run found: {0}" -f $run.databaseId)
+            if ($run.status -eq 'completed') {
+                if ($run.conclusion -ne 'success') {
+                    Write-Host "Run failed; fetching logs..."
+                    & gh run view --repo $Repo $run.databaseId --log
+                    throw "Workflow run failed for mode=$Mode (run id $($run.databaseId))."
+                }
+                return
+            }
+
             & gh run watch --repo $Repo $run.databaseId --exit-status --interval $PollSeconds
-            $exitCode = $LASTEXITCODE
-            if ($exitCode -ne 0) {
+            if ($LASTEXITCODE -ne 0) {
                 Write-Host "Run failed; fetching logs..."
                 & gh run view --repo $Repo $run.databaseId --log
                 throw "Workflow run failed for mode=$Mode (run id $($run.databaseId))."
@@ -138,6 +147,7 @@ function Wait-ForRun {
             return
         }
 
+        Write-Host "Waiting for workflow run (mode=$Mode)..."
         Start-Sleep -Seconds $PollSeconds
     } while ((Get-Date).ToUniversalTime() -lt $deadline)
 
@@ -152,7 +162,7 @@ $skipDisable = $false
 if ($SkipDisableIfAlreadyDisabled) {
     $lastCompleted = Get-LastCompletedRun
     if ($lastCompleted -and $lastCompleted.conclusion -eq 'success') {
-        $lastMode = Get-RunModeFromLogs -RunId $lastCompleted.databaseId
+        $lastMode = Get-RunModeFromJobs -RunId $lastCompleted.databaseId
         if ($lastMode -eq 'disable') {
             $skipDisable = $true
             Write-Host "Skipping disable: last successful run already disabled dev mode."
@@ -161,13 +171,17 @@ if ($SkipDisableIfAlreadyDisabled) {
 }
 
 if (-not $skipDisable) {
-    $disableStart = Start-DevModeRun -Mode 'disable' -IncludePester $false
-    Wait-ForRun -AfterUtc $disableStart -Mode 'disable'
+    $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
+    if (-not $baselineId) { $baselineId = 0 }
+    Start-DevModeRun -Mode 'disable' -IncludePester $false
+    Wait-ForRun -BaselineId $baselineId -Mode 'disable'
 } else {
     Write-Host 'Disable step skipped.'
 }
 
-$enableStart = Start-DevModeRun -Mode 'enable' -IncludePester $RunPester
-Wait-ForRun -AfterUtc $enableStart -Mode 'enable'
+$baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
+if (-not $baselineId) { $baselineId = 0 }
+Start-DevModeRun -Mode 'enable' -IncludePester $RunPester
+Wait-ForRun -BaselineId $baselineId -Mode 'enable'
 
 Write-Host 'Dev mode cycle completed successfully.'
