@@ -6,6 +6,7 @@ param(
     [bool]$RunPester = $true,
     [int]$PollSeconds = 2,
     [int]$TimeoutMinutes = 3,
+    [int]$RunTimeoutMinutes = 10,
     [bool]$SkipDisableIfAlreadyDisabled = $true
 )
 
@@ -74,23 +75,77 @@ function Get-RunModeFromJobs {
     return $null
 }
 
+function Get-RunSummary {
+    param(
+        [long]$RunId
+    )
+
+    $run = & gh run view --repo $Repo $RunId --json status,conclusion 2>$null | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or -not $run) {
+        return $null
+    }
+
+    return $run
+}
+
+function Wait-ForRunCompletion {
+    param(
+        [long]$RunId,
+        [string]$Mode
+    )
+
+    $deadline = (Get-Date).ToUniversalTime().AddMinutes($RunTimeoutMinutes)
+    $lastStatus = $null
+
+    do {
+        $run = Get-RunSummary -RunId $RunId
+        if (-not $run) {
+            Start-Sleep -Seconds $PollSeconds
+            continue
+        }
+
+        if ($run.status -ne $lastStatus) {
+            Write-Host ("Run {0} status: {1}" -f $RunId, $run.status)
+            $lastStatus = $run.status
+        }
+
+        if ($run.status -eq 'completed') {
+            if ($run.conclusion -ne 'success') {
+                Write-Host "Run failed; fetching logs..."
+                & gh run view --repo $Repo $RunId --log
+                throw "Workflow run failed for mode=$Mode (run id $RunId)."
+            }
+            return
+        }
+
+        Start-Sleep -Seconds $PollSeconds
+    } while ((Get-Date).ToUniversalTime() -lt $deadline)
+
+    throw "Timed out waiting for workflow run completion (mode=$Mode, run id $RunId)."
+}
+
 function Wait-ForActiveRunToFinish {
-    foreach ($status in @('queued', 'in_progress')) {
-        $activeRuns = & gh run list `
+    $activeRun = & gh run list `
+        --repo $Repo `
+        --workflow 'Toggle Development Mode' `
+        --branch $Ref `
+        --status in_progress `
+        --limit 1 `
+        --json databaseId 2>$null | ConvertFrom-Json
+
+    if (-not $activeRun -or -not $activeRun.databaseId) {
+        $activeRun = & gh run list `
             --repo $Repo `
             --workflow 'Toggle Development Mode' `
             --branch $Ref `
-            --status $status `
+            --status queued `
             --limit 1 `
             --json databaseId 2>$null | ConvertFrom-Json
+    }
 
-        if ($activeRuns -and $activeRuns.databaseId) {
-            Write-Host "Active run detected ($($activeRuns.databaseId)). Waiting for completion..."
-            & gh run watch --repo $Repo $activeRuns.databaseId --exit-status --interval $PollSeconds
-            if ($LASTEXITCODE -ne 0) {
-                throw "Active workflow run failed ($($activeRuns.databaseId))."
-            }
-        }
+    if ($activeRun -and $activeRun.databaseId) {
+        Write-Host "Active run detected ($($activeRun.databaseId)). Waiting for completion..."
+        Wait-ForRunCompletion -RunId $activeRun.databaseId -Mode 'active'
     }
 }
 
@@ -138,12 +193,7 @@ function Wait-ForRun {
                 return
             }
 
-            & gh run watch --repo $Repo $run.databaseId --exit-status --interval $PollSeconds
-            if ($LASTEXITCODE -ne 0) {
-                Write-Host "Run failed; fetching logs..."
-                & gh run view --repo $Repo $run.databaseId --log
-                throw "Workflow run failed for mode=$Mode (run id $($run.databaseId))."
-            }
+            Wait-ForRunCompletion -RunId $run.databaseId -Mode $Mode
             return
         }
 
