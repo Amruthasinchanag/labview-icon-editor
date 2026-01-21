@@ -12,8 +12,13 @@ runs:
       shell: pwsh
       run: |
         & "${{ github.action_path }}/RevertDevelopmentMode.ps1" \
+          -MinimumSupportedLVVersion "${{ inputs.minimum_supported_lv_version }}" \
           -RelativePath "${{ inputs.relative_path }}"
 inputs:
+  minimum_supported_lv_version:
+    description: 'LabVIEW major version (2020-2025)'
+    required: false
+    default: '2021'
   relative_path:
     description: 'Workspace root path'
-    required: true
+    required: false

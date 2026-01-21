@@ -9,6 +9,16 @@ on:
         type: string
         required: true
         default: "enable"
+      minimum_supported_lv_version:
+        description: "LabVIEW major version (2020-2025)."
+        type: string
+        required: false
+        default: "2021"
+      run_pester:
+        description: "Run Pester integration tests (LabVIEW 2021)."
+        type: boolean
+        required: false
+        default: false
 
   # 2) Triggered manually from the Actions tab
   workflow_dispatch:
@@ -21,6 +31,23 @@ on:
         options:
           - enable
           - disable
+      minimum_supported_lv_version:
+        description: "LabVIEW major version."
+        required: false
+        default: "2021"
+        type: choice
+        options:
+          - "2020"
+          - "2021"
+          - "2022"
+          - "2023"
+          - "2024"
+          - "2025"
+      run_pester:
+        description: "Run Pester integration tests (LabVIEW 2021)."
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   toggle-dev-mode:
@@ -61,18 +88,33 @@ jobs:
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            if ('${{ github.event.inputs.mode }}' -eq 'enable') {
-              ./.github/actions/set-development-mode/Set_Development_Mode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            } else {
-              ./.github/actions/revert-development-mode/RevertDevelopmentMode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            }
+            $mode = '${{ github.event.inputs.mode }}'
+            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
+          } else {
+            $mode = '${{ inputs.mode }}'
+            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
           }
-          else {
-            if ('${{ inputs.mode }}' -eq 'enable') {
-              ./.github/actions/set-development-mode/Set_Development_Mode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            } else {
-              ./.github/actions/revert-development-mode/RevertDevelopmentMode.ps1 -RelativePath $env:GITHUB_WORKSPACE
-            }
+
+          if ([string]::IsNullOrWhiteSpace($lvVersion)) {
+            $lvVersion = '2021'
+          }
+
+          $scriptArgs = @{}
+          if (-not [string]::IsNullOrWhiteSpace($lvVersion)) {
+            $scriptArgs.MinimumSupportedLVVersion = $lvVersion
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
+            $scriptArgs.RelativePath = $env:GITHUB_WORKSPACE
+          }
+
+          if ($mode -eq 'enable') {
+            & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
+          } else {
+            & ./.github/actions/revert-development-mode/RevertDevelopmentMode.ps1 @scriptArgs
+          }
+
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+            exit $LASTEXITCODE
           }
       #
       # -- SET OUTPUT (JSON) IF SUCCESS --
@@ -115,6 +157,12 @@ jobs:
           echo "environment_details<<EOF" >> $env:GITHUB_OUTPUT
           echo "$jsonObject"             >> $env:GITHUB_OUTPUT
           echo "EOF"                     >> $env:GITHUB_OUTPUT
+
+      - name: Run Pester integration tests (LabVIEW 2021)
+        if: ${{ success() && ((github.event.inputs.run_pester == 'true') || (inputs.run_pester == true)) && ((github.event.inputs.mode == 'enable') || (inputs.mode == 'enable')) }}
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021 -CI
 
     outputs:
       environment_details: ${{ steps.set_output.outputs.environment_details }}

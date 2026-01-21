@@ -71,7 +71,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 ### 1. Development vs. Testing
 
 **Development Mode**  
-- Temporarily reconfigures `labview.ini` and `vi.lib` so LabVIEW loads your Icon Editor source directly, it also removes `lv_icon.lvlibp`.  
+- Temporarily reconfigures `labview.ini` and `vi.lib` so LabVIEW loads your Icon Editor source directly, renaming `lv_icon.lvlibp` to `lv_icon.ship` and packaging the LabVIEW Icon API.  
 - Enable/disable via the **Development Mode Toggle** workflow.
 
 **Testing / Distributable Builds**  
@@ -85,6 +85,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 1. **Development Mode Toggle**  
    - `mode: enable` → calls `Set_Development_Mode.ps1`.  
    - `mode: disable` → calls `RevertDevelopmentMode.ps1`.  
+   - Optional `minimum_supported_lv_version` (default `2021`, supports `2020`-`2025`).
    - Great for reconfiguring LabVIEW for local dev vs. distribution builds.
 
 2. **CI Pipeline (Composite)**
@@ -125,6 +126,7 @@ With your runner online:
 
 1. **Enable Dev Mode** (if needed)
    - **Actions → Development Mode Toggle**, set `mode: enable`.
+   - Optionally set `minimum_supported_lv_version` (default `2021`).
 
 2. **Run Tests via CI Pipeline (Composite)**
    - Execute the workflow and review the **test** job logs to confirm all unit tests pass.
@@ -136,6 +138,7 @@ With your runner online:
 
 4. **Disable Dev Mode** (if used)  
    - `mode: disable` reverts your LabVIEW environment.
+   - Optionally set `minimum_supported_lv_version` to match the version you toggled.
 
 5. **Review the `.vip`**
    - Download from **Artifacts**. Publishing to a GitHub release requires a separate workflow.
@@ -165,3 +168,5 @@ With your runner online:
 - **Troubleshoot**: If manual environment edits are needed, consult `ManualSetup.md` or the original documentation for advanced configuration steps.  
 
 **Happy Building!** By integrating these workflows, you’ll maintain a **robust, automated CI/CD** pipeline for the LabVIEW Icon Editor—complete with **semantic versioning**, **build artifact uploads**, and **metadata branding** (company/repo).
+
+
