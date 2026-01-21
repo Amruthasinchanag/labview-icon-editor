@@ -12,6 +12,7 @@ $env:LABVIEW_VERSION = $LabVIEWVersion
 
 $configuration = New-PesterConfiguration
 $configuration.Run.Path = $PSScriptRoot
+$configuration.Run.PassThru = $true
 $configuration.Output.Verbosity = 'Detailed'
 
 if ($CI) {
@@ -25,4 +26,7 @@ if ($CI) {
     $configuration.TestResult.OutputPath = (Join-Path $resultsDir 'pester-devmode-2021.xml')
 }
 
-Invoke-Pester -Configuration $configuration
+$results = Invoke-Pester -Configuration $configuration
+if ($results.FailedCount -gt 0) {
+    exit 1
+}

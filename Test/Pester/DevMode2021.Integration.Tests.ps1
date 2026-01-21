@@ -1,12 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
 Describe 'Development Mode integration (LabVIEW 2021)' {
-    $script:skipAll = $false
-    $script:skipReason = ''
-    $script:installRoots = @{}
-    $script:bitnessesToTest = @()
-
     BeforeAll {
+        $script:skipAll = $false
+        $script:skipReason = ''
+        $script:installRoots = @{}
+        $script:bitnessesToTest = @()
         $script:labviewVersion = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_VERSION)) { '2021' } else { $env:LABVIEW_VERSION }
 
         function script:Get-RepoRoot {
