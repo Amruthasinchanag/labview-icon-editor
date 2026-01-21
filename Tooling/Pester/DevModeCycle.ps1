@@ -60,7 +60,7 @@ function Get-LastCompletedRun {
 
 function Get-RunModeFromJobs {
     param(
-        [int]$RunId
+        [long]$RunId
     )
 
     $run = & gh run view --repo $Repo $RunId --json jobs 2>$null | ConvertFrom-Json
@@ -96,7 +96,7 @@ function Wait-ForActiveRunToFinish {
 
 function Get-LatestRunAfterId {
     param(
-        [int]$BaselineId
+        [long]$BaselineId
     )
 
     $runs = & gh run list `
@@ -113,7 +113,7 @@ function Get-LatestRunAfterId {
 
 function Wait-ForRun {
     param(
-        [int]$BaselineId,
+        [long]$BaselineId,
         [string]$Mode
     )
 
@@ -173,6 +173,7 @@ if ($SkipDisableIfAlreadyDisabled) {
 if (-not $skipDisable) {
     $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
     if (-not $baselineId) { $baselineId = 0 }
+    $baselineId = [long]$baselineId
     Start-DevModeRun -Mode 'disable' -IncludePester $false
     Wait-ForRun -BaselineId $baselineId -Mode 'disable'
 } else {
@@ -181,6 +182,7 @@ if (-not $skipDisable) {
 
 $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
 if (-not $baselineId) { $baselineId = 0 }
+$baselineId = [long]$baselineId
 Start-DevModeRun -Mode 'enable' -IncludePester $RunPester
 Wait-ForRun -BaselineId $baselineId -Mode 'enable'
 
