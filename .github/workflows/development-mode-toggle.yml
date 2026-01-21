@@ -79,7 +79,37 @@ jobs:
           } else {
             Write-Host "Not triggered by a pull request."
           }
-            
+
+      - name: Diagnostics before dev-mode toggle
+        id: diag_before
+        uses: ./.github/actions/icon-editor-files-in-lv-installation
+        with:
+          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
+          arch: "64"
+          summary-title: "Icon Editor Files (before dev-mode toggle)"
+          artifact-name: icon-editor-files-before-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-64
+
+      - name: Snapshot diagnostics before
+        shell: pwsh
+        run: |
+          Copy-Item -Path "${{ steps.diag_before.outputs.csv-path }}" `
+            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-before.csv" -Force
+
+      - name: Diagnostics before dev-mode toggle (32-bit)
+        id: diag_before_32
+        uses: ./.github/actions/icon-editor-files-in-lv-installation
+        with:
+          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
+          arch: "32"
+          summary-title: "Icon Editor Files (before dev-mode toggle, 32-bit)"
+          artifact-name: icon-editor-files-before-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-32
+
+      - name: Snapshot diagnostics before (32-bit)
+        shell: pwsh
+        run: |
+          Copy-Item -Path "${{ steps.diag_before_32.outputs.csv-path }}" `
+            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-before-32.csv" -Force
+
       - name: ${{
           github.event_name == 'workflow_dispatch' &&
             (github.event.inputs.mode == 'enable' && 'Running Set_Development_Mode.ps1' || 'Running RevertDevelopmentMode.ps1') ||
@@ -116,6 +146,62 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             exit $LASTEXITCODE
           }
+
+      - name: Diagnostics after dev-mode toggle
+        id: diag_after
+        uses: ./.github/actions/icon-editor-files-in-lv-installation
+        if: ${{ success() }}
+        with:
+          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
+          arch: "64"
+          summary-title: "Icon Editor Files (after dev-mode toggle)"
+          artifact-name: icon-editor-files-after-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-64
+
+      - name: Snapshot diagnostics after
+        if: ${{ success() }}
+        shell: pwsh
+        run: |
+          Copy-Item -Path "${{ steps.diag_after.outputs.csv-path }}" `
+            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after.csv" -Force
+
+      - name: Diagnostics after dev-mode toggle (32-bit)
+        id: diag_after_32
+        uses: ./.github/actions/icon-editor-files-in-lv-installation
+        if: ${{ success() }}
+        with:
+          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
+          arch: "32"
+          summary-title: "Icon Editor Files (after dev-mode toggle, 32-bit)"
+          artifact-name: icon-editor-files-after-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-32
+
+      - name: Snapshot diagnostics after (32-bit)
+        if: ${{ success() }}
+        shell: pwsh
+        run: |
+          Copy-Item -Path "${{ steps.diag_after_32.outputs.csv-path }}" `
+            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" -Force
+
+      - name: Compare diagnostics before/after (64-bit)
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          & .\.github\actions\icon-editor-files-in-lv-installation\Compare-IconEditorFilesCsv.ps1 `
+            -BeforeCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-before.csv" `
+            -AfterCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-after.csv" `
+            -SummaryTitle "Icon Editor Files Diff (dev-mode toggle, 64-bit)" `
+            -IncludeGitMetadata `
+            -RepoRoot "$env:GITHUB_WORKSPACE"
+
+      - name: Compare diagnostics before/after (32-bit)
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          & .\.github\actions\icon-editor-files-in-lv-installation\Compare-IconEditorFilesCsv.ps1 `
+            -BeforeCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-before-32.csv" `
+            -AfterCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" `
+            -SummaryTitle "Icon Editor Files Diff (dev-mode toggle, 32-bit)" `
+            -IncludeGitMetadata `
+            -RepoRoot "$env:GITHUB_WORKSPACE"
       #
       # -- SET OUTPUT (JSON) IF SUCCESS --
       # Using multiline syntax to handle multi-line JSON safely
