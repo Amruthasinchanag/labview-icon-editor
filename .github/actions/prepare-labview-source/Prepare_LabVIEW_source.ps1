@@ -52,11 +52,86 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')).Path
 }
 
+function Get-LabVIEWInstallRoot {
+    param(
+        [string]$Version,
+        [string]$Bitness
+    )
+
+    $candidates = @()
+    $regPaths = @()
+    if ($Bitness -eq '32') {
+        $candidates += "C:\Program Files (x86)\National Instruments\LabVIEW $Version"
+        $regPaths += "HKLM:\SOFTWARE\WOW6432Node\National Instruments\LabVIEW $Version"
+    } else {
+        $candidates += "C:\Program Files\National Instruments\LabVIEW $Version"
+        $regPaths += "HKLM:\SOFTWARE\National Instruments\LabVIEW $Version"
+    }
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -Path $candidate) {
+            return $candidate
+        }
+    }
+
+    foreach ($regPath in $regPaths) {
+        try {
+            $props = Get-ItemProperty -Path $regPath -ErrorAction Stop
+            foreach ($name in @('Path', 'InstallDir', 'InstallPath')) {
+                $value = $props.$name
+                if (-not [string]::IsNullOrWhiteSpace($value) -and (Test-Path -Path $value)) {
+                    return $value
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return $null
+}
+
+function Get-DevModeState {
+    param(
+        [string]$InstallRoot
+    )
+
+    $lvlibpPath = Join-Path $InstallRoot 'resource\plugins\lv_icon.lvlibp'
+    $shipPath = Join-Path $InstallRoot 'resource\plugins\lv_icon.ship'
+
+    $shipExists = Test-Path -Path $shipPath
+    $lvlibpExists = Test-Path -Path $lvlibpPath
+
+    if ($shipExists -and -not $lvlibpExists) {
+        return 'enabled'
+    }
+    if (-not $shipExists -and $lvlibpExists) {
+        return 'disabled'
+    }
+
+    return 'unknown'
+}
+
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\PrepareIESource.vi'
 
 if (-not (Test-Path -Path $viPath)) {
     throw "PrepareIESource.vi not found at $viPath"
+}
+
+$installRoot = Get-LabVIEWInstallRoot -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness
+if (-not $installRoot) {
+    throw "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) install not found."
+}
+
+$devModeState = Get-DevModeState -InstallRoot $installRoot
+if ($devModeState -eq 'enabled') {
+    Write-Host "Development mode already enabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit); skipping PrepareIESource.vi."
+    return
+}
+
+if ($devModeState -eq 'unknown') {
+    throw "Unexpected LabVIEW state for $MinimumSupportedLVVersion ($SupportedBitness-bit). Ensure lv_icon.lvlibp or lv_icon.ship exists."
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {

@@ -5,7 +5,8 @@ param(
     [string]$LabVIEWVersion = '2021',
     [bool]$RunPester = $true,
     [int]$PollSeconds = 5,
-    [int]$TimeoutMinutes = 60
+    [int]$TimeoutMinutes = 5,
+    [bool]$SkipDisableIfAlreadyDisabled = $true
 )
 
 $ErrorActionPreference = 'Stop'
@@ -69,6 +70,53 @@ function Get-LatestRun {
     return $filtered | Select-Object -First 1
 }
 
+function Get-LastCompletedRun {
+    $runs = & gh run list `
+        --repo $Repo `
+        --workflow 'Toggle Development Mode' `
+        --branch $Ref `
+        --limit 10 `
+        --json databaseId,createdAt,status,conclusion 2>$null | ConvertFrom-Json
+
+    return $runs | Where-Object { $_.status -eq 'completed' } | Select-Object -First 1
+}
+
+function Get-RunModeFromLogs {
+    param(
+        [int]$RunId
+    )
+
+    $log = & gh run view --repo $Repo $RunId --log 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $log) {
+        return $null
+    }
+
+    $matches = [regex]::Matches($log, '"mode"\s*:\s*"(?<mode>enable|disable)"')
+    if ($matches.Count -eq 0) {
+        return $null
+    }
+
+    return $matches[$matches.Count - 1].Groups['mode'].Value
+}
+
+function Wait-ForActiveRunToFinish {
+    $activeRuns = & gh run list `
+        --repo $Repo `
+        --workflow 'Toggle Development Mode' `
+        --branch $Ref `
+        --status in_progress `
+        --limit 1 `
+        --json databaseId 2>$null | ConvertFrom-Json
+
+    if ($activeRuns -and $activeRuns.databaseId) {
+        Write-Host "Active run detected ($($activeRuns.databaseId)). Waiting for completion..."
+        & gh run watch --repo $Repo $activeRuns.databaseId --exit-status --interval $PollSeconds
+        if ($LASTEXITCODE -ne 0) {
+            throw "Active workflow run failed ($($activeRuns.databaseId))."
+        }
+    }
+}
+
 function Wait-ForRun {
     param(
         [datetime]$AfterUtc,
@@ -80,7 +128,7 @@ function Wait-ForRun {
         $run = Get-LatestRun -AfterUtc $AfterUtc
         if ($run) {
             Write-Host ("Workflow run found: {0} ({1})" -f $run.databaseId, $run.htmlUrl)
-            & gh run watch --repo $Repo $run.databaseId --exit-status
+            & gh run watch --repo $Repo $run.databaseId --exit-status --interval $PollSeconds
             $exitCode = $LASTEXITCODE
             if ($exitCode -ne 0) {
                 Write-Host "Run failed; fetching logs..."
@@ -98,8 +146,26 @@ function Wait-ForRun {
 
 Assert-GhReady
 
-$disableStart = Start-DevModeRun -Mode 'disable' -IncludePester $false
-Wait-ForRun -AfterUtc $disableStart -Mode 'disable'
+Wait-ForActiveRunToFinish
+
+$skipDisable = $false
+if ($SkipDisableIfAlreadyDisabled) {
+    $lastCompleted = Get-LastCompletedRun
+    if ($lastCompleted -and $lastCompleted.conclusion -eq 'success') {
+        $lastMode = Get-RunModeFromLogs -RunId $lastCompleted.databaseId
+        if ($lastMode -eq 'disable') {
+            $skipDisable = $true
+            Write-Host "Skipping disable: last successful run already disabled dev mode."
+        }
+    }
+}
+
+if (-not $skipDisable) {
+    $disableStart = Start-DevModeRun -Mode 'disable' -IncludePester $false
+    Wait-ForRun -AfterUtc $disableStart -Mode 'disable'
+} else {
+    Write-Host 'Disable step skipped.'
+}
 
 $enableStart = Start-DevModeRun -Mode 'enable' -IncludePester $RunPester
 Wait-ForRun -AfterUtc $enableStart -Mode 'enable'
