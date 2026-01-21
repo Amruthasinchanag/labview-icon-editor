@@ -80,14 +80,14 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             param(
                 [string]$LabVIEWVersion,
                 [string]$RepoRoot,
-                [string[]]$Bitnesses
+                [string]$Bitness
             )
 
-            $args = @('-MinimumSupportedLVVersion', $LabVIEWVersion, '-RelativePath', $RepoRoot)
-            if ($Bitnesses) {
-                $args += @('-SupportedBitness', ($Bitnesses -join ','))
-            }
-            return $args
+            return @(
+                '-MinimumSupportedLVVersion', $LabVIEWVersion,
+                '-RelativePath', $RepoRoot,
+                '-SupportedBitness', $Bitness
+            )
         }
 
         $script:repoRoot = Get-RepoRoot
@@ -121,19 +121,23 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             return
         }
 
-        $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitnesses $script:bitnessesToTest
-        $exitCode = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
-        if ($exitCode -ne 0) {
-            throw "Baseline restore failed with exit code $exitCode."
+        foreach ($bitness in $script:bitnessesToTest) {
+            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $exitCode = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+            if ($exitCode -ne 0) {
+                throw "Baseline restore failed for $bitness-bit with exit code $exitCode."
+            }
         }
     }
 
     AfterAll {
         if (-not $script:skipAll) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitnesses $script:bitnessesToTest
-            $exitCode = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
-            if ($exitCode -ne 0) {
-                throw "Failed to restore LabVIEW setup; exit code $exitCode."
+            foreach ($bitness in $script:bitnessesToTest) {
+                $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+                $exitCode = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+                if ($exitCode -ne 0) {
+                    throw "Failed to restore LabVIEW setup for $bitness-bit; exit code $exitCode."
+                }
             }
         }
     }
@@ -144,10 +148,12 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             return
         }
 
-        $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitnesses $script:bitnessesToTest
-        $exitCode = Invoke-LabVIEWScript -ScriptPath $script:setScript -Arguments $args
-        $exitCode | Should -Be 0
-        (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        foreach ($bitness in $script:bitnessesToTest) {
+            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $exitCode = Invoke-LabVIEWScript -ScriptPath $script:setScript -Arguments $args
+            $exitCode | Should -Be 0
+            (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        }
     }
 
     It "applies expected PrepareIESource changes" {
@@ -171,10 +177,12 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             return
         }
 
-        $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitnesses $script:bitnessesToTest
-        $exitCode = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
-        $exitCode | Should -Be 0
-        (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        foreach ($bitness in $script:bitnessesToTest) {
+            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $exitCode = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+            $exitCode | Should -Be 0
+            (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+        }
     }
 
     It "applies expected RestoreSetupLVSource changes" {
