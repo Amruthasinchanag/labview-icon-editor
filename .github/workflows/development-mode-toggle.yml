@@ -159,7 +159,7 @@ jobs:
           echo "EOF"                     >> $env:GITHUB_OUTPUT
 
       - name: Run Pester integration tests (LabVIEW 2021)
-        if: ${{ success() && (inputs.run_pester == true || inputs.run_pester == 'true') }}
+        if: ${{ success() && ((github.event.inputs.run_pester == 'true') || (inputs.run_pester == true)) && ((github.event.inputs.mode == 'enable') || (inputs.mode == 'enable')) }}
         shell: pwsh
         run: |
           pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021 -CI

@@ -138,14 +138,24 @@ Describe "Development Mode integration ($labviewVersion)" {
         }
     }
 
-    It "runs Set_Development_Mode.ps1 successfully" -Skip:$script:skipAll -Because:$script:skipReason {
+    It "runs Set_Development_Mode.ps1 successfully" {
+        if ($script:skipAll) {
+            Set-ItResult -Skipped -Because $script:skipReason
+            return
+        }
+
         $args = Get-ScriptArguments -LabVIEWVersion $labviewVersion -RepoRoot $repoRoot -Bitnesses $script:bitnessesToTest
         $exitCode = Invoke-LabVIEWScript -ScriptPath $setScript -Arguments $args
         $exitCode | Should -Be 0
         (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
     }
 
-    It "applies expected PrepareIESource changes" -Skip:$script:skipAll -Because:$script:skipReason {
+    It "applies expected PrepareIESource changes" {
+        if ($script:skipAll) {
+            Set-ItResult -Skipped -Because $script:skipReason
+            return
+        }
+
         foreach ($bitness in $script:bitnessesToTest) {
             $paths = Get-LabVIEWPaths -InstallRoot $script:installRoots[$bitness]
             (Test-Path -Path $paths.Ship) | Should -BeTrue
@@ -155,14 +165,24 @@ Describe "Development Mode integration ($labviewVersion)" {
         }
     }
 
-    It "runs RevertDevelopmentMode.ps1 successfully" -Skip:$script:skipAll -Because:$script:skipReason {
+    It "runs RevertDevelopmentMode.ps1 successfully" {
+        if ($script:skipAll) {
+            Set-ItResult -Skipped -Because $script:skipReason
+            return
+        }
+
         $args = Get-ScriptArguments -LabVIEWVersion $labviewVersion -RepoRoot $repoRoot -Bitnesses $script:bitnessesToTest
         $exitCode = Invoke-LabVIEWScript -ScriptPath $revertScript -Arguments $args
         $exitCode | Should -Be 0
         (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
     }
 
-    It "applies expected RestoreSetupLVSource changes" -Skip:$script:skipAll -Because:$script:skipReason {
+    It "applies expected RestoreSetupLVSource changes" {
+        if ($script:skipAll) {
+            Set-ItResult -Skipped -Because $script:skipReason
+            return
+        }
+
         foreach ($bitness in $script:bitnessesToTest) {
             $paths = Get-LabVIEWPaths -InstallRoot $script:installRoots[$bitness]
             (Test-Path -Path $paths.Lvlibp) | Should -BeTrue
