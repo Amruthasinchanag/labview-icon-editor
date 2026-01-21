@@ -84,8 +84,9 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             )
 
             $args = @('-MinimumSupportedLVVersion', $LabVIEWVersion, '-RelativePath', $RepoRoot)
-            foreach ($bitness in $Bitnesses) {
-                $args += @('-SupportedBitness', $bitness)
+            if ($Bitnesses) {
+                $args += @('-SupportedBitness')
+                $args += $Bitnesses
             }
             return $args
         }
