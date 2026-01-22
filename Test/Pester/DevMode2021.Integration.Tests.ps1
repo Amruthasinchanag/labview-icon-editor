@@ -112,6 +112,58 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             return (Join-Path $script:diagnosticsRoot ("icon-editor-files-{0}-{1}.csv" -f $safeMode, $Bitness))
         }
 
+        function script:Get-NormalizedPath {
+            param(
+                [string]$Path
+            )
+
+            if ([string]::IsNullOrWhiteSpace($Path)) {
+                return ''
+            }
+
+            return ([System.IO.Path]::GetFullPath($Path)).TrimEnd('\')
+        }
+
+        function script:Get-DiagnosticsRows {
+            param(
+                [string]$CsvPath
+            )
+
+            $headers = @('File Path', 'Bytes', 'Last modified')
+            $firstLine = Get-Content -Path $CsvPath -TotalCount 1
+            $headerLine = ($headers -join ',')
+            $headerQuoted = '"' + ($headers -join '","') + '"'
+
+            if ($firstLine -eq $headerLine -or $firstLine -eq $headerQuoted) {
+                return (Import-Csv -Path $CsvPath)
+            }
+
+            return (Import-Csv -Path $CsvPath -Header $headers)
+        }
+
+        function script:Assert-ViLibRoot {
+            param(
+                [string]$CsvPath,
+                [string]$ExpectedRoot
+            )
+
+            $rows = Get-DiagnosticsRows -CsvPath $CsvPath
+            $viLibRows = $rows | Where-Object {
+                $path = $_.'File Path'
+                -not [string]::IsNullOrWhiteSpace($path) -and $path -match '\\vi\.lib(\\|$)'
+            }
+
+            $viLibRows.Count | Should -BeGreaterThan 0
+
+            $expectedPrefix = (Get-NormalizedPath -Path (Join-Path $ExpectedRoot 'vi.lib')).ToLowerInvariant()
+            $unexpected = $viLibRows | Where-Object {
+                $path = Get-NormalizedPath -Path $_.'File Path'
+                $path.ToLowerInvariant() -notlike ($expectedPrefix + '*')
+            }
+
+            $unexpected | Should -BeNullOrEmpty
+        }
+
         function script:Invoke-IconEditorDiagnostics {
             param(
                 [string]$Bitness,
@@ -237,6 +289,8 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
 
             $validateExit = Invoke-IconEditorValidation -Mode 'enable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
+
+            Assert-ViLibRoot -CsvPath $csvPath -ExpectedRoot $script:repoRoot
         }
     }
 
@@ -283,6 +337,8 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
 
             $validateExit = Invoke-IconEditorValidation -Mode 'disable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
+
+            Assert-ViLibRoot -CsvPath $csvPath -ExpectedRoot $script:installRoots[$bitness]
         }
     }
 }
