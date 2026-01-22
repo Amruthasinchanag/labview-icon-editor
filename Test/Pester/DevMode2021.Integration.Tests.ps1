@@ -90,10 +90,24 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             )
         }
 
+        function script:Invoke-CloseLabVIEW {
+            param(
+                [string]$Bitness
+            )
+
+            $args = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $Bitness
+            )
+
+            return (Invoke-LabVIEWScript -ScriptPath $script:closeScript -Arguments $args)
+        }
+
         $script:repoRoot = Get-RepoRoot
         $script:actionsRoot = Join-Path $script:repoRoot '.github\actions'
         $script:setScript = Join-Path $script:actionsRoot 'set-development-mode\Set_Development_Mode.ps1'
         $script:revertScript = Join-Path $script:actionsRoot 'revert-development-mode\RevertDevelopmentMode.ps1'
+        $script:closeScript = Join-Path $script:actionsRoot 'close-labview\Close_LabVIEW.ps1'
         $script:diagnosticsScript = Join-Path $script:actionsRoot 'icon-editor-files-in-lv-installation\Invoke-GetPathsToIconEditorFilesInLVInstallationCLI.ps1'
         $script:validateScript = Join-Path $script:actionsRoot 'icon-editor-files-in-lv-installation\Validate-IconEditorDiagnostics.ps1'
         $script:diagnosticsRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'labview-icon-editor-diagnostics'
@@ -282,10 +296,18 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
+            $closeExit = Invoke-CloseLabVIEW -Bitness $bitness
+            $closeExit | Should -Be 0
+            (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+
             $csvPath = Get-DiagnosticsCsvPath -Mode 'enable' -Bitness $bitness
             $exitCode = Invoke-IconEditorDiagnostics -Bitness $bitness -CsvPath $csvPath
             $exitCode | Should -Be 0
             (Test-Path -Path $csvPath) | Should -BeTrue
+
+            $closeExit = Invoke-CloseLabVIEW -Bitness $bitness
+            $closeExit | Should -Be 0
+            (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
 
             $validateExit = Invoke-IconEditorValidation -Mode 'enable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
@@ -330,10 +352,18 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
+            $closeExit = Invoke-CloseLabVIEW -Bitness $bitness
+            $closeExit | Should -Be 0
+            (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
+
             $csvPath = Get-DiagnosticsCsvPath -Mode 'disable' -Bitness $bitness
             $exitCode = Invoke-IconEditorDiagnostics -Bitness $bitness -CsvPath $csvPath
             $exitCode | Should -Be 0
             (Test-Path -Path $csvPath) | Should -BeTrue
+
+            $closeExit = Invoke-CloseLabVIEW -Bitness $bitness
+            $closeExit | Should -Be 0
+            (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
 
             $validateExit = Invoke-IconEditorValidation -Mode 'disable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
