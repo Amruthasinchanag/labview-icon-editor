@@ -132,13 +132,16 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
         function script:Invoke-IconEditorValidation {
             param(
                 [string]$Mode,
-                [string]$CsvPath
+                [string]$CsvPath,
+                [string]$Bitness
             )
 
             $args = @(
                 '-Mode', $Mode,
                 '-CsvPath', $CsvPath,
-                '-RepoRoot', $script:repoRoot
+                '-RepoRoot', $script:repoRoot,
+                '-Bitness', $Bitness,
+                '-LabVIEWVersion', $script:labviewVersion
             )
 
             return (Invoke-LabVIEWScript -ScriptPath $script:validateScript -Arguments $args)
@@ -232,7 +235,7 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             $exitCode | Should -Be 0
             (Test-Path -Path $csvPath) | Should -BeTrue
 
-            $validateExit = Invoke-IconEditorValidation -Mode 'enable' -CsvPath $csvPath
+            $validateExit = Invoke-IconEditorValidation -Mode 'enable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
         }
     }
@@ -278,7 +281,7 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             $exitCode | Should -Be 0
             (Test-Path -Path $csvPath) | Should -BeTrue
 
-            $validateExit = Invoke-IconEditorValidation -Mode 'disable' -CsvPath $csvPath
+            $validateExit = Invoke-IconEditorValidation -Mode 'disable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
         }
     }
