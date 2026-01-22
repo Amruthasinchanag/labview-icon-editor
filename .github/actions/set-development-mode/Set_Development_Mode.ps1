@@ -40,8 +40,10 @@ Write-Host "Script Directory: $ScriptDirectory"
 
 # Build paths to the helper scripts
 $PrepareScript = Join-Path -Path $ScriptDirectory -ChildPath '..\prepare-labview-source\Prepare_LabVIEW_source.ps1'
+$CloseScript = Join-Path -Path $ScriptDirectory -ChildPath '..\close-labview\Close_LabVIEW.ps1'
 
 Write-Host "Prepare_LabVIEW_source script: $PrepareScript"
+Write-Host "Close_LabVIEW script: $CloseScript"
 
 $ErrorActionPreference = 'Stop'
 
@@ -49,6 +51,15 @@ function Invoke-PrepareLabviewSource {
     param(
         [string]$Bitness
     )
+
+    if (-not (Test-Path -Path $CloseScript)) {
+        throw "Close_LabVIEW.ps1 not found at $CloseScript"
+    }
+
+    & $CloseScript -MinimumSupportedLVVersion $MinimumSupportedLVVersion -SupportedBitness $Bitness
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw "Close_LabVIEW.ps1 failed for $Bitness-bit with exit code $LASTEXITCODE."
+    }
 
     Write-Host "Preparing LabVIEW sources for $Bitness-bit."
     $scriptArgs = @{
