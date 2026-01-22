@@ -18,7 +18,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $headers = @('File Path', 'Bytes', 'Last modified')
-$defaultCsvName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics.csv'
+$diagnosticsBaseName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics'
+$defaultCsvName = "$diagnosticsBaseName.csv"
 
 function Resolve-RepoRoot {
     param(
@@ -166,8 +167,14 @@ try {
     }
 
     $csvPath = Resolve-CsvPath -Root $repoRoot -FileName $CsvFileName
+    $bitnessCsvName = "{0}_{1}.csv" -f $diagnosticsBaseName, $Arch
+    $bitnessCsvNameNoExt = "{0}_{1}" -f $diagnosticsBaseName, $Arch
     $defaultCsvPath = Join-Path $repoRoot $defaultCsvName
-    foreach ($path in @($csvPath, $defaultCsvPath) | Where-Object { $_ } | Select-Object -Unique) {
+    $bitnessCsvPath = Join-Path $repoRoot $bitnessCsvName
+    $bitnessCsvPathNoExt = Join-Path $repoRoot $bitnessCsvNameNoExt
+    $candidatePaths = @($csvPath, $defaultCsvPath, $bitnessCsvPath, $bitnessCsvPathNoExt) |
+        Where-Object { $_ } | Select-Object -Unique
+    foreach ($path in $candidatePaths) {
         if (Test-Path -Path $path) {
             Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
         }
@@ -181,14 +188,16 @@ try {
         Pop-Location
     }
 
-    if (-not (Test-Path -Path $csvPath) -and (Test-Path -Path $defaultCsvPath)) {
-        if ($csvPath -ne $defaultCsvPath) {
+    if (-not (Test-Path -Path $csvPath)) {
+        $sourcePath = @($bitnessCsvPath, $bitnessCsvPathNoExt, $defaultCsvPath) |
+            Where-Object { Test-Path -Path $_ } | Select-Object -First 1
+        if ($sourcePath) {
             $csvDir = Split-Path -Path $csvPath -Parent
             if (-not [string]::IsNullOrWhiteSpace($csvDir) -and -not (Test-Path -Path $csvDir)) {
                 $null = New-Item -ItemType Directory -Path $csvDir -Force
             }
-            Copy-Item -Path $defaultCsvPath -Destination $csvPath -Force
-            Write-Host ("Copied diagnostics CSV from {0} to {1}" -f $defaultCsvPath, $csvPath)
+            Copy-Item -Path $sourcePath -Destination $csvPath -Force
+            Write-Host ("Copied diagnostics CSV from {0} to {1}" -f $sourcePath, $csvPath)
         }
     }
 
