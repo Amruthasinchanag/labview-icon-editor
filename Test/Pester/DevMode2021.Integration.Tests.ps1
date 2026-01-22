@@ -72,7 +72,7 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
 
             $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
             # Use PowerShell argument passing to preserve embedded spaces.
-            & $pwsh -NoProfile -File $ScriptPath @Arguments
+            & $pwsh -NoProfile -File $ScriptPath @Arguments | Out-Host
             return $LASTEXITCODE
         }
 
