@@ -118,6 +118,17 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 4. **Labels** (optional)
    - The workflow uses the `self-hosted-windows-lv` label. Its `runs-on` expression also references `self-hosted-linux-lv` for potential Linux jobs, though the default matrix runs only on Windows. Label your runner accordingly, and prepare a Linux runner with `self-hosted-linux-lv` if you expand the matrix.
 
+5. **Runner diagnostics cleanup (recommended)**
+   - Some runner failures can occur before checkout if old diagnostics logs accumulate under the runner's `_diag\pages` folder.
+   - Use the job-started hook to clean that folder before each job.
+   - Copy the scripts from the repo to the runner:
+     - `.github\scripts\cleanup-runner-diag-pages.ps1`
+     - `.github\scripts\runner-job-started-clean-diag.ps1`
+   - Place them under `<runner-root>\scripts\` and set the hook in `<runner-root>\.env`:
+     - `ACTIONS_RUNNER_HOOK_JOB_STARTED=C:\path\to\runner\scripts\runner-job-started-clean-diag.ps1`
+   - Restart the runner service after updating `.env`.
+   - Optional: set `RUNNER_DIAG_RETENTION_DAYS=7` in `.env` if you want to keep recent logs.
+
 
 <a name="running-the-actions-locally"></a>
 ### 4. Running the Actions Locally
