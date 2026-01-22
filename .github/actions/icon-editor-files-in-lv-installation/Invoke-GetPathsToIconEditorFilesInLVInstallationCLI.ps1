@@ -12,6 +12,8 @@ param(
 
     [string]$CsvFileName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics.csv',
 
+    [string]$ProjectFile = 'Tooling\CI CD.lvproj',
+
     [string]$SummaryTitle = 'Icon Editor Files in LabVIEW Installation'
 )
 
@@ -58,27 +60,105 @@ function Resolve-CsvPath {
     return (Join-Path $Root $FileName)
 }
 
+function Get-LabVIEWInstallRoot {
+    param(
+        [string]$Version,
+        [string]$Bitness
+    )
+
+    $candidates = @()
+    if ($Bitness -eq '32') {
+        $candidates += "C:\Program Files (x86)\National Instruments\LabVIEW $Version"
+        $regPaths = @("HKLM:\SOFTWARE\WOW6432Node\National Instruments\LabVIEW $Version")
+    } else {
+        $candidates += "C:\Program Files\National Instruments\LabVIEW $Version"
+        $regPaths = @("HKLM:\SOFTWARE\National Instruments\LabVIEW $Version")
+    }
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -Path $candidate) {
+            return $candidate
+        }
+    }
+
+    foreach ($regPath in $regPaths) {
+        try {
+            $props = Get-ItemProperty -Path $regPath -ErrorAction Stop
+            foreach ($name in @('Path', 'InstallDir', 'InstallPath')) {
+                $value = $props.$name
+                if (-not [string]::IsNullOrWhiteSpace($value) -and (Test-Path -Path $value)) {
+                    return $value
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return $null
+}
+
+function Resolve-ProjectPath {
+    param(
+        [string]$Root,
+        [string]$ProjectFile
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ProjectFile)) {
+        return $null
+    }
+
+    if ([System.IO.Path]::IsPathRooted($ProjectFile)) {
+        return $ProjectFile
+    }
+
+    return (Join-Path $Root $ProjectFile)
+}
+
+function Start-LabVIEWWithProject {
+    param(
+        [string]$InstallRoot,
+        [string]$ProjectPath
+    )
+
+    if (-not (Test-Path -Path $ProjectPath)) {
+        throw "Project file not found: $ProjectPath"
+    }
+
+    $labviewExe = Join-Path $InstallRoot 'LabVIEW.exe'
+    if (-not (Test-Path -Path $labviewExe)) {
+        throw "LabVIEW.exe not found: $labviewExe"
+    }
+
+    Write-Host ("Opening LabVIEW project: {0}" -f $ProjectPath)
+    Start-Process -FilePath $labviewExe -ArgumentList @("`"$ProjectPath`"") | Out-Null
+}
+
 function Invoke-IconEditorDiagnostics {
     param(
-        [string]$ViPath
+        [string]$ViPath,
+        [bool]$NoLaunch = $false,
+        [int]$ConnectTimeoutMs = 0
     )
 
     if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
         throw "g-cli.exe not found in PATH."
     }
 
-    try {
-        & g-cli --lv-ver $LVVersion --arch $Arch QuitLabVIEW | Out-Null
-    }
-    catch {
-        Write-Warning ("Failed to close LabVIEW before diagnostics: {0}" -f $_.Exception.Message)
-    }
-
     $gCliArgs = @(
         '--lv-ver', $LVVersion,
-        '--arch', $Arch,
-        '-v', $ViPath
+        '--arch', $Arch
     )
+
+    if ($NoLaunch) {
+        $gCliArgs += '--no-launch'
+    }
+
+    if ($ConnectTimeoutMs -gt 0) {
+        $gCliArgs += @('--connect-timeout', $ConnectTimeoutMs)
+    }
+
+    $gCliArgs += @('-v', $ViPath)
 
     Write-Host ("Executing: g-cli {0}" -f ($gCliArgs -join ' '))
     $output = & g-cli @gCliArgs 2>&1
@@ -180,9 +260,27 @@ try {
         }
     }
 
+    Safe-QuitLabVIEW
+
+    $projectPath = Resolve-ProjectPath -Root $repoRoot -ProjectFile $ProjectFile
+    $useNoLaunch = $false
+    $connectTimeoutMs = 0
+    if ($projectPath -and (Test-Path -Path $projectPath)) {
+        $installRoot = Get-LabVIEWInstallRoot -Version $LVVersion -Bitness $Arch
+        if ($installRoot) {
+            Start-LabVIEWWithProject -InstallRoot $installRoot -ProjectPath $projectPath
+            $useNoLaunch = $true
+            $connectTimeoutMs = 120000
+        } else {
+            Write-Warning "LabVIEW install root not found; running diagnostics without opening project."
+        }
+    } elseif (-not [string]::IsNullOrWhiteSpace($ProjectFile)) {
+        Write-Warning ("Project file not found: {0}. Running diagnostics without opening project." -f $projectPath)
+    }
+
     Push-Location $repoRoot
     try {
-        Invoke-IconEditorDiagnostics -ViPath $viPath
+        Invoke-IconEditorDiagnostics -ViPath $viPath -NoLaunch:$useNoLaunch -ConnectTimeoutMs $connectTimeoutMs
     }
     finally {
         Pop-Location

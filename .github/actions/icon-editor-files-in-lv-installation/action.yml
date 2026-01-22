@@ -15,6 +15,10 @@ inputs:
     description: "CSV file name created by the VI."
     required: false
     default: "Icon_Editor_Files_In_LV_Installation_Diagnostics.csv"
+  project-file:
+    description: "Path to the LabVIEW project to open before running diagnostics."
+    required: false
+    default: "Tooling/CI CD.lvproj"
   summary-title:
     description: "Header title for the workflow summary."
     required: false
@@ -44,6 +48,7 @@ runs:
           -Arch "${{ inputs.arch }}" `
           -RepoRoot "${{ inputs.repo-root }}" `
           -CsvFileName "${{ inputs.csv-name }}" `
+          -ProjectFile "${{ inputs.project-file }}" `
           -SummaryTitle "${{ inputs.summary-title }}"
 
     - name: Upload diagnostics CSV
