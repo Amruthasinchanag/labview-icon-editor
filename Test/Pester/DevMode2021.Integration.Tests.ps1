@@ -94,6 +94,55 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
         $script:actionsRoot = Join-Path $script:repoRoot '.github\actions'
         $script:setScript = Join-Path $script:actionsRoot 'set-development-mode\Set_Development_Mode.ps1'
         $script:revertScript = Join-Path $script:actionsRoot 'revert-development-mode\RevertDevelopmentMode.ps1'
+        $script:diagnosticsScript = Join-Path $script:actionsRoot 'icon-editor-files-in-lv-installation\Invoke-GetPathsToIconEditorFilesInLVInstallationCLI.ps1'
+        $script:validateScript = Join-Path $script:actionsRoot 'icon-editor-files-in-lv-installation\Validate-IconEditorDiagnostics.ps1'
+        $script:diagnosticsRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'labview-icon-editor-diagnostics'
+
+        if (-not (Test-Path -Path $script:diagnosticsRoot)) {
+            New-Item -Path $script:diagnosticsRoot -ItemType Directory | Out-Null
+        }
+
+        function script:Get-DiagnosticsCsvPath {
+            param(
+                [string]$Mode,
+                [string]$Bitness
+            )
+
+            $safeMode = $Mode.ToLowerInvariant()
+            return (Join-Path $script:diagnosticsRoot ("icon-editor-files-{0}-{1}.csv" -f $safeMode, $Bitness))
+        }
+
+        function script:Invoke-IconEditorDiagnostics {
+            param(
+                [string]$Bitness,
+                [string]$CsvPath
+            )
+
+            $args = @(
+                '-LVVersion', $script:labviewVersion,
+                '-Arch', $Bitness,
+                '-RepoRoot', $script:repoRoot,
+                '-CsvFileName', $CsvPath,
+                '-SummaryTitle', 'Pester diagnostics'
+            )
+
+            return (Invoke-LabVIEWScript -ScriptPath $script:diagnosticsScript -Arguments $args)
+        }
+
+        function script:Invoke-IconEditorValidation {
+            param(
+                [string]$Mode,
+                [string]$CsvPath
+            )
+
+            $args = @(
+                '-Mode', $Mode,
+                '-CsvPath', $CsvPath,
+                '-RepoRoot', $script:repoRoot
+            )
+
+            return (Invoke-LabVIEWScript -ScriptPath $script:validateScript -Arguments $args)
+        }
 
         if ($script:labviewVersion -ne '2021') {
             $script:skipAll = $true
@@ -171,6 +220,23 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
         }
     }
 
+    It "validates diagnostics after enabling dev mode" {
+        if ($script:skipAll) {
+            Set-ItResult -Skipped -Because $script:skipReason
+            return
+        }
+
+        foreach ($bitness in $script:bitnessesToTest) {
+            $csvPath = Get-DiagnosticsCsvPath -Mode 'enable' -Bitness $bitness
+            $exitCode = Invoke-IconEditorDiagnostics -Bitness $bitness -CsvPath $csvPath
+            $exitCode | Should -Be 0
+            (Test-Path -Path $csvPath) | Should -BeTrue
+
+            $validateExit = Invoke-IconEditorValidation -Mode 'enable' -CsvPath $csvPath
+            $validateExit | Should -Be 0
+        }
+    }
+
     It "runs RevertDevelopmentMode.ps1 successfully" {
         if ($script:skipAll) {
             Set-ItResult -Skipped -Because $script:skipReason
@@ -197,6 +263,23 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             (Test-Path -Path $paths.Ship) | Should -BeFalse
             (Test-Path -Path $paths.IconApiFolder) | Should -BeTrue
             (Test-Path -Path $paths.IconApiZip) | Should -BeFalse
+        }
+    }
+
+    It "validates diagnostics after disabling dev mode" {
+        if ($script:skipAll) {
+            Set-ItResult -Skipped -Because $script:skipReason
+            return
+        }
+
+        foreach ($bitness in $script:bitnessesToTest) {
+            $csvPath = Get-DiagnosticsCsvPath -Mode 'disable' -Bitness $bitness
+            $exitCode = Invoke-IconEditorDiagnostics -Bitness $bitness -CsvPath $csvPath
+            $exitCode | Should -Be 0
+            (Test-Path -Path $csvPath) | Should -BeTrue
+
+            $validateExit = Invoke-IconEditorValidation -Mode 'disable' -CsvPath $csvPath
+            $validateExit | Should -Be 0
         }
     }
 }

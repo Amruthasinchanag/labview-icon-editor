@@ -196,6 +196,21 @@ jobs:
           Copy-Item -Path "${{ steps.diag_after_32.outputs.csv-path }}" `
             -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" -Force
 
+      - name: Validate dev-mode toggle (32-bit)
+        if: ${{ success() }}
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $mode = '${{ github.event.inputs.mode }}'
+          } else {
+            $mode = '${{ inputs.mode }}'
+          }
+
+          & .\.github\actions\icon-editor-files-in-lv-installation\Validate-IconEditorDiagnostics.ps1 `
+            -Mode $mode `
+            -CsvPath "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" `
+            -RepoRoot "$env:GITHUB_WORKSPACE"
+
       - name: Compare diagnostics before/after (64-bit)
         if: ${{ always() }}
         shell: pwsh
