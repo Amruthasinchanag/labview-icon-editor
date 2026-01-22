@@ -152,7 +152,7 @@ function Get-IniLibraryPaths {
         return @()
     }
 
-    return ($value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    return ($value -split ';' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 }
 
 function Test-LibraryPathContainsRepoRoot {
