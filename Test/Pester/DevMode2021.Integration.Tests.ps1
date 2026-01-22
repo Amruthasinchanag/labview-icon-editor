@@ -155,22 +155,89 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             return (Import-Csv -Path $CsvPath -Header $headers)
         }
 
-        function script:Assert-ViLibRoot {
+        function script:Get-ViLibRows {
             param(
-                [string]$CsvPath,
-                [string]$ExpectedRoot
+                [string]$CsvPath
             )
 
             $rows = Get-DiagnosticsRows -CsvPath $CsvPath
-            $viLibRows = $rows | Where-Object {
-                $path = $_.'File Path'
-                -not [string]::IsNullOrWhiteSpace($path) -and $path -match '\\vi\.lib(\\|$)'
+            return ($rows | Where-Object {
+                    $path = $_.'File Path'
+                    -not [string]::IsNullOrWhiteSpace($path) -and $path -match '\\vi\.lib(\\|$)'
+                })
+        }
+
+        function script:Get-IniLibraryPaths {
+            param(
+                [string]$IniPath
+            )
+
+            if (-not (Test-Path -Path $IniPath)) {
+                return @()
             }
 
-            $viLibRows.Count | Should -BeGreaterThan 0
+            $line = Get-Content -Path $IniPath |
+                Where-Object { $_ -match '(?i)^\s*localhost\.librarypaths\s*=' } |
+                Select-Object -First 1
+
+            if (-not $line) {
+                return @()
+            }
+
+            $value = $line -replace '(?i)^\s*localhost\.librarypaths\s*=\s*', ''
+            if ([string]::IsNullOrWhiteSpace($value)) {
+                return @()
+            }
+
+            return ($value -split ';' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+
+        function script:Test-IniContainsRepoRoot {
+            param(
+                [string]$IniPath,
+                [string]$RepoRoot
+            )
+
+            $repoRootNormalized = $RepoRoot.TrimEnd('\')
+            foreach ($path in (Get-IniLibraryPaths -IniPath $IniPath)) {
+                $candidate = $path.TrimEnd('\')
+                if ($candidate.Equals($repoRootNormalized, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    return $true
+                }
+            }
+
+            return $false
+        }
+
+        function script:Assert-IniLibraryPaths {
+            param(
+                [string]$Bitness,
+                [bool]$ExpectRepoRoot
+            )
+
+            $installRoot = $script:installRoots[$Bitness]
+            $iniPath = Join-Path $installRoot 'LabVIEW.ini'
+            $hasRepoRoot = Test-IniContainsRepoRoot -IniPath $iniPath -RepoRoot $script:repoRoot
+
+            if ($ExpectRepoRoot) {
+                $hasRepoRoot | Should -BeTrue
+            } else {
+                $hasRepoRoot | Should -BeFalse
+            }
+        }
+
+        function script:Assert-ViLibRoot {
+            param(
+                [object[]]$Rows,
+                [string]$ExpectedRoot
+            )
+
+            if (-not $Rows -or $Rows.Count -eq 0) {
+                return
+            }
 
             $expectedPrefix = (Get-NormalizedPath -Path (Join-Path $ExpectedRoot 'vi.lib')).ToLowerInvariant()
-            $unexpected = $viLibRows | Where-Object {
+            $unexpected = $Rows | Where-Object {
                 $path = Get-NormalizedPath -Path $_.'File Path'
                 $path.ToLowerInvariant() -notlike ($expectedPrefix + '*')
             }
@@ -312,7 +379,9 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             $validateExit = Invoke-IconEditorValidation -Mode 'enable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
 
-            Assert-ViLibRoot -CsvPath $csvPath -ExpectedRoot $script:repoRoot
+            Assert-IniLibraryPaths -Bitness $bitness -ExpectRepoRoot $true
+            $viLibRows = Get-ViLibRows -CsvPath $csvPath
+            Assert-ViLibRoot -Rows $viLibRows -ExpectedRoot $script:repoRoot
         }
     }
 
@@ -368,7 +437,9 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             $validateExit = Invoke-IconEditorValidation -Mode 'disable' -CsvPath $csvPath -Bitness $bitness
             $validateExit | Should -Be 0
 
-            Assert-ViLibRoot -CsvPath $csvPath -ExpectedRoot $script:installRoots[$bitness]
+            Assert-IniLibraryPaths -Bitness $bitness -ExpectRepoRoot $false
+            $viLibRows = Get-ViLibRows -CsvPath $csvPath
+            Assert-ViLibRoot -Rows $viLibRows -ExpectedRoot $script:installRoots[$bitness]
         }
     }
 }
