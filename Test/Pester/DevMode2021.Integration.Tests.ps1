@@ -71,9 +71,9 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             )
 
             $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
-            $argList = @('-NoProfile', '-File', $ScriptPath) + $Arguments
-            $process = Start-Process -FilePath $pwsh -ArgumentList $argList -NoNewWindow -Wait -PassThru
-            return $process.ExitCode
+            # Use PowerShell argument passing to preserve embedded spaces.
+            & $pwsh -NoProfile -File $ScriptPath @Arguments
+            return $LASTEXITCODE
         }
 
         function script:Get-ScriptArguments {
