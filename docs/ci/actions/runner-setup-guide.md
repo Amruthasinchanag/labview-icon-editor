@@ -128,6 +128,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
      - `ACTIONS_RUNNER_HOOK_JOB_STARTED=C:\path\to\runner\scripts\runner-job-started-clean-diag.ps1`
    - Restart the runner service after updating `.env`.
    - Optional: set `RUNNER_DIAG_RETENTION_DAYS=7` in `.env` if you want to keep recent logs.
+   - The cleanup skips any diagnostics file that is still in use, so the job does not fail.
 
 
 <a name="running-the-actions-locally"></a>

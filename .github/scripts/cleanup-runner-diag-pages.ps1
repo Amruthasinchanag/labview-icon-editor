@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [string]$RunnerRoot,
-    [int]$RetentionDays = 0
+    [int]$RetentionDays = 0,
+    [switch]$FailOnError
 )
 
 $ErrorActionPreference = 'Stop'
@@ -67,5 +68,21 @@ if (-not $files) {
     return
 }
 
-Remove-Item -Path $files.FullName -Force -ErrorAction Stop
-Write-Host ("Removed {0} diagnostics file(s) from {1}" -f $files.Count, $diagPath)
+$removed = 0
+$skipped = 0
+
+foreach ($file in $files) {
+    try {
+        Remove-Item -Path $file.FullName -Force -ErrorAction Stop
+        $removed++
+    }
+    catch {
+        $skipped++
+        Write-Warning ("Skipped diagnostics file in use: {0}" -f $file.FullName)
+        if ($FailOnError) {
+            throw
+        }
+    }
+}
+
+Write-Host ("Removed {0} diagnostics file(s) from {1}. Skipped {2} in-use file(s)." -f $removed, $diagPath, $skipped)
