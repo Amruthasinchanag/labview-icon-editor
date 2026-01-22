@@ -65,6 +65,13 @@ function Invoke-IconEditorDiagnostics {
         throw "g-cli.exe not found in PATH."
     }
 
+    try {
+        & g-cli --lv-ver $LVVersion --arch $Arch QuitLabVIEW | Out-Null
+    }
+    catch {
+        Write-Warning ("Failed to close LabVIEW before diagnostics: {0}" -f $_.Exception.Message)
+    }
+
     $gCliArgs = @(
         '--lv-ver', $LVVersion,
         '--arch', $Arch,
