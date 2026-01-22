@@ -18,6 +18,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $headers = @('File Path', 'Bytes', 'Last modified')
+$defaultCsvName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics.csv'
 
 function Resolve-RepoRoot {
     param(
@@ -152,7 +153,7 @@ function Safe-QuitLabVIEW {
 
 try {
     if ([string]::IsNullOrWhiteSpace($CsvFileName)) {
-        $CsvFileName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics.csv'
+        $CsvFileName = $defaultCsvName
     }
     if ([string]::IsNullOrWhiteSpace($SummaryTitle)) {
         $SummaryTitle = 'Icon Editor Files in LabVIEW Installation'
@@ -165,8 +166,11 @@ try {
     }
 
     $csvPath = Resolve-CsvPath -Root $repoRoot -FileName $CsvFileName
-    if (Test-Path -Path $csvPath) {
-        Remove-Item -Path $csvPath -Force -ErrorAction SilentlyContinue
+    $defaultCsvPath = Join-Path $repoRoot $defaultCsvName
+    foreach ($path in @($csvPath, $defaultCsvPath) | Where-Object { $_ } | Select-Object -Unique) {
+        if (Test-Path -Path $path) {
+            Remove-Item -Path $path -Force -ErrorAction SilentlyContinue
+        }
     }
 
     Push-Location $repoRoot
@@ -175,6 +179,17 @@ try {
     }
     finally {
         Pop-Location
+    }
+
+    if (-not (Test-Path -Path $csvPath) -and (Test-Path -Path $defaultCsvPath)) {
+        if ($csvPath -ne $defaultCsvPath) {
+            $csvDir = Split-Path -Path $csvPath -Parent
+            if (-not [string]::IsNullOrWhiteSpace($csvDir) -and -not (Test-Path -Path $csvDir)) {
+                $null = New-Item -ItemType Directory -Path $csvDir -Force
+            }
+            Copy-Item -Path $defaultCsvPath -Destination $csvPath -Force
+            Write-Host ("Copied diagnostics CSV from {0} to {1}" -f $defaultCsvPath, $csvPath)
+        }
     }
 
     if (-not (Test-Path -Path $csvPath)) {
