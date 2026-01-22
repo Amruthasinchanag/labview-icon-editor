@@ -107,27 +107,22 @@ if (-not $rows -or $rows.Count -eq 0) {
     throw "Diagnostics CSV is empty or could not be parsed: $CsvPath"
 }
 
-$viLibRows = $rows | Where-Object { $_.'File Path' -like "*\vi.lib\LabVIEW Icon API\*" }
-if (-not $viLibRows -or $viLibRows.Count -eq 0) {
-    throw "No vi.lib rows found in diagnostics CSV; cannot validate dev mode."
-}
-
-$repoViLibRows = $viLibRows | Where-Object { Test-PathUnderRoot -Path $_.'File Path' -Root $repoRootNormalized }
+$repoRows = $rows | Where-Object { Test-PathUnderRoot -Path $_.'File Path' -Root $repoRootNormalized }
 
 Write-Host "Mode: $Mode"
 Write-Host "Repo root: $repoRootResolved"
-Write-Host ("vi.lib rows: {0}" -f $viLibRows.Count)
-Write-Host ("vi.lib rows under repo root: {0}" -f $repoViLibRows.Count)
+Write-Host ("Total rows: {0}" -f $rows.Count)
+Write-Host ("Rows under repo root: {0}" -f $repoRows.Count)
 
 if ($Mode -eq 'enable') {
-    if ($repoViLibRows.Count -eq 0) {
-        throw "Dev mode validation failed: no vi.lib paths under repo root after enable."
+    if ($repoRows.Count -eq 0) {
+        throw "Dev mode validation failed: no paths under repo root after enable."
     }
 }
 else {
-    if ($repoViLibRows.Count -gt 0) {
-        $sample = $repoViLibRows | Select-Object -First 1 -ExpandProperty 'File Path'
-        throw "Dev mode validation failed: vi.lib paths still under repo root after disable. Example: $sample"
+    if ($repoRows.Count -gt 0) {
+        $sample = $repoRows | Select-Object -First 1 -ExpandProperty 'File Path'
+        throw "Dev mode validation failed: paths still under repo root after disable. Example: $sample"
     }
 }
 
