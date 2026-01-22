@@ -21,7 +21,7 @@ This document lists the PowerShell scripts used to build, test, and distribute t
 ---
 
 ## AddTokenToLabVIEW.ps1
-Adds a custom `LocalHost.LibraryPaths` token to the LabVIEW INI file so LabVIEW can find project libraries during development or builds.
+Adds a custom `LocalHost.LibraryPaths` token to the LabVIEW INI file so LabVIEW can find project libraries during development or builds. This script depends on `Tooling/deployment/Create_LV_INI_Token.vi`, which is not present in this repository, so it is not used by the development-mode automation.
 
 ## ApplyVIPC.ps1
 Applies a `.vipc` container to a specific LabVIEW version and bitness using g-cli. Ensures that all required LabVIEW dependencies are installed before building.

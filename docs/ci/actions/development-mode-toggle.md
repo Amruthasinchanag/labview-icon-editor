@@ -127,6 +127,8 @@ These scripts run self-contained VIs that:
 - Set or remove the LabVIEW INI token for local sources
 - Close LabVIEW after each run so changes are picked up
 
+Automation relies only on `PrepareIESource.vi` and `RestoreSetupLVSource.vi`. Other INI-token tooling such as `Create_LV_INI_Token.vi` is not part of this repository.
+
 **To change** how "dev mode" behaves, **edit those scripts** directly. 
 
 ### Integration Tests
