@@ -67,14 +67,20 @@ jobs:
     #
     # -- FULLY DYNAMIC JOB NAME --
     #
-    # If triggered by 'workflow_dispatch', read `github.event.inputs.mode`.
-    # Otherwise (workflow_call), read `inputs.mode`.
-    # Then display "Enable Dev Mode" or "Disable Dev Mode."
+    # If triggered by 'workflow_dispatch', read `github.event.inputs.*`.
+    # Otherwise (workflow_call), read `inputs.*`.
+    # Then display "Enable 32-bit Dev Mode LV2021" (or the equivalent values).
     #
     name: ${{ 
       github.event_name == 'workflow_dispatch' && 
-        (github.event.inputs.mode == 'enable' && 'Enable Dev Mode' || 'Disable Dev Mode') || 
-        (inputs.mode == 'enable' && 'Enable Dev Mode' || 'Disable Dev Mode') }}
+        format('{0} {1}-bit Dev Mode LV{2}', 
+          github.event.inputs.mode == 'enable' && 'Enable' || 'Disable',
+          github.event.inputs.bitness || '64',
+          github.event.inputs.minimum_supported_lv_version || '2021') || 
+        format('{0} {1}-bit Dev Mode LV{2}', 
+          inputs.mode == 'enable' && 'Enable' || 'Disable',
+          inputs.bitness || '64',
+          inputs.minimum_supported_lv_version || '2021') }}
 
     runs-on: [self-hosted-windows-lv]
     env:
