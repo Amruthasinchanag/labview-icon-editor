@@ -174,6 +174,12 @@ jobs:
     needs: [build-ppl-x64, version]
     runs-on: self-hosted-windows-lv
     steps:
+      - name: Enable Development Mode (2021 32-bit)
+        uses: ./.github/actions/set-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
+          relative_path: ${{ github.workspace }}
       - uses: ./.github/actions/build-lvlibp
         with:
           minimum_supported_lv_version: 2021
@@ -184,11 +190,6 @@ jobs:
           patch: ${{ needs.version.outputs.PATCH }}
           build: ${{ needs.version.outputs.BUILD }}
           commit: ${{ github.sha }}
-      - if: always()
-        uses: ./.github/actions/close-labview
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 32
       - uses: ./.github/actions/rename-file
         with:
           current_filename: ${{ github.workspace }}/resource/plugins/lv_icon.lvlibp
@@ -197,12 +198,31 @@ jobs:
         with:
           name: lv_icon_x86.lvlibp
           path: resource/plugins/lv_icon_x86.lvlibp
+      - name: Revert Development Mode (2021 32-bit)
+        if: always()
+        uses: ./.github/actions/revert-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
+          relative_path: ${{ github.workspace }}
+      - name: Close LabVIEW (2021 32-bit)
+        if: always()
+        uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
     needs: [test-2021, version]
     runs-on: self-hosted-windows-lv
     steps:
+      - name: Enable Development Mode (2021 64-bit)
+        uses: ./.github/actions/set-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
+          relative_path: ${{ github.workspace }}
       - uses: ./.github/actions/build-lvlibp
         with:
           minimum_supported_lv_version: 2021
@@ -213,11 +233,6 @@ jobs:
           patch: ${{ needs.version.outputs.PATCH }}
           build: ${{ needs.version.outputs.BUILD }}
           commit: ${{ github.sha }}
-      - if: always()
-        uses: ./.github/actions/close-labview
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 64
       - uses: ./.github/actions/rename-file
         with:
           current_filename: ${{ github.workspace }}/resource/plugins/lv_icon.lvlibp
@@ -226,6 +241,19 @@ jobs:
         with:
           name: lv_icon_x64.lvlibp
           path: resource/plugins/lv_icon_x64.lvlibp
+      - name: Revert Development Mode (2021 64-bit)
+        if: always()
+        uses: ./.github/actions/revert-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
+          relative_path: ${{ github.workspace }}
+      - name: Close LabVIEW (2021 64-bit)
+        if: always()
+        uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
 
   build-vip:
     name: Build VI Package
