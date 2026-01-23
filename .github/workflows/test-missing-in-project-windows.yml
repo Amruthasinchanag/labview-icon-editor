@@ -91,3 +91,19 @@ jobs:
         with:
           minimum_supported_lv_version: ${{ matrix.lv-version }}
           supported_bitness: ${{ matrix.bitness }}
+      - name: Cleanup temp files (LV${{ matrix.lv-version }} ${{ matrix.bitness }}-bit)
+        if: always()
+        shell: pwsh
+        run: |
+          $paths = @(
+            (Join-Path $env:GITHUB_WORKSPACE 'missing-files.txt'),
+            (Join-Path $env:GITHUB_WORKSPACE '.github\\actions\\missing-in-project\\missing_files.txt'),
+            (Join-Path $env:TEMP 'labview-icon-editor-missing-in-project'),
+            (Join-Path $env:TEMP 'missing-in-project')
+          )
+
+          foreach ($path in $paths) {
+            if (Test-Path -Path $path) {
+              Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
