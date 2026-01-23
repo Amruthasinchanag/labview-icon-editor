@@ -49,13 +49,6 @@ jobs:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
           project-file: ${{ steps.find_proj.outputs.project_file }}
-      - name: Revert Development Mode (LV${{ matrix.lv-version }} ${{ matrix.bitness }}-bit)
-        if: always()
-        uses: ./.github/actions/revert-development-mode
-        with:
-          minimum_supported_lv_version: ${{ matrix.lv-version }}
-          supported_bitness: ${{ matrix.bitness }}
-          relative_path: ${{ github.workspace }}
 
       # 3️⃣  Surface results in the “Summary” tab
       - name: Summarize to run “Summary” tab
@@ -84,3 +77,17 @@ jobs:
           name: missing-files-${{ matrix.lv-version }}-${{ matrix.bitness }}
           path: missing-files.txt
           if-no-files-found: ignore
+      # Cleanup
+      - name: Revert Development Mode (LV${{ matrix.lv-version }} ${{ matrix.bitness }}-bit)
+        if: always()
+        uses: ./.github/actions/revert-development-mode
+        with:
+          minimum_supported_lv_version: ${{ matrix.lv-version }}
+          supported_bitness: ${{ matrix.bitness }}
+          relative_path: ${{ github.workspace }}
+      - name: Close LabVIEW (LV${{ matrix.lv-version }} ${{ matrix.bitness }}-bit)
+        if: always()
+        uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: ${{ matrix.lv-version }}
+          supported_bitness: ${{ matrix.bitness }}
