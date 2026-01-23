@@ -143,8 +143,9 @@ You’ll typically name the workflow file **`development-mode-toggle.yml`**. Its
    - Go to the **Actions** tab, select the "Development Mode Toggle" workflow, click "Run workflow."  
    - Choose `enable` or `disable` to run the corresponding PowerShell script (`Set_Development_Mode.ps1` or `RevertDevelopmentMode.ps1`).  
    - (Optional) Choose a LabVIEW version (`minimum_supported_lv_version`, default `2021`).  
+   - (Optional) Choose a bitness (`bitness`, default `64`).  
    - (Optional) Enable `run_pester` to execute the LabVIEW 2021 integration tests.  
-   - The workflow runs on your self-hosted runner (e.g., labeled `self-hosted-windows-lv`).
+   - The workflow runs on your self-hosted runner (e.g., labeled `self-hosted-windows-lv`).  
 
 2. **Important Note for Testing**  
    - With dev mode **enabled**, LabVIEW references local code, so installing the `.vip` may fail or cause conflicts.  
@@ -153,6 +154,7 @@ You’ll typically name the workflow file **`development-mode-toggle.yml`**. Its
 3. **Trigger from Another Workflow**  
    - You can call this workflow using `workflow_call`. Pass the input parameter `mode` = `enable` or `disable`.  
    - Optionally pass `minimum_supported_lv_version` to control which LabVIEW version g-cli targets.  
+   - Optionally pass `bitness` (`32` or `64`) to select the LabVIEW bitness.  
    - Optionally pass `run_pester: true` to execute the Pester integration tests.  
    - The same runner used by the calling job is toggled accordingly.
 
@@ -174,6 +176,7 @@ jobs:
         with:
           mode: enable
           minimum_supported_lv_version: 2021
+          bitness: 64
           run_pester: true
 ```
 
@@ -192,6 +195,7 @@ jobs:
         with:
           mode: disable
           minimum_supported_lv_version: 2021
+          bitness: 64
           run_pester: true
 ```
 
@@ -210,6 +214,7 @@ jobs:
         with:
           mode: enable
           minimum_supported_lv_version: 2021
+          bitness: 64
           run_pester: true
 ```
 

@@ -14,6 +14,11 @@ on:
         type: string
         required: false
         default: "2021"
+      bitness:
+        description: "LabVIEW bitness to target (32 or 64)."
+        type: string
+        required: false
+        default: "64"
       run_pester:
         description: "Run Pester integration tests (LabVIEW 2021)."
         type: boolean
@@ -43,6 +48,14 @@ on:
           - "2023"
           - "2024"
           - "2025"
+      bitness:
+        description: "LabVIEW bitness."
+        required: false
+        default: "64"
+        type: choice
+        options:
+          - "64"
+          - "32"
       run_pester:
         description: "Run Pester integration tests (LabVIEW 2021)."
         required: false
@@ -64,6 +77,8 @@ jobs:
         (inputs.mode == 'enable' && 'Enable Dev Mode' || 'Disable Dev Mode') }}
 
     runs-on: [self-hosted-windows-lv]
+    env:
+      selected_bitness: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bitness || inputs.bitness }}
 
     steps:
       - name: Checkout repository
@@ -83,6 +98,7 @@ jobs:
       - name: Diagnostics before dev-mode toggle (64-bit)
         id: diag_before_64
         uses: ./.github/actions/icon-editor-files-in-lv-installation
+        if: ${{ env.selected_bitness == '64' && success() }}
         with:
           lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
           arch: "64"
@@ -90,12 +106,14 @@ jobs:
           artifact-name: icon-editor-files-before-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-64
 
       - name: Snapshot diagnostics before (64-bit)
+        if: ${{ env.selected_bitness == '64' && success() }}
         shell: pwsh
         run: |
           Copy-Item -Path "${{ steps.diag_before_64.outputs.csv-path }}" `
             -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-before.csv" -Force
 
       - name: Toggle dev mode (64-bit)
+        if: ${{ env.selected_bitness == '64' && success() }}
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
@@ -132,7 +150,7 @@ jobs:
       - name: Diagnostics after dev-mode toggle (64-bit)
         id: diag_after_64
         uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '64' && success() }}
         with:
           lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
           arch: "64"
@@ -140,14 +158,14 @@ jobs:
           artifact-name: icon-editor-files-after-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-64
 
       - name: Snapshot diagnostics after (64-bit)
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '64' && success() }}
         shell: pwsh
         run: |
           Copy-Item -Path "${{ steps.diag_after_64.outputs.csv-path }}" `
             -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after.csv" -Force
 
       - name: Validate dev-mode toggle (64-bit)
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '64' && success() }}
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
@@ -170,7 +188,7 @@ jobs:
             -LabVIEWVersion $lvVersion
 
       - name: Compare diagnostics before/after (64-bit)
-        if: ${{ always() }}
+        if: ${{ env.selected_bitness == '64' && always() }}
         shell: pwsh
         run: |
           & .\.github\actions\icon-editor-files-in-lv-installation\Compare-IconEditorFilesCsv.ps1 `
@@ -183,7 +201,7 @@ jobs:
       - name: Diagnostics before dev-mode toggle (32-bit)
         id: diag_before_32
         uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '32' && success() }}
         with:
           lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
           arch: "32"
@@ -191,14 +209,14 @@ jobs:
           artifact-name: icon-editor-files-before-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-32
 
       - name: Snapshot diagnostics before (32-bit)
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '32' && success() }}
         shell: pwsh
         run: |
           Copy-Item -Path "${{ steps.diag_before_32.outputs.csv-path }}" `
             -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-before-32.csv" -Force
 
       - name: Toggle dev mode (32-bit)
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '32' && success() }}
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
@@ -235,7 +253,7 @@ jobs:
       - name: Diagnostics after dev-mode toggle (32-bit)
         id: diag_after_32
         uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '32' && success() }}
         with:
           lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
           arch: "32"
@@ -243,14 +261,14 @@ jobs:
           artifact-name: icon-editor-files-after-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-32
 
       - name: Snapshot diagnostics after (32-bit)
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '32' && success() }}
         shell: pwsh
         run: |
           Copy-Item -Path "${{ steps.diag_after_32.outputs.csv-path }}" `
             -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" -Force
 
       - name: Validate dev-mode toggle (32-bit)
-        if: ${{ success() }}
+        if: ${{ env.selected_bitness == '32' && success() }}
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
@@ -273,7 +291,7 @@ jobs:
             -LabVIEWVersion $lvVersion
 
       - name: Compare diagnostics before/after (32-bit)
-        if: ${{ always() }}
+        if: ${{ env.selected_bitness == '32' && always() }}
         shell: pwsh
         run: |
           & .\.github\actions\icon-editor-files-in-lv-installation\Compare-IconEditorFilesCsv.ps1 `
