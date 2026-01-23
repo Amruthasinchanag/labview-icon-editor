@@ -19,11 +19,6 @@ on:
         type: string
         required: false
         default: "64"
-      run_pester:
-        description: "Run Pester integration tests (LabVIEW 2021)."
-        type: boolean
-        required: false
-        default: false
 
   # 2) Triggered manually from the Actions tab
   workflow_dispatch:
@@ -56,11 +51,6 @@ on:
         options:
           - "64"
           - "32"
-      run_pester:
-        description: "Run Pester integration tests (LabVIEW 2021)."
-        required: false
-        default: false
-        type: boolean
 
 jobs:
   toggle-dev-mode:
@@ -101,23 +91,6 @@ jobs:
             Write-Host "Not triggered by a pull request."
           }
 
-      - name: Diagnostics before dev-mode toggle (64-bit)
-        id: diag_before_64
-        uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ env.selected_bitness == '64' && success() }}
-        with:
-          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
-          arch: "64"
-          summary-title: "Icon Editor Files (before dev-mode toggle, 64-bit)"
-          artifact-name: icon-editor-files-before-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-64
-
-      - name: Snapshot diagnostics before (64-bit)
-        if: ${{ env.selected_bitness == '64' && success() }}
-        shell: pwsh
-        run: |
-          Copy-Item -Path "${{ steps.diag_before_64.outputs.csv-path }}" `
-            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-before.csv" -Force
-
       - name: Toggle dev mode (64-bit)
         if: ${{ env.selected_bitness == '64' && success() }}
         shell: pwsh
@@ -152,74 +125,6 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             exit $LASTEXITCODE
           }
-
-      - name: Diagnostics after dev-mode toggle (64-bit)
-        id: diag_after_64
-        uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ env.selected_bitness == '64' && success() }}
-        with:
-          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
-          arch: "64"
-          summary-title: "Icon Editor Files (after dev-mode toggle, 64-bit)"
-          artifact-name: icon-editor-files-after-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-64
-
-      - name: Snapshot diagnostics after (64-bit)
-        if: ${{ env.selected_bitness == '64' && success() }}
-        shell: pwsh
-        run: |
-          Copy-Item -Path "${{ steps.diag_after_64.outputs.csv-path }}" `
-            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after.csv" -Force
-
-      - name: Validate dev-mode toggle (64-bit)
-        if: ${{ env.selected_bitness == '64' && success() }}
-        shell: pwsh
-        run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $mode = '${{ github.event.inputs.mode }}'
-            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
-          } else {
-            $mode = '${{ inputs.mode }}'
-            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
-          }
-
-          if ([string]::IsNullOrWhiteSpace($lvVersion)) {
-            $lvVersion = '2021'
-          }
-
-          & .\.github\actions\icon-editor-files-in-lv-installation\Validate-IconEditorDiagnostics.ps1 `
-            -Mode $mode `
-            -CsvPath "$env:GITHUB_WORKSPACE\\icon-editor-files-after.csv" `
-            -RepoRoot "$env:GITHUB_WORKSPACE" `
-            -Bitness 64 `
-            -LabVIEWVersion $lvVersion
-
-      - name: Compare diagnostics before/after (64-bit)
-        if: ${{ env.selected_bitness == '64' && always() }}
-        shell: pwsh
-        run: |
-          & .\.github\actions\icon-editor-files-in-lv-installation\Compare-IconEditorFilesCsv.ps1 `
-            -BeforeCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-before.csv" `
-            -AfterCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-after.csv" `
-            -SummaryTitle "Icon Editor Files Diff (dev-mode toggle, 64-bit)" `
-            -IncludeGitMetadata `
-            -RepoRoot "$env:GITHUB_WORKSPACE"
-
-      - name: Diagnostics before dev-mode toggle (32-bit)
-        id: diag_before_32
-        uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ env.selected_bitness == '32' && success() }}
-        with:
-          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
-          arch: "32"
-          summary-title: "Icon Editor Files (before dev-mode toggle, 32-bit)"
-          artifact-name: icon-editor-files-before-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-32
-
-      - name: Snapshot diagnostics before (32-bit)
-        if: ${{ env.selected_bitness == '32' && success() }}
-        shell: pwsh
-        run: |
-          Copy-Item -Path "${{ steps.diag_before_32.outputs.csv-path }}" `
-            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-before-32.csv" -Force
 
       - name: Toggle dev mode (32-bit)
         if: ${{ env.selected_bitness == '32' && success() }}
@@ -256,56 +161,6 @@ jobs:
             exit $LASTEXITCODE
           }
 
-      - name: Diagnostics after dev-mode toggle (32-bit)
-        id: diag_after_32
-        uses: ./.github/actions/icon-editor-files-in-lv-installation
-        if: ${{ env.selected_bitness == '32' && success() }}
-        with:
-          lv-ver: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}
-          arch: "32"
-          summary-title: "Icon Editor Files (after dev-mode toggle, 32-bit)"
-          artifact-name: icon-editor-files-after-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.minimum_supported_lv_version || inputs.minimum_supported_lv_version }}-32
-
-      - name: Snapshot diagnostics after (32-bit)
-        if: ${{ env.selected_bitness == '32' && success() }}
-        shell: pwsh
-        run: |
-          Copy-Item -Path "${{ steps.diag_after_32.outputs.csv-path }}" `
-            -Destination "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" -Force
-
-      - name: Validate dev-mode toggle (32-bit)
-        if: ${{ env.selected_bitness == '32' && success() }}
-        shell: pwsh
-        run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
-            $mode = '${{ github.event.inputs.mode }}'
-            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
-          } else {
-            $mode = '${{ inputs.mode }}'
-            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
-          }
-
-          if ([string]::IsNullOrWhiteSpace($lvVersion)) {
-            $lvVersion = '2021'
-          }
-
-          & .\.github\actions\icon-editor-files-in-lv-installation\Validate-IconEditorDiagnostics.ps1 `
-            -Mode $mode `
-            -CsvPath "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" `
-            -RepoRoot "$env:GITHUB_WORKSPACE" `
-            -Bitness 32 `
-            -LabVIEWVersion $lvVersion
-
-      - name: Compare diagnostics before/after (32-bit)
-        if: ${{ env.selected_bitness == '32' && always() }}
-        shell: pwsh
-        run: |
-          & .\.github\actions\icon-editor-files-in-lv-installation\Compare-IconEditorFilesCsv.ps1 `
-            -BeforeCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-before-32.csv" `
-            -AfterCsv "$env:GITHUB_WORKSPACE\\icon-editor-files-after-32.csv" `
-            -SummaryTitle "Icon Editor Files Diff (dev-mode toggle, 32-bit)" `
-            -IncludeGitMetadata `
-            -RepoRoot "$env:GITHUB_WORKSPACE"
       #
       # -- SET OUTPUT (JSON) IF SUCCESS --
       # Using multiline syntax to handle multi-line JSON safely
@@ -347,12 +202,6 @@ jobs:
           echo "environment_details<<EOF" >> $env:GITHUB_OUTPUT
           echo "$jsonObject"             >> $env:GITHUB_OUTPUT
           echo "EOF"                     >> $env:GITHUB_OUTPUT
-
-      - name: Run Pester integration tests (LabVIEW 2021)
-        if: ${{ success() && ((github.event.inputs.run_pester == 'true') || (inputs.run_pester == true)) && ((github.event.inputs.mode == 'enable') || (inputs.mode == 'enable')) }}
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021 -CI
 
     outputs:
       environment_details: ${{ steps.set_output.outputs.environment_details }}

@@ -25,7 +25,6 @@ You do **not** need to copy/paste the entire workflow snippet here, as it’s al
    - Click "Run workflow" and choose either `enable` or `disable` from the dropdown.
    - (Optional) Choose a LabVIEW version (`minimum_supported_lv_version`, default `2021`).
    - (Optional) Choose a bitness (`bitness`, default `64`).
-   - (Optional) Enable `run_pester` to execute the LabVIEW 2021 integration tests.
    - This will execute the PowerShell scripts ([`Set_Development_Mode.ps1`](../../../.github/actions/set-development-mode/Set_Development_Mode.ps1) or [`RevertDevelopmentMode.ps1`](../../../.github/actions/revert-development-mode/RevertDevelopmentMode.ps1)) on the **target self-hosted runner** (your personal machine or a shared machine).
 
 2. **Important Note for Testing**
@@ -37,7 +36,6 @@ You do **not** need to copy/paste the entire workflow snippet here, as it’s al
    - Pass the input parameter `mode` set to `enable` or `disable`.
    - Optionally pass `minimum_supported_lv_version` to control which LabVIEW version g-cli targets.
    - Optionally pass `bitness` (`32` or `64`) to select the LabVIEW bitness.
-   - Optionally pass `run_pester: true` to execute the Pester integration tests.
    - The runner that calls it will be the one switched into (or out of) dev mode.
 
 ## 3. Examples: Calling This Workflow
@@ -64,7 +62,6 @@ If you have another workflow file (e.g., `my-other-workflow.yml`) in the same re
               mode: enable
               minimum_supported_lv_version: 2021
               bitness: 64
-              run_pester: true
 
 1. `uses: ./.github/workflows/development-mode-toggle.yml` – Tells GitHub to run a local reusable workflow found in your repo.
 2. `with:` – Passes inputs to that workflow. Here, `mode: enable`.
@@ -88,7 +85,6 @@ If you store “Development mode toggle” in a separate public repo, you can re
               mode: disable
               minimum_supported_lv_version: 2021
               bitness: 64
-              run_pester: true
 
 1. Replace `<owner>/<repo>` with the actual GitHub account and repository name (for example, `ni/my-shared-workflows`).
 2. The suffix `@main` indicates which branch/ref to fetch. You can also use a tag or commit SHA.
@@ -113,7 +109,6 @@ If a collaborator forked your original repo, they might keep the workflow in the
               mode: enable
               minimum_supported_lv_version: 2021
               bitness: 64
-              run_pester: true
 
 Here, you might see something like `githubuser/labview-icon-editor-fork/.github/workflows/development-mode-toggle.yml@feature-xyz`. Again, you pass the `mode` input as needed. Whenever upstream changes are made to the scripts, the fork owner can **pull** to update their local `.github/workflows/development-mode-toggle.yml` file.
 
