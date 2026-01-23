@@ -151,37 +151,40 @@ jobs:
           arch:         "32"
           project-file: "lv_icon_editor.lvproj"
 
-  test-2021-x64:
-    name: Run Unit Tests (2021 x64)
+  test-2021:
+    name: Run Unit Tests (2021 ${{ matrix.bitness }}-bit)
     needs: missing-in-project-2021-x86
     runs-on: self-hosted-windows-lv
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        bitness: ["64", "32"]
     steps:
-      - uses: ./.github/actions/run-unit-tests
+      - name: Enable Development Mode (2021 ${{ matrix.bitness }}-bit)
+        uses: ./.github/actions/set-development-mode
         with:
           minimum_supported_lv_version: "2021"
-          supported_bitness:            "64"
+          supported_bitness: ${{ matrix.bitness }}
+          relative_path: ${{ github.workspace }}
+      - name: Run Unit Tests (2021 ${{ matrix.bitness }}-bit)
+        uses: ./.github/actions/run-unit-tests
+        with:
+          minimum_supported_lv_version: "2021"
+          supported_bitness: ${{ matrix.bitness }}
       - if: always()
-        name: Close LabVIEW 2021 64-bit after unit tests
+        name: Revert Development Mode (2021 ${{ matrix.bitness }}-bit)
+        uses: ./.github/actions/revert-development-mode
+        with:
+          minimum_supported_lv_version: "2021"
+          supported_bitness: ${{ matrix.bitness }}
+          relative_path: ${{ github.workspace }}
+      - if: always()
+        name: Close LabVIEW 2021 ${{ matrix.bitness }}-bit after unit tests
         uses: ./.github/actions/close-labview
         with:
           minimum_supported_lv_version: 2021
-          supported_bitness: 64
-
-  test-2021-x86:
-    name: Run Unit Tests (2021 x86)
-    needs: test-2021-x64
-    runs-on: self-hosted-windows-lv
-    steps:
-      - uses: ./.github/actions/run-unit-tests
-        with:
-          minimum_supported_lv_version: "2021"
-          supported_bitness:            "32"
-      - if: always()
-        name: Close LabVIEW 2021 32-bit after unit tests
-        uses: ./.github/actions/close-labview
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 32
+          supported_bitness: ${{ matrix.bitness }}
 
   build-ppl-x86:
     name: Build 32-bit Packed Library
@@ -214,7 +217,7 @@ jobs:
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
-    needs: [test-2021-x86, version]
+    needs: [test-2021, version]
     runs-on: self-hosted-windows-lv
     steps:
       - uses: ./.github/actions/build-lvlibp
