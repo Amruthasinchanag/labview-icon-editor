@@ -71,9 +71,9 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             )
 
             $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
-            $argList = @('-NoProfile', '-File', $ScriptPath) + $Arguments
-            $process = Start-Process -FilePath $pwsh -ArgumentList $argList -NoNewWindow -Wait -PassThru
-            return $process.ExitCode
+            # Use PowerShell argument passing to preserve embedded spaces.
+            & $pwsh -NoProfile -File $ScriptPath @Arguments | Out-Host
+            return $LASTEXITCODE
         }
 
         function script:Get-ScriptArguments {
@@ -90,10 +90,25 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             )
         }
 
+        function script:Invoke-CloseLabVIEW {
+            param(
+                [string]$Bitness
+            )
+
+            $args = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $Bitness
+            )
+
+            return (Invoke-LabVIEWScript -ScriptPath $script:closeScript -Arguments $args)
+        }
+
         $script:repoRoot = Get-RepoRoot
         $script:actionsRoot = Join-Path $script:repoRoot '.github\actions'
         $script:setScript = Join-Path $script:actionsRoot 'set-development-mode\Set_Development_Mode.ps1'
         $script:revertScript = Join-Path $script:actionsRoot 'revert-development-mode\RevertDevelopmentMode.ps1'
+        $script:closeScript = Join-Path $script:actionsRoot 'close-labview\Close_LabVIEW.ps1'
+
 
         if ($script:labviewVersion -ne '2021') {
             $script:skipAll = $true
@@ -199,4 +214,5 @@ Describe 'Development Mode integration (LabVIEW 2021)' {
             (Test-Path -Path $paths.IconApiZip) | Should -BeFalse
         }
     }
+
 }

@@ -38,7 +38,9 @@ $ScriptDirectory = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 Write-Host "Script Directory: $ScriptDirectory"
 
 $RestoreScript = Join-Path -Path $ScriptDirectory -ChildPath '..\restore-setup-lv-source\RestoreSetupLVSource.ps1'
+$CloseScript = Join-Path -Path $ScriptDirectory -ChildPath '..\close-labview\Close_LabVIEW.ps1'
 Write-Host "RestoreSetupLVSource script: $RestoreScript"
+Write-Host "Close_LabVIEW script: $CloseScript"
 
 $ErrorActionPreference = 'Stop'
 
@@ -46,6 +48,15 @@ function Invoke-RestoreLabviewSource {
     param(
         [string]$Bitness
     )
+
+    if (-not (Test-Path -Path $CloseScript)) {
+        throw "Close_LabVIEW.ps1 not found at $CloseScript"
+    }
+
+    & $CloseScript -MinimumSupportedLVVersion $MinimumSupportedLVVersion -SupportedBitness $Bitness
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw "Close_LabVIEW.ps1 failed for $Bitness-bit with exit code $LASTEXITCODE."
+    }
 
     Write-Host "Restoring LabVIEW sources for $Bitness-bit."
     $scriptArgs = @{

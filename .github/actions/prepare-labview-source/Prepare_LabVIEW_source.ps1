@@ -112,6 +112,59 @@ function Get-DevModeState {
     return 'unknown'
 }
 
+function Get-IniLibraryPaths {
+    param(
+        [string]$IniPath
+    )
+
+    if (-not (Test-Path -Path $IniPath)) {
+        return @()
+    }
+
+    $line = Get-Content -Path $IniPath | Where-Object { $_ -match '(?i)^\s*localhost\.librarypaths\s*=' } | Select-Object -First 1
+    if (-not $line) {
+        return @()
+    }
+
+    $value = $line -replace '(?i)^\s*localhost\.librarypaths\s*=\s*', ''
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return @()
+    }
+
+    return ($value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Test-LibraryPathContainsRepoRoot {
+    param(
+        [string]$IniPath,
+        [string]$RepoRoot
+    )
+
+    $repoRootNormalized = $null
+    try {
+        $repoRootNormalized = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    }
+    catch {
+        $repoRootNormalized = $RepoRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    }
+
+    foreach ($path in (Get-IniLibraryPaths -IniPath $IniPath)) {
+        $candidate = $null
+        try {
+            $candidate = [System.IO.Path]::GetFullPath($path).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+        }
+        catch {
+            $candidate = $path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+        }
+
+        if ($candidate.Equals($repoRootNormalized, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\PrepareIESource.vi'
 
@@ -126,8 +179,22 @@ if (-not $installRoot) {
 
 $devModeState = Get-DevModeState -InstallRoot $installRoot
 if ($devModeState -eq 'enabled') {
-    Write-Host "Development mode already enabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit); skipping PrepareIESource.vi."
-    return
+    $iniPath = Join-Path $installRoot 'LabVIEW.ini'
+    if (Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $repoRoot) {
+        Write-Host "Development mode already enabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit); INI token already points to repo root."
+        return
+    }
+
+    Write-Host "Development mode already enabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit), but INI token does not match repo root. Refreshing dev mode."
+    $restoreScript = Join-Path -Path $PSScriptRoot -ChildPath '..\restore-setup-lv-source\RestoreSetupLVSource.ps1'
+    if (-not (Test-Path -Path $restoreScript)) {
+        throw "RestoreSetupLVSource.ps1 not found at $restoreScript"
+    }
+
+    & $restoreScript -MinimumSupportedLVVersion $MinimumSupportedLVVersion -SupportedBitness $SupportedBitness -RelativePath $repoRoot
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw "RestoreSetupLVSource.ps1 failed with exit code $LASTEXITCODE."
+    }
 }
 
 if ($devModeState -eq 'unknown') {

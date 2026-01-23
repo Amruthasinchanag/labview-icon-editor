@@ -3,7 +3,6 @@ param(
     [string]$Ref = 'experimental/447-Sergio-Change-Number-1',
     [ValidateSet('2021')]
     [string]$LabVIEWVersion = '2021',
-    [bool]$RunPester = $true,
     [int]$PollSeconds = 2,
     [int]$TimeoutMinutes = 3,
     [int]$RunTimeoutMinutes = 10,
@@ -25,8 +24,7 @@ function Assert-GhReady {
 
 function Start-DevModeRun {
     param(
-        [string]$Mode,
-        [bool]$IncludePester
+        [string]$Mode
     )
 
     $args = @(
@@ -37,11 +35,7 @@ function Start-DevModeRun {
         '-f', "minimum_supported_lv_version=$LabVIEWVersion"
     )
 
-    if ($IncludePester) {
-        $args += @('-f', 'run_pester=true')
-    }
-
-    Write-Host ("Starting workflow: mode={0}, run_pester={1}" -f $Mode, $IncludePester)
+    Write-Host ("Starting workflow: mode={0}" -f $Mode)
     & gh @args | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to dispatch workflow for mode=$Mode."
@@ -70,8 +64,8 @@ function Get-RunModeFromJobs {
     }
 
     $jobName = $run.jobs | Select-Object -ExpandProperty name -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($jobName -like '*Enable Dev Mode*') { return 'enable' }
-    if ($jobName -like '*Disable Dev Mode*') { return 'disable' }
+    if ($jobName -match '^\s*Enable\b') { return 'enable' }
+    if ($jobName -match '^\s*Disable\b') { return 'disable' }
     return $null
 }
 
@@ -224,7 +218,7 @@ if (-not $skipDisable) {
     $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
     if (-not $baselineId) { $baselineId = 0 }
     $baselineId = [long]$baselineId
-    Start-DevModeRun -Mode 'disable' -IncludePester $false
+    Start-DevModeRun -Mode 'disable'
     Wait-ForRun -BaselineId $baselineId -Mode 'disable'
 } else {
     Write-Host 'Disable step skipped.'
@@ -233,7 +227,7 @@ if (-not $skipDisable) {
 $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
 if (-not $baselineId) { $baselineId = 0 }
 $baselineId = [long]$baselineId
-Start-DevModeRun -Mode 'enable' -IncludePester $RunPester
+Start-DevModeRun -Mode 'enable'
 Wait-ForRun -BaselineId $baselineId -Mode 'enable'
 
 Write-Host 'Dev mode cycle completed successfully.'
