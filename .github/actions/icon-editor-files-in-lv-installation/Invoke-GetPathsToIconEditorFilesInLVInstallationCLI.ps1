@@ -12,7 +12,7 @@ param(
 
     [string]$CsvFileName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics.csv',
 
-    [string]$ProjectFile = 'Tooling\CI CD.lvproj',
+    [string]$ProjectFile = '',
 
     [string]$SummaryTitle = 'Icon Editor Files in LabVIEW Installation'
 )
@@ -96,42 +96,6 @@ function Get-LabVIEWInstallRoot {
     }
 
     return $null
-}
-
-function Resolve-ProjectPath {
-    param(
-        [string]$Root,
-        [string]$ProjectFile
-    )
-
-    if ([string]::IsNullOrWhiteSpace($ProjectFile)) {
-        return $null
-    }
-
-    if ([System.IO.Path]::IsPathRooted($ProjectFile)) {
-        return $ProjectFile
-    }
-
-    return (Join-Path $Root $ProjectFile)
-}
-
-function Start-LabVIEWWithProject {
-    param(
-        [string]$InstallRoot,
-        [string]$ProjectPath
-    )
-
-    if (-not (Test-Path -Path $ProjectPath)) {
-        throw "Project file not found: $ProjectPath"
-    }
-
-    $labviewExe = Join-Path $InstallRoot 'LabVIEW.exe'
-    if (-not (Test-Path -Path $labviewExe)) {
-        throw "LabVIEW.exe not found: $labviewExe"
-    }
-
-    Write-Host ("Opening LabVIEW project: {0}" -f $ProjectPath)
-    Start-Process -FilePath $labviewExe -ArgumentList @("`"$ProjectPath`"") | Out-Null
 }
 
 function Invoke-IconEditorDiagnostics {
@@ -262,21 +226,8 @@ try {
 
     Safe-QuitLabVIEW
 
-    $projectPath = Resolve-ProjectPath -Root $repoRoot -ProjectFile $ProjectFile
     $useNoLaunch = $false
     $connectTimeoutMs = 0
-    if ($projectPath -and (Test-Path -Path $projectPath)) {
-        $installRoot = Get-LabVIEWInstallRoot -Version $LVVersion -Bitness $Arch
-        if ($installRoot) {
-            Start-LabVIEWWithProject -InstallRoot $installRoot -ProjectPath $projectPath
-            $useNoLaunch = $true
-            $connectTimeoutMs = 120000
-        } else {
-            Write-Warning "LabVIEW install root not found; running diagnostics without opening project."
-        }
-    } elseif (-not [string]::IsNullOrWhiteSpace($ProjectFile)) {
-        Write-Warning ("Project file not found: {0}. Running diagnostics without opening project." -f $projectPath)
-    }
 
     Push-Location $repoRoot
     try {
