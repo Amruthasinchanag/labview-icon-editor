@@ -129,31 +129,14 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  missing-in-project-2021-x64:
-    name: Test Missing-In-Project (2021 x64)
+  missing-in-project:
+    name: Test Missing-In-Project (2021)
     needs: apply-deps-2023-x64
-    runs-on: self-hosted-windows-lv
-    steps:
-      - uses: ./.github/actions/missing-in-project
-        with:
-          lv-ver:       "2021"
-          arch:         "64"
-          project-file: "lv_icon_editor.lvproj"
-
-  missing-in-project-2021-x86:
-    name: Test Missing-In-Project (2021 x86)
-    needs: missing-in-project-2021-x64
-    runs-on: self-hosted-windows-lv
-    steps:
-      - uses: ./.github/actions/missing-in-project
-        with:
-          lv-ver:       "2021"
-          arch:         "32"
-          project-file: "lv_icon_editor.lvproj"
+    uses: ./.github/workflows/test-missing-in-project-windows.yml
 
   test-2021:
     name: Run Unit Tests (2021 ${{ matrix.bitness }}-bit)
-    needs: missing-in-project-2021-x86
+    needs: missing-in-project
     runs-on: self-hosted-windows-lv
     strategy:
       fail-fast: false
