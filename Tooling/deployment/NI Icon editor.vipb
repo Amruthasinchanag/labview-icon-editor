@@ -1,4 +1,4 @@
-<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2026-01-18 21:48:17" Creator="svelderr" Comments="" ID="10007de1f87d9ca92802493589ee9652">
+<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2026-01-23 08:51:14" Creator="svelderr" Comments="" ID="ebb9f4584d9cf595bae4380b2f224821">
   <Library_General_Settings>
     <Package_File_Name>NI_Icon_editor</Package_File_Name>
     <Library_Version>21.0.0.13</Library_Version>
@@ -16,19 +16,14 @@
     <Target>LabVIEW</Target>
   </Library_General_Settings>
   <Advanced_Settings>
-    <Package_Dependencies>
-      <Additional_External_Dependencies>oglib_array &gt;=6.0.1.20</Additional_External_Dependencies>
-      <Additional_External_Dependencies>oglib_error &gt;=6.0.0.26</Additional_External_Dependencies>
-      <Additional_External_Dependencies>oglib_file &gt;=6.0.2.28</Additional_External_Dependencies>
-      <Additional_External_Dependencies>oglib_lvzip &gt;=5.0.9</Additional_External_Dependencies>
-    </Package_Dependencies>
+    <Package_Dependencies/>
     <Custom_Action_VIs>
       <Pre-Build_VI/>
       <Post-Build_VI/>
-      <Pre-Install_VI/>
+      <Pre-Install_VI>VIP_Pre-Install Custom Action.vi</Pre-Install_VI>
       <Post-Install_VI>VIP_Post-Install Custom Action.vi</Post-Install_VI>
       <Pre-Uninstall_VI>VIP_Pre-Uninstall Custom Action.vi</Pre-Uninstall_VI>
-      <Post-Uninstall_VI/>
+      <Post-Uninstall_VI>VIP_Post-Uninstall Custom Action.vi</Post-Uninstall_VI>
     </Custom_Action_VIs>
     <VI_Package_Configuration_File>NI Icon editor.vipc</VI_Package_Configuration_File>
     <Description>
@@ -43,7 +38,7 @@
       <Toolkit_VIs>
         <LLB>false</LLB>
         <Preserve_Hierarchy>true</Preserve_Hierarchy>
-        <Path>&lt;OS Boot Volume Root&gt;</Path>
+        <Path>&lt;vi.lib&gt;</Path>
       </Toolkit_VIs>
       <Examples>
         <LLB>false</LLB>
@@ -99,66 +94,36 @@
         <Path/>
       </QuickDrop_Plugins>
       <Additional_Destination>
-        <Name>LVAddons</Name>
-        <LLB>false</LLB>
-        <Preserve_Hierarchy>false</Preserve_Hierarchy>
-        <Path>&lt;OS Application Files&gt;\NI\LVAddons\niiconeditor64</Path>
-      </Additional_Destination>
-      <Additional_Destination>
-        <Name>Install artifacts</Name>
+        <Name>Resource</Name>
         <LLB>false</LLB>
         <Preserve_Hierarchy>true</Preserve_Hierarchy>
-        <Path>&lt;OS Public Documents&gt;\National Instruments\LabVIEW Icon Editor\install</Path>
-      </Additional_Destination>
-      <Additional_Destination>
-        <Name>Uninstall artifacts</Name>
-        <LLB>false</LLB>
-        <Preserve_Hierarchy>true</Preserve_Hierarchy>
-        <Path>&lt;OS Public Documents&gt;\National Instruments\LabVIEW Icon Editor\uninstall</Path>
-      </Additional_Destination>
-      <Additional_Destination>
-        <Name>Install artifacts temp</Name>
-        <LLB>false</LLB>
-        <Preserve_Hierarchy>true</Preserve_Hierarchy>
-        <Path>&lt;OS Public Documents&gt;\National Instruments\LabVIEW Icon Editor\install\temp</Path>
-      </Additional_Destination>
-      <Additional_Destination>
-        <Name>Icon editor public documents</Name>
-        <LLB>false</LLB>
-        <Preserve_Hierarchy>true</Preserve_Hierarchy>
-        <Path>&lt;OS Public Documents&gt;\National Instruments\LabVIEW Icon Editor</Path>
+        <Path>&lt;resource&gt;\plugins</Path>
       </Additional_Destination>
     </Destinations>
     <Source_Files>
       <Destination_Overrides>
         <Path>.</Path>
         <Destination>0</Destination>
-        <Additional_Destination>true</Additional_Destination>
-        <Additional_Destination_Index>4</Additional_Destination_Index>
+        <Additional_Destination>false</Additional_Destination>
+        <Additional_Destination_Index>0</Additional_Destination_Index>
       </Destination_Overrides>
       <Destination_Overrides>
-        <Path>Tooling/deployment/lv_icon_versions/lv_icon_uninstall_backup.zip</Path>
+        <Path>vi.lib/LabVIEW Icon API</Path>
         <Destination>0</Destination>
-        <Additional_Destination>true</Additional_Destination>
-        <Additional_Destination_Index>2</Additional_Destination_Index>
-      </Destination_Overrides>
-      <Destination_Overrides>
-        <Path>vi.lib</Path>
-        <Destination>0</Destination>
-        <Additional_Destination>true</Additional_Destination>
-        <Additional_Destination_Index>3</Additional_Destination_Index>
+        <Additional_Destination>false</Additional_Destination>
+        <Additional_Destination_Index>0</Additional_Destination_Index>
       </Destination_Overrides>
       <Destination_Overrides>
         <Path>resource/plugins/lv_icon_x64.lvlibp</Path>
         <Destination>0</Destination>
         <Additional_Destination>true</Additional_Destination>
-        <Additional_Destination_Index>3</Additional_Destination_Index>
+        <Additional_Destination_Index>0</Additional_Destination_Index>
       </Destination_Overrides>
       <Destination_Overrides>
         <Path>resource/plugins/lv_icon_x86.lvlibp</Path>
         <Destination>0</Destination>
         <Additional_Destination>true</Additional_Destination>
-        <Additional_Destination_Index>3</Additional_Destination_Index>
+        <Additional_Destination_Index>0</Additional_Destination_Index>
       </Destination_Overrides>
       <Password_Overrides>
         <Path>.</Path>
@@ -210,34 +175,7 @@
         <Path>resource/plugins/SAMPLE_lv_icon.vi</Path>
       </Exclusions>
       <Exclusions>
-        <Path>Tooling/deployment/ApplyVIPC.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/BuildVIPackage.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/Create_LV_INI_Token.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/CreateLVAddonJSONfile.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/Destroy_LV_INI_Token.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/ModifyProjectBuildOutput.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/NIP Post uninstall.vi</Path>
-      </Exclusions>
-      <Exclusions>
         <Path>Tooling/deployment/VIP_Post-Install Custom Action.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/VIP_Post-Uninstall Custom Action.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/deployment/VIP_Pre-Install Custom Action.vi</Path>
       </Exclusions>
       <Exclusions>
         <Path>Tooling/deployment/VIP_Pre-Uninstall Custom Action.vi</Path>
@@ -264,12 +202,6 @@
         <Path>Tooling/PrepareIESource.vi</Path>
       </Exclusions>
       <Exclusions>
-        <Path>Tooling/Run all tests CLI.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/Run all tests.vi</Path>
-      </Exclusions>
-      <Exclusions>
         <Path>Tooling/RestoreSetupLVSource.vi</Path>
       </Exclusions>
       <Exclusions>
@@ -279,12 +211,6 @@
         <Path>GOVERNANCE.md</Path>
       </Exclusions>
       <Exclusions>
-        <Path>Tooling/deployment/Modify_VIPB_Display_Information.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>builds</Path>
-      </Exclusions>
-      <Exclusions>
         <Path>Test</Path>
       </Exclusions>
       <Exclusions>
@@ -292,9 +218,6 @@
       </Exclusions>
       <Exclusions>
         <Path>INSTALL.md</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>uninstall</Path>
       </Exclusions>
       <Compile_Exclusions>
         <Path>.</Path>
@@ -310,9 +233,6 @@
       </Place_Folder_Contents>
       <Place_Folder_Contents>
         <Path>vi.lib</Path>
-      </Place_Folder_Contents>
-      <Place_Folder_Contents>
-        <Path>vi.lib/LabVIEW Icon API</Path>
       </Place_Folder_Contents>
     </Source_Files>
     <License_Agreement_Filepath/>
