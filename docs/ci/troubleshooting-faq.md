@@ -267,7 +267,7 @@ Below are 14 possible issues you might encounter, along with suggested steps to 
 - One or more expected folders or files are missing in the Icon Editor source or the LabVIEW Icon API setup.
 
 **Solution**:
-1. Decode the 8-bit diagnostics code (set bits indicate missing paths):
+1. Decode the 8-bit diagnostics code (cleared bits indicate missing paths):
    - Bit 0: `NIIconEditor`
    - Bit 1: `lv_icon.lvlibp`
    - Bit 2: `lv_IconEditor.lvlib`

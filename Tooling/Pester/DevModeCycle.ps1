@@ -1,6 +1,7 @@
 param(
     [string]$Repo = 'svelderrainruiz/labview-icon-editor',
     [string]$Ref = 'experimental/447-Sergio-Change-Number-1',
+    [string[]]$ModeSequence = @('disable', 'enable'),
     [ValidateSet('2021')]
     [string]$LabVIEWVersion = '2021',
     [int]$PollSeconds = 2,
@@ -201,15 +202,28 @@ Assert-GhReady
 
 Wait-ForActiveRunToFinish
 
-$baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
-if (-not $baselineId) { $baselineId = 0 }
-$baselineId = [long]$baselineId
-Start-DevModeRun -Mode 'disable'
-Wait-ForRun -BaselineId $baselineId -Mode 'disable'
+$normalizedModes = @()
+foreach ($entry in $ModeSequence) {
+    if ($null -eq $entry) { continue }
+    $normalizedModes += ($entry -split ',')
+}
+$normalizedModes = $normalizedModes | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ }
+if (-not $normalizedModes) {
+    throw 'ModeSequence cannot be empty.'
+}
+$invalidModes = $normalizedModes | Where-Object { $_ -notin @('enable', 'disable') }
+if ($invalidModes) {
+    throw ("ModeSequence contains invalid values: {0}" -f ($invalidModes -join ', '))
+}
 
-$baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
-if (-not $baselineId) { $baselineId = 0 }
-$baselineId = [long]$baselineId
-Start-DevModeRun -Mode 'enable'
-Wait-ForRun -BaselineId $baselineId -Mode 'enable'
+Write-Host ("Mode sequence: {0}" -f ($normalizedModes -join ' -> '))
+
+foreach ($mode in $normalizedModes) {
+    $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
+    if (-not $baselineId) { $baselineId = 0 }
+    $baselineId = [long]$baselineId
+
+    Start-DevModeRun -Mode $mode
+    Wait-ForRun -BaselineId $baselineId -Mode $mode
+}
 

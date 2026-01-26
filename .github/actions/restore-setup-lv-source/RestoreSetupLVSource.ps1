@@ -92,6 +92,14 @@ function Get-LabVIEWInstallRoot {
 }
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
+$diagnosticsScript = Join-Path -Path $repoRoot -ChildPath 'Tooling\DevModeDiagnostics.ps1'
+$diagnosticsLoaded = $false
+if (Test-Path -Path $diagnosticsScript) {
+    . $diagnosticsScript
+    $diagnosticsLoaded = $true
+} else {
+    Write-Warning "Dev-mode diagnostics helper not found at $diagnosticsScript"
+}
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\RestoreSetupLVSource.vi'
 
 if (-not (Test-Path -Path $viPath)) {
@@ -137,6 +145,26 @@ $output | ForEach-Object { Write-Host $_ }
 
 $combinedOutput = $output -join "`n"
 if ($combinedOutput -match '-593451') {
+    $diagnosticsSummary = $null
+    if (Get-Command Get-DevModeDiagnosticsFromOutput -ErrorAction SilentlyContinue) {
+        $diagnosticsInfo = Get-DevModeDiagnosticsFromOutput -Output $output
+        if ($diagnosticsInfo) {
+            Write-Host (Format-DevModeDiagnosticsReport -Diagnostics $diagnosticsInfo)
+            if (-not $diagnosticsInfo.GuardBitSet) {
+                Write-Warning "Diagnostics guard bit (bit 7) is not set. Upstream logic may have changed."
+            }
+            $diagnosticsSummary = Format-DevModeDiagnosticsSummary -Diagnostics $diagnosticsInfo
+        } else {
+            Write-Warning "No dev-mode diagnostics bitmask detected in g-cli output."
+        }
+    } elseif (-not $diagnosticsLoaded) {
+        Write-Warning "Dev-mode diagnostics helper was not loaded."
+    }
+
+    if ($diagnosticsSummary) {
+        throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted). $diagnosticsSummary"
+    }
+
     throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
 }
 
