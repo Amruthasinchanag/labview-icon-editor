@@ -42,13 +42,13 @@ Gracefully shuts down a running LabVIEW instance using g-cli's `QuitLabVIEW` com
 Updates the display information inside a `.vipb` file and merges version and branding metadata. Typically called by `Build.ps1` before packaging.
 
 ## Prepare_LabVIEW_source.ps1
-Runs `PrepareIESource.vi` to package the LabVIEW Icon API, rename `lv_icon.lvlibp` to `lv_icon.ship`, and set the INI token for development. Closes LabVIEW after execution. Called by `Set_Development_Mode.ps1`. `PrepareIESource.vi` reports error `-593450` when development mode could not be set; treat this error code as the only authoritative indicator and avoid adding other indicators or helpers.
+Runs `PrepareIESource.vi` to package the LabVIEW Icon API, rename `lv_icon.lvlibp` to `lv_icon.ship`, and set the INI token for development. Closes LabVIEW after execution. Called by `Set_Development_Mode.ps1`. `PrepareIESource.vi` reports error `-593450` when development mode could not be set; treat this error code as the only authoritative indicator and avoid adding other indicators or helpers. When this failure occurs, the VI error source string prints an 8-bit diagnostics code to the console; see `docs/ci/actions/development-mode-toggle.md` for the bit mapping.
 
 ## Rename-file.ps1
 Renames the built packed libraries to the expected `lv_icon_x86.lvlibp` or `lv_icon_x64.lvlibp` names.
 
 ## RestoreSetupLVSource.ps1
-Runs `RestoreSetupLVSource.vi` to unzip the LabVIEW Icon API, restore `lv_icon.ship` to `lv_icon.lvlibp`, and remove the INI token. Closes LabVIEW after execution. Used by `RevertDevelopmentMode.ps1`. `RestoreSetupLVSource.vi` reports error `-593451` when development mode could not be reverted; treat this error code as the only authoritative indicator and avoid adding other indicators or helpers.
+Runs `RestoreSetupLVSource.vi` to unzip the LabVIEW Icon API, restore `lv_icon.ship` to `lv_icon.lvlibp`, and remove the INI token. Closes LabVIEW after execution. Used by `RevertDevelopmentMode.ps1`. `RestoreSetupLVSource.vi` reports error `-593451` when development mode could not be reverted; treat this error code as the only authoritative indicator and avoid adding other indicators or helpers. When this failure occurs, the VI error source string prints an 8-bit diagnostics code to the console; see `docs/ci/actions/development-mode-toggle.md` for the bit mapping.
 
 ## Set_Development_Mode.ps1
 Configures the repository for development by invoking `Prepare_LabVIEW_source.ps1` for both bitnesses.

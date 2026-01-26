@@ -20,6 +20,7 @@ This document provides a collection of common **troubleshooting** scenarios (wit
    11. [No. 11: Company/Author Fields Not Populating](#no-11-companyauthor-fields-not-populating)
    12. [No. 12: JSON Fields Overwritten Incorrectly](#no-12-json-fields-overwritten-incorrectly)
    13. [No. 13: Repository Forks Not Displaying Correct Metadata](#no-13-repository-forks-not-displaying-correct-metadata)
+   14. [No. 14: Dev Mode Failure Diagnostics Code](#no-14-dev-mode-failure-diagnostics-code)
 
 
 2. [FAQ](#faq)
@@ -42,7 +43,7 @@ This document provides a collection of common **troubleshooting** scenarios (wit
 
 ## Troubleshooting
 
-Below are 13 possible issues you might encounter, along with suggested steps to resolve them.
+Below are 14 possible issues you might encounter, along with suggested steps to resolve them.
 
 ### No. 1: LabVIEW Not Found on Runner
 
@@ -254,6 +255,28 @@ Below are 13 possible issues you might encounter, along with suggested steps to 
 1. In the new fork, update the workflow to pass `-CompanyName "${{ github.repository_owner }}"` and `-AuthorName "${{ github.repository }}"`.  
 2. Check that the script logic references those parameters for the final JSON.  
 3. Review environment variables in GitHub Actions for the fork to ensure they’re set correctly.
+
+---
+
+### No. 14: Dev Mode Failure Diagnostics Code
+
+**Symptoms**:
+- The workflow fails with error `-593450` (enable) or `-593451` (disable), and the VI error source string prints an 8-bit diagnostics code.
+
+**Possible Causes**:
+- One or more expected folders or files are missing in the Icon Editor source or the LabVIEW Icon API setup.
+
+**Solution**:
+1. Decode the 8-bit diagnostics code (set bits indicate missing paths):
+   - Bit 0: `NIIconEditor`
+   - Bit 1: `lv_icon.lvlibp`
+   - Bit 2: `lv_IconEditor.lvlib`
+   - Bit 3: `lv_icon.vi`
+   - Bit 4: `lv_icon.vit`
+   - Bit 5: `SAMPLE_lv_icon.vi`
+   - Bit 6: `LabVIEW Icon API`
+   - Bit 7: All non-fatal paths (guard bit to ensure upstream logic remains consistent)
+2. Restore missing paths from a known-good install or repo checkout, then re-run the Development Mode Toggle.
 
 ---
 
