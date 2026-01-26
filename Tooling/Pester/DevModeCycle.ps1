@@ -2,6 +2,7 @@ param(
     [string]$Repo = 'svelderrainruiz/labview-icon-editor',
     [string]$Ref = 'experimental/447-Sergio-Change-Number-1',
     [string[]]$ModeSequence = @('disable', 'enable'),
+    [string[]]$AllowFailureModes = @(),
     [ValidateSet('2021')]
     [string]$LabVIEWVersion = '2021',
     [int]$PollSeconds = 2,
@@ -85,11 +86,17 @@ function Get-RunSummary {
 function Wait-ForRunCompletion {
     param(
         [long]$RunId,
-        [string]$Mode
+        [string]$Mode,
+        [string[]]$AllowFailureModes
     )
 
     $deadline = (Get-Date).ToUniversalTime().AddMinutes($RunTimeoutMinutes)
     $lastStatus = $null
+    $allowFailure = $false
+
+    if ($AllowFailureModes) {
+        $allowFailure = $AllowFailureModes -contains $Mode
+    }
 
     do {
         $run = Get-RunSummary -RunId $RunId
@@ -107,6 +114,10 @@ function Wait-ForRunCompletion {
             if ($run.conclusion -ne 'success') {
                 Write-Host "Run failed; fetching logs..."
                 & gh run view --repo $Repo $RunId --log
+                if ($allowFailure) {
+                    Write-Warning "Allowing failure for mode=$Mode (run id $RunId)."
+                    return
+                }
                 throw "Workflow run failed for mode=$Mode (run id $RunId)."
             }
             return
@@ -139,7 +150,7 @@ function Wait-ForActiveRunToFinish {
 
     if ($activeRun -and $activeRun.databaseId) {
         Write-Host "Active run detected ($($activeRun.databaseId)). Waiting for completion..."
-        Wait-ForRunCompletion -RunId $activeRun.databaseId -Mode 'active'
+        Wait-ForRunCompletion -RunId $activeRun.databaseId -Mode 'active' -AllowFailureModes @()
     }
 }
 
@@ -163,7 +174,8 @@ function Get-LatestRunAfterId {
 function Wait-ForRun {
     param(
         [long]$BaselineId,
-        [string]$Mode
+        [string]$Mode,
+        [string[]]$AllowFailureModes
     )
 
     $deadline = (Get-Date).ToUniversalTime().AddMinutes($TimeoutMinutes)
@@ -182,12 +194,16 @@ function Wait-ForRun {
                 if ($run.conclusion -ne 'success') {
                     Write-Host "Run failed; fetching logs..."
                     & gh run view --repo $Repo $run.databaseId --log
+                    if ($AllowFailureModes -contains $Mode) {
+                        Write-Warning "Allowing failure for mode=$Mode (run id $($run.databaseId))."
+                        return
+                    }
                     throw "Workflow run failed for mode=$Mode (run id $($run.databaseId))."
                 }
                 return
             }
 
-            Wait-ForRunCompletion -RunId $run.databaseId -Mode $Mode
+            Wait-ForRunCompletion -RunId $run.databaseId -Mode $Mode -AllowFailureModes $AllowFailureModes
             return
         }
 
@@ -216,7 +232,21 @@ if ($invalidModes) {
     throw ("ModeSequence contains invalid values: {0}" -f ($invalidModes -join ', '))
 }
 
+$normalizedAllowFailures = @()
+foreach ($entry in $AllowFailureModes) {
+    if ($null -eq $entry) { continue }
+    $normalizedAllowFailures += ($entry -split ',')
+}
+$normalizedAllowFailures = $normalizedAllowFailures | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ }
+$invalidAllow = $normalizedAllowFailures | Where-Object { $_ -notin @('enable', 'disable') }
+if ($invalidAllow) {
+    throw ("AllowFailureModes contains invalid values: {0}" -f ($invalidAllow -join ', '))
+}
+
 Write-Host ("Mode sequence: {0}" -f ($normalizedModes -join ' -> '))
+if ($normalizedAllowFailures) {
+    Write-Host ("Allowing failures for modes: {0}" -f ($normalizedAllowFailures -join ', '))
+}
 
 foreach ($mode in $normalizedModes) {
     $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
@@ -224,6 +254,6 @@ foreach ($mode in $normalizedModes) {
     $baselineId = [long]$baselineId
 
     Start-DevModeRun -Mode $mode
-    Wait-ForRun -BaselineId $baselineId -Mode $mode
+    Wait-ForRun -BaselineId $baselineId -Mode $mode -AllowFailureModes $normalizedAllowFailures
 }
 
