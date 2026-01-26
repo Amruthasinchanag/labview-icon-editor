@@ -144,6 +144,7 @@ finally {
 $output | ForEach-Object { Write-Host $_ }
 
 $combinedOutput = $output -join "`n"
+$ignoreExitCode = $false
 if ($combinedOutput -match '-593451') {
     $diagnosticsSummary = $null
     if (Get-Command Get-DevModeDiagnosticsFromOutput -ErrorAction SilentlyContinue) {
@@ -154,6 +155,10 @@ if ($combinedOutput -match '-593451') {
                 Write-Warning "Diagnostics guard bit (bit 7) is not set. Upstream logic may have changed."
             }
             $diagnosticsSummary = Format-DevModeDiagnosticsSummary -Diagnostics $diagnosticsInfo
+            if ($diagnosticsInfo.GuardBitSet -and $diagnosticsInfo.MissingPaths -and $diagnosticsInfo.MissingPaths.Count -eq 0) {
+                Write-Warning "RestoreSetupLVSource.vi returned -593451 but no expected missing paths were detected. Development mode already appears reverted; treating as warning."
+                $ignoreExitCode = $true
+            }
         } else {
             Write-Warning "No dev-mode diagnostics bitmask detected in g-cli output."
         }
@@ -161,14 +166,16 @@ if ($combinedOutput -match '-593451') {
         Write-Warning "Dev-mode diagnostics helper was not loaded."
     }
 
-    if ($diagnosticsSummary) {
+    if ($diagnosticsSummary -and -not $ignoreExitCode) {
         throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted). $diagnosticsSummary"
     }
 
-    throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
+    if (-not $ignoreExitCode) {
+        throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
+    }
 }
 
-if ($exitCode -ne 0) {
+if (-not $ignoreExitCode -and $exitCode -ne 0) {
     throw "RestoreSetupLVSource.vi failed with exit code $exitCode."
 }
 
