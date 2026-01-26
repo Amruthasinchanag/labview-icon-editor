@@ -88,5 +88,3 @@ catch {
     Write-Error "An unexpected error occurred during script execution: $($_.Exception.Message)"
     exit 1
 }
-
-Write-Host "Development mode enabled." -ForegroundColor Green

@@ -91,27 +91,6 @@ function Get-LabVIEWInstallRoot {
     return $null
 }
 
-function Get-DevModeState {
-    param(
-        [string]$InstallRoot
-    )
-
-    $lvlibpPath = Join-Path $InstallRoot 'resource\plugins\lv_icon.lvlibp'
-    $shipPath = Join-Path $InstallRoot 'resource\plugins\lv_icon.ship'
-
-    $shipExists = Test-Path -Path $shipPath
-    $lvlibpExists = Test-Path -Path $lvlibpPath
-
-    if ($shipExists -and -not $lvlibpExists) {
-        return 'enabled'
-    }
-    if (-not $shipExists -and $lvlibpExists) {
-        return 'disabled'
-    }
-
-    return 'unknown'
-}
-
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\RestoreSetupLVSource.vi'
 
@@ -119,19 +98,8 @@ if (-not (Test-Path -Path $viPath)) {
     throw "RestoreSetupLVSource.vi not found at $viPath"
 }
 
-$installRoot = Get-LabVIEWInstallRoot -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness
-if (-not $installRoot) {
+if (-not (Get-LabVIEWInstallRoot -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness)) {
     throw "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) install not found."
-}
-
-$devModeState = Get-DevModeState -InstallRoot $installRoot
-if ($devModeState -eq 'disabled') {
-    Write-Host "Development mode already disabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit); skipping RestoreSetupLVSource.vi."
-    return
-}
-
-if ($devModeState -eq 'unknown') {
-    throw "Unexpected LabVIEW state for $MinimumSupportedLVVersion ($SupportedBitness-bit). Ensure lv_icon.lvlibp or lv_icon.ship exists."
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
@@ -145,10 +113,32 @@ $gCliArgs = @(
 )
 
 Write-Host ("Executing: g-cli {0}" -f ($gCliArgs -join ' '))
-$output = & g-cli @gCliArgs 2>&1
-$exitCode = $LASTEXITCODE
+$previousErrorAction = $ErrorActionPreference
+$nativePreferenceSet = $false
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    $nativePreferenceSet = $true
+}
+
+$ErrorActionPreference = 'Continue'
+try {
+    $output = & g-cli @gCliArgs 2>&1
+    $exitCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorAction
+    if ($nativePreferenceSet) {
+        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    }
+}
 
 $output | ForEach-Object { Write-Host $_ }
+
+$combinedOutput = $output -join "`n"
+if ($combinedOutput -match '-593451') {
+    throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
+}
 
 if ($exitCode -ne 0) {
     throw "RestoreSetupLVSource.vi failed with exit code $exitCode."
@@ -165,5 +155,3 @@ Write-Host "Closing LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit)..
 if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
     throw "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
 }
-
-Write-Host "RestoreSetupLVSource.vi completed successfully." -ForegroundColor Green

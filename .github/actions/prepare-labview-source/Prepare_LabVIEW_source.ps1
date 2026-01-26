@@ -91,80 +91,6 @@ function Get-LabVIEWInstallRoot {
     return $null
 }
 
-function Get-DevModeState {
-    param(
-        [string]$InstallRoot
-    )
-
-    $lvlibpPath = Join-Path $InstallRoot 'resource\plugins\lv_icon.lvlibp'
-    $shipPath = Join-Path $InstallRoot 'resource\plugins\lv_icon.ship'
-
-    $shipExists = Test-Path -Path $shipPath
-    $lvlibpExists = Test-Path -Path $lvlibpPath
-
-    if ($shipExists -and -not $lvlibpExists) {
-        return 'enabled'
-    }
-    if (-not $shipExists -and $lvlibpExists) {
-        return 'disabled'
-    }
-
-    return 'unknown'
-}
-
-function Get-IniLibraryPaths {
-    param(
-        [string]$IniPath
-    )
-
-    if (-not (Test-Path -Path $IniPath)) {
-        return @()
-    }
-
-    $line = Get-Content -Path $IniPath | Where-Object { $_ -match '(?i)^\s*localhost\.librarypaths\s*=' } | Select-Object -First 1
-    if (-not $line) {
-        return @()
-    }
-
-    $value = $line -replace '(?i)^\s*localhost\.librarypaths\s*=\s*', ''
-    if ([string]::IsNullOrWhiteSpace($value)) {
-        return @()
-    }
-
-    return ($value -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-}
-
-function Test-LibraryPathContainsRepoRoot {
-    param(
-        [string]$IniPath,
-        [string]$RepoRoot
-    )
-
-    $repoRootNormalized = $null
-    try {
-        $repoRootNormalized = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-    }
-    catch {
-        $repoRootNormalized = $RepoRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-    }
-
-    foreach ($path in (Get-IniLibraryPaths -IniPath $IniPath)) {
-        $candidate = $null
-        try {
-            $candidate = [System.IO.Path]::GetFullPath($path).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-        }
-        catch {
-            $candidate = $path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-        }
-
-        if ($candidate.Equals($repoRootNormalized, [System.StringComparison]::OrdinalIgnoreCase)) {
-            return $true
-        }
-    }
-
-    return $false
-}
-
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\PrepareIESource.vi'
 
@@ -172,33 +98,8 @@ if (-not (Test-Path -Path $viPath)) {
     throw "PrepareIESource.vi not found at $viPath"
 }
 
-$installRoot = Get-LabVIEWInstallRoot -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness
-if (-not $installRoot) {
+if (-not (Get-LabVIEWInstallRoot -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness)) {
     throw "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) install not found."
-}
-
-$devModeState = Get-DevModeState -InstallRoot $installRoot
-if ($devModeState -eq 'enabled') {
-    $iniPath = Join-Path $installRoot 'LabVIEW.ini'
-    if (Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $repoRoot) {
-        Write-Host "Development mode already enabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit); INI token already points to repo root."
-        return
-    }
-
-    Write-Host "Development mode already enabled for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit), but INI token does not match repo root. Refreshing dev mode."
-    $restoreScript = Join-Path -Path $PSScriptRoot -ChildPath '..\restore-setup-lv-source\RestoreSetupLVSource.ps1'
-    if (-not (Test-Path -Path $restoreScript)) {
-        throw "RestoreSetupLVSource.ps1 not found at $restoreScript"
-    }
-
-    & $restoreScript -MinimumSupportedLVVersion $MinimumSupportedLVVersion -SupportedBitness $SupportedBitness -RelativePath $repoRoot
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-        throw "RestoreSetupLVSource.ps1 failed with exit code $LASTEXITCODE."
-    }
-}
-
-if ($devModeState -eq 'unknown') {
-    throw "Unexpected LabVIEW state for $MinimumSupportedLVVersion ($SupportedBitness-bit). Ensure lv_icon.lvlibp or lv_icon.ship exists."
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
@@ -212,10 +113,32 @@ $gCliArgs = @(
 )
 
 Write-Host ("Executing: g-cli {0}" -f ($gCliArgs -join ' '))
-$output = & g-cli @gCliArgs 2>&1
-$exitCode = $LASTEXITCODE
+$previousErrorAction = $ErrorActionPreference
+$nativePreferenceSet = $false
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    $nativePreferenceSet = $true
+}
+
+$ErrorActionPreference = 'Continue'
+try {
+    $output = & g-cli @gCliArgs 2>&1
+    $exitCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorAction
+    if ($nativePreferenceSet) {
+        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
+    }
+}
 
 $output | ForEach-Object { Write-Host $_ }
+
+$combinedOutput = $output -join "`n"
+if ($combinedOutput -match '-593450') {
+    throw "PrepareIESource.vi reported error -593450 (development mode could not be set)."
+}
 
 if ($exitCode -ne 0) {
     throw "PrepareIESource.vi failed with exit code $exitCode."
@@ -232,5 +155,3 @@ Write-Host "Closing LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit)..
 if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
     throw "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
 }
-
-Write-Host "PrepareIESource.vi completed successfully." -ForegroundColor Green

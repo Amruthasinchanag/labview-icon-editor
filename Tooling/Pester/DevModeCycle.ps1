@@ -5,8 +5,7 @@ param(
     [string]$LabVIEWVersion = '2021',
     [int]$PollSeconds = 2,
     [int]$TimeoutMinutes = 3,
-    [int]$RunTimeoutMinutes = 10,
-    [bool]$SkipDisableIfAlreadyDisabled = $true
+    [int]$RunTimeoutMinutes = 10
 )
 
 $ErrorActionPreference = 'Stop'
@@ -202,27 +201,11 @@ Assert-GhReady
 
 Wait-ForActiveRunToFinish
 
-$skipDisable = $false
-if ($SkipDisableIfAlreadyDisabled) {
-    $lastCompleted = Get-LastCompletedRun
-    if ($lastCompleted -and $lastCompleted.conclusion -eq 'success') {
-        $lastMode = Get-RunModeFromJobs -RunId $lastCompleted.databaseId
-        if ($lastMode -eq 'disable') {
-            $skipDisable = $true
-            Write-Host "Skipping disable: last successful run already disabled dev mode."
-        }
-    }
-}
-
-if (-not $skipDisable) {
-    $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
-    if (-not $baselineId) { $baselineId = 0 }
-    $baselineId = [long]$baselineId
-    Start-DevModeRun -Mode 'disable'
-    Wait-ForRun -BaselineId $baselineId -Mode 'disable'
-} else {
-    Write-Host 'Disable step skipped.'
-}
+$baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
+if (-not $baselineId) { $baselineId = 0 }
+$baselineId = [long]$baselineId
+Start-DevModeRun -Mode 'disable'
+Wait-ForRun -BaselineId $baselineId -Mode 'disable'
 
 $baselineId = (Get-LastCompletedRun | Select-Object -ExpandProperty databaseId) 2>$null
 if (-not $baselineId) { $baselineId = 0 }
@@ -230,4 +213,3 @@ $baselineId = [long]$baselineId
 Start-DevModeRun -Mode 'enable'
 Wait-ForRun -BaselineId $baselineId -Mode 'enable'
 
-Write-Host 'Dev mode cycle completed successfully.'
