@@ -128,6 +128,7 @@ These scripts run self-contained VIs that:
 - Close LabVIEW after each run so changes are picked up
 
 Automation relies only on `PrepareIESource.vi` and `RestoreSetupLVSource.vi`. Other INI-token tooling such as `Create_LV_INI_Token.vi` is not part of this repository.
+The only authoritative indicators of dev-mode failures are the VI error codes: `PrepareIESource.vi` returns `-593450` when development mode cannot be set, and `RestoreSetupLVSource.vi` returns `-593451` when development mode cannot be reverted. Avoid adding other indicators or helper checks.
 
 **To change** how "dev mode" behaves, **edit those scripts** directly. 
 

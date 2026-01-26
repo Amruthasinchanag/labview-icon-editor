@@ -85,5 +85,3 @@ try {
     exit 1
 }
 
-Write-Host "Development mode reverted." -ForegroundColor Green
-
