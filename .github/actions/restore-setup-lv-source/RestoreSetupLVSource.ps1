@@ -155,7 +155,8 @@ if ($combinedOutput -match '-593451') {
                 Write-Warning "Diagnostics guard bit (bit 7) is not set. Upstream logic may have changed."
             }
             $diagnosticsSummary = Format-DevModeDiagnosticsSummary -Diagnostics $diagnosticsInfo
-            if ($diagnosticsInfo.GuardBitSet -and $diagnosticsInfo.MissingPaths -and $diagnosticsInfo.MissingPaths.Count -eq 0) {
+            $missingCount = @($diagnosticsInfo.MissingPaths).Count
+            if ($diagnosticsInfo.GuardBitSet -and $missingCount -eq 0) {
                 Write-Warning "RestoreSetupLVSource.vi returned -593451 but no expected missing paths were detected. Development mode already appears reverted; treating as warning."
                 $ignoreExitCode = $true
             }
