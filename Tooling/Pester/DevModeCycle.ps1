@@ -97,6 +97,9 @@ function Wait-ForRunCompletion {
     if ($AllowFailureModes) {
         $allowFailure = $AllowFailureModes -contains $Mode
     }
+    if ($Mode -eq 'active') {
+        $allowFailure = $true
+    }
 
     do {
         $run = Get-RunSummary -RunId $RunId
