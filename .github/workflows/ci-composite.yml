@@ -36,6 +36,10 @@ jobs:
     name: Dev Mode Gate (2021 x64/x86)
     runs-on: self-hosted-windows-lv
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Enable Development Mode (2021 64-bit)
         id: enable_2021_x64
         continue-on-error: true
