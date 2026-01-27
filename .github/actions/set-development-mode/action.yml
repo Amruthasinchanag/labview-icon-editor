@@ -1,5 +1,16 @@
 name: "Set Development Mode"
 description: "Runs Set_Development_Mode.ps1 to configure the repo for development."
+inputs:
+  minimum_supported_lv_version:
+    description: 'LabVIEW major version (2020-2025)'
+    required: false
+    default: '2021'
+  supported_bitness:
+    description: 'LabVIEW bitness (32 or 64). Defaults to both when omitted.'
+    required: false
+  relative_path:
+    description: 'Workspace root path'
+    required: false
 runs:
   using: "composite"
   steps:
@@ -24,14 +35,3 @@ runs:
         }
 
         & "${{ github.action_path }}/Set_Development_Mode.ps1" @scriptArgs
-inputs:
-  minimum_supported_lv_version:
-    description: 'LabVIEW major version (2020-2025)'
-    required: false
-    default: '2021'
-  supported_bitness:
-    description: 'LabVIEW bitness (32 or 64). Defaults to both when omitted.'
-    required: false
-  relative_path:
-    description: 'Workspace root path'
-    required: false
