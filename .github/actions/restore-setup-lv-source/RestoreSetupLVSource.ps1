@@ -92,6 +92,14 @@ function Get-LabVIEWInstallRoot {
 }
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
+$diagnosticsScript = Join-Path -Path $repoRoot -ChildPath 'Tooling\DevModeDiagnostics.ps1'
+$diagnosticsLoaded = $false
+if (Test-Path -Path $diagnosticsScript) {
+    . $diagnosticsScript
+    $diagnosticsLoaded = $true
+} else {
+    Write-Warning "Dev-mode diagnostics helper not found at $diagnosticsScript"
+}
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\RestoreSetupLVSource.vi'
 
 if (-not (Test-Path -Path $viPath)) {
@@ -136,11 +144,39 @@ finally {
 $output | ForEach-Object { Write-Host $_ }
 
 $combinedOutput = $output -join "`n"
+$ignoreExitCode = $false
 if ($combinedOutput -match '-593451') {
-    throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
+    $diagnosticsSummary = $null
+    if (Get-Command Get-DevModeDiagnosticsFromOutput -ErrorAction SilentlyContinue) {
+        $diagnosticsInfo = Get-DevModeDiagnosticsFromOutput -Output $output
+        if ($diagnosticsInfo) {
+            Write-Host (Format-DevModeDiagnosticsReport -Diagnostics $diagnosticsInfo)
+            if (-not $diagnosticsInfo.GuardBitSet) {
+                Write-Warning "Diagnostics guard bit (bit 7) is not set. Upstream logic may have changed."
+            }
+            $diagnosticsSummary = Format-DevModeDiagnosticsSummary -Diagnostics $diagnosticsInfo
+            $missingCount = @($diagnosticsInfo.MissingPaths).Count
+            if ($diagnosticsInfo.GuardBitSet -and $missingCount -eq 0) {
+                Write-Warning "RestoreSetupLVSource.vi returned -593451 but no expected missing paths were detected. Development mode already appears reverted; treating as warning."
+                $ignoreExitCode = $true
+            }
+        } else {
+            Write-Warning "No dev-mode diagnostics bitmask detected in g-cli output."
+        }
+    } elseif (-not $diagnosticsLoaded) {
+        Write-Warning "Dev-mode diagnostics helper was not loaded."
+    }
+
+    if ($diagnosticsSummary -and -not $ignoreExitCode) {
+        throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted). $diagnosticsSummary"
+    }
+
+    if (-not $ignoreExitCode) {
+        throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
+    }
 }
 
-if ($exitCode -ne 0) {
+if (-not $ignoreExitCode -and $exitCode -ne 0) {
     throw "RestoreSetupLVSource.vi failed with exit code $exitCode."
 }
 

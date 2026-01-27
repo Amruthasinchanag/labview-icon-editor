@@ -22,12 +22,25 @@
 .PARAMETER PauseSeconds
     Optional delay between mode runs.
 
+.PARAMETER ContinueOnDevModeFailure
+    Continue iterations when a known dev-mode error (-593450/-593451) occurs.
+
+.PARAMETER CaptureTranscript
+    Capture host output to a transcript file alongside the iteration log.
+
+.PARAMETER TranscriptPath
+    Optional transcript path. If omitted and CaptureTranscript is set, a default
+    transcript file is created next to the iteration log.
+
 .PARAMETER RelativePath
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
 
 .EXAMPLE
     .\Tooling\DevModeIterate.ps1 -Iterations 3 -MinimumSupportedLVVersion 2021 -SupportedBitness 64
+
+.EXAMPLE
+    .\Tooling\DevModeIterate.ps1 -Iterations 1 -ModeSequence enable,enable,disable -ContinueOnDevModeFailure -CaptureTranscript
 #>
 
 param(
@@ -54,6 +67,15 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$LogPath,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$ContinueOnDevModeFailure,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$CaptureTranscript,
+
+    [Parameter(Mandatory = $false)]
+    [string]$TranscriptPath,
 
     [Parameter(Mandatory = $false)]
     [string]$RelativePath
@@ -117,35 +139,147 @@ function Write-IterationLog {
     Write-Host $line
 }
 
+function Resolve-TranscriptPath {
+    param(
+        [string]$LogPath,
+        [string]$TranscriptOverride
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($TranscriptOverride)) {
+        return $TranscriptOverride
+    }
+
+    if ([string]::IsNullOrWhiteSpace($LogPath)) {
+        return $null
+    }
+
+    if ($LogPath.ToLower().EndsWith('.log')) {
+        return ($LogPath.Substring(0, $LogPath.Length - 4) + '.transcript.log')
+    }
+
+    return ($LogPath + '.transcript.log')
+}
+
+function Test-IsDevModeFailure {
+    param(
+        [string[]]$OutputLines,
+        [string]$Message
+    )
+
+    $combined = ''
+    if ($OutputLines) {
+        $combined += ($OutputLines -join "`n")
+        $combined += "`n"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Message)) {
+        $combined += $Message
+    }
+
+    return ($combined -match '-593450' -or $combined -match '-593451')
+}
+
+function Invoke-DevModeScript {
+    param(
+        [string]$ScriptPath,
+        [hashtable]$Arguments
+    )
+
+    $outputLines = @()
+    $exitCode = $null
+    $exceptionMessage = $null
+
+    try {
+        $rawOutput = & $ScriptPath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+        foreach ($entry in $rawOutput) {
+            if ($null -ne $entry) {
+                $outputLines += [string]$entry
+            }
+        }
+    } catch {
+        $exceptionMessage = $_.Exception.Message
+    }
+
+    return [pscustomobject]@{
+        OutputLines      = $outputLines
+        ExitCode         = $exitCode
+        ExceptionMessage = $exceptionMessage
+    }
+}
+
 Write-IterationLog ("start version={0} bitness={1} iterations={2} sequence={3} log={4}" -f `
     $MinimumSupportedLVVersion, $SupportedBitness, $Iterations, ($ModeSequence -join ','), $logPathResolved)
 
-for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
-    foreach ($mode in $ModeSequence) {
-        Write-IterationLog ("iteration={0} mode={1} event=start" -f $iteration, $mode)
+$transcriptActive = $false
+$transcriptPathResolved = $null
+if ($CaptureTranscript -or -not [string]::IsNullOrWhiteSpace($TranscriptPath)) {
+    $transcriptPathResolved = Resolve-TranscriptPath -LogPath $logPathResolved -TranscriptOverride $TranscriptPath
+    if ($transcriptPathResolved) {
         try {
-            if ($mode -eq 'enable') {
-                & $setScript @scriptArgs
-            } else {
-                & $revertScript @scriptArgs
-            }
-
-            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-                throw "Dev mode $mode failed with exit code $LASTEXITCODE."
-            }
-            $exitCodeValue = if ($LASTEXITCODE -eq $null) { 'null' } else { [string]$LASTEXITCODE }
-            Write-IterationLog ("iteration={0} mode={1} event=finish exit_code={2}" -f $iteration, $mode, $exitCodeValue)
+            Start-Transcript -Path $transcriptPathResolved -Append | Out-Null
+            $transcriptActive = $true
+            Write-IterationLog ("transcript started path={0}" -f $transcriptPathResolved)
         } catch {
-            Write-IterationLog ("iteration={0} mode={1} event=error message={2}" -f $iteration, $mode, $($_.Exception.Message))
-            throw "Iteration $iteration failed while running mode '$mode': $($_.Exception.Message)"
-        }
-
-        if ($PauseSeconds -gt 0) {
-            Start-Sleep -Seconds $PauseSeconds
+            Write-IterationLog ("transcript_start_failed message={0}" -f $($_.Exception.Message))
         }
     }
-
-    Write-IterationLog ("iteration={0} event=cycle_complete" -f $iteration)
 }
 
-Write-IterationLog ("completed iterations={0}" -f $Iterations)
+try {
+    for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
+        foreach ($mode in $ModeSequence) {
+            Write-IterationLog ("iteration={0} mode={1} event=start" -f $iteration, $mode)
+
+            $scriptPath = if ($mode -eq 'enable') { $setScript } else { $revertScript }
+            $result = Invoke-DevModeScript -ScriptPath $scriptPath -Arguments $scriptArgs
+            $exitCodeValue = if ($null -eq $result.ExitCode) { 'null' } else { [string]$result.ExitCode }
+
+            $hasFailure = $false
+            $failureMessage = $null
+            if (-not [string]::IsNullOrWhiteSpace($result.ExceptionMessage)) {
+                $hasFailure = $true
+                $failureMessage = $result.ExceptionMessage
+            } elseif ($result.ExitCode -ne 0 -and $result.ExitCode -ne $null) {
+                $hasFailure = $true
+                $failureMessage = "Dev mode $mode failed with exit code $exitCodeValue."
+            }
+
+            if ($hasFailure) {
+                $isKnown = Test-IsDevModeFailure -OutputLines $result.OutputLines -Message $failureMessage
+                if ($ContinueOnDevModeFailure -and $isKnown) {
+                    Write-IterationLog ("iteration={0} mode={1} event=known_failure message={2}" -f $iteration, $mode, $failureMessage)
+                    if ($result.OutputLines -and $result.OutputLines.Count -gt 0) {
+                        $outputJoined = $result.OutputLines -join ' | '
+                        Write-IterationLog ("iteration={0} mode={1} event=output message={2}" -f $iteration, $mode, $outputJoined)
+                    }
+                } else {
+                    Write-IterationLog ("iteration={0} mode={1} event=error message={2}" -f $iteration, $mode, $failureMessage)
+                    if ($result.OutputLines -and $result.OutputLines.Count -gt 0) {
+                        $outputJoined = $result.OutputLines -join ' | '
+                        Write-IterationLog ("iteration={0} mode={1} event=output message={2}" -f $iteration, $mode, $outputJoined)
+                    }
+                    throw "Iteration $iteration failed while running mode '$mode': $failureMessage"
+                }
+            } else {
+                Write-IterationLog ("iteration={0} mode={1} event=finish exit_code={2}" -f $iteration, $mode, $exitCodeValue)
+            }
+
+            if ($PauseSeconds -gt 0) {
+                Start-Sleep -Seconds $PauseSeconds
+            }
+        }
+
+        Write-IterationLog ("iteration={0} event=cycle_complete" -f $iteration)
+    }
+
+    Write-IterationLog ("completed iterations={0}" -f $Iterations)
+} finally {
+    if ($transcriptActive) {
+        try {
+            Stop-Transcript | Out-Null
+            Write-IterationLog ("transcript stopped path={0}" -f $transcriptPathResolved)
+        } catch {
+            Write-IterationLog ("transcript_stop_failed message={0}" -f $($_.Exception.Message))
+        }
+    }
+}
