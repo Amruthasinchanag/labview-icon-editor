@@ -32,8 +32,50 @@ on:
         type: string
 
 jobs:
+  dev-mode-gate:
+    name: Dev Mode Gate (2021 x64/x86)
+    runs-on: self-hosted-windows-lv
+    steps:
+      - name: Enable Development Mode (2021 64-bit)
+        id: enable_2021_x64
+        continue-on-error: true
+        uses: ./.github/actions/set-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
+          relative_path: ${{ github.workspace }}
+      - name: Enable Development Mode (2021 32-bit)
+        id: enable_2021_x86
+        continue-on-error: true
+        uses: ./.github/actions/set-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
+          relative_path: ${{ github.workspace }}
+      - name: Revert Development Mode (2021 64-bit)
+        if: steps.enable_2021_x64.outcome == 'success'
+        uses: ./.github/actions/revert-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
+          relative_path: ${{ github.workspace }}
+      - name: Revert Development Mode (2021 32-bit)
+        if: steps.enable_2021_x86.outcome == 'success'
+        uses: ./.github/actions/revert-development-mode
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
+          relative_path: ${{ github.workspace }}
+      - name: Fail gate if dev mode could not be enabled
+        if: steps.enable_2021_x64.outcome != 'success' || steps.enable_2021_x86.outcome != 'success'
+        shell: pwsh
+        run: |
+          Write-Error "Development mode gate failed. 64-bit=${{ steps.enable_2021_x64.outcome }} 32-bit=${{ steps.enable_2021_x86.outcome }}"
+          exit 1
+
   changes:
     name: Detect VIPC changes
+    needs: dev-mode-gate
     runs-on: ubuntu-latest
     outputs:
       vipc: ${{ steps.filter.outputs.vipc }}
@@ -112,6 +154,7 @@ jobs:
 
   version:
     name: Compute Version
+    needs: dev-mode-gate
     runs-on: self-hosted-windows-lv
     outputs:
       VERSION:       ${{ steps.compute.outputs.VERSION }}
