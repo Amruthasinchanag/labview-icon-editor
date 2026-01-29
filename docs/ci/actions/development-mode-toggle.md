@@ -127,6 +127,10 @@ These scripts run self-contained VIs that:
 - Set or remove the LabVIEW INI token for local sources
 - Close LabVIEW after each run so changes are picked up
 
+Both scripts accept optional timeout parameters:
+- `-ConnectTimeoutMs` controls g-cli's connection timeout (0 disables it).
+- `-ProcessTimeoutMs` enforces a hard limit for the g-cli process (0 disables it).
+
 Automation relies only on `PrepareIESource.vi` and `RestoreSetupLVSource.vi`. Other INI-token tooling such as `Create_LV_INI_Token.vi` is not part of this repository.
 The only authoritative indicators of dev-mode failures are the VI error codes: `PrepareIESource.vi` returns `-593450` when development mode cannot be set, and `RestoreSetupLVSource.vi` returns `-593451` when development mode cannot be reverted. Avoid adding other indicators or helper checks.
 
@@ -138,7 +142,13 @@ When development mode fails, the VI error source string prints a **comma-separat
 You can run the integration tests locally on a runner that has LabVIEW 2025 (64-bit) installed:
 
 ```powershell
-pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2025 -LabVIEWBitness 64
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2025 -LabVIEWBitness 64 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
+```
+
+To include the dev-mode integration tests (enable/disable dev mode and VerifyIEPaths checks):
+
+```powershell
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -RunDevModeTests -LabVIEWVersion 2025 -LabVIEWBitness 64 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
 ```
 
 ### Pull Requests with Script Updates
