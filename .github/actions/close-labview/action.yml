@@ -14,7 +14,8 @@ runs:
       run: |
         & "${{ github.action_path }}/Close_LabVIEW.ps1" `
           -MinimumSupportedLVVersion ${{ inputs.minimum_supported_lv_version }} `
-          -SupportedBitness ${{ inputs.supported_bitness }}
+          -SupportedBitness ${{ inputs.supported_bitness }} `
+          -TimeoutSeconds ${{ inputs.timeout_seconds }}
 inputs:
   minimum_supported_lv_version:
     description: 'LabVIEW major version'
@@ -22,3 +23,7 @@ inputs:
   supported_bitness:
     description: '32 or 64'
     required: true
+  timeout_seconds:
+    description: 'How long to wait for LabVIEW to exit before failing'
+    required: false
+    default: 120
