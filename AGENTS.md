@@ -20,13 +20,14 @@ Run the local parity script that mirrors `ci-composite.yml`:
 pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 `
   -LabVIEWVersion 2021 `
   -LabVIEWBuildVersion 2023 `
-  -Bitnesses 64,32 `
   -EnsureCleanState
 ```
 
 Notes:
 - Outputs go to `TestResults\ci-local`.
+- The script always runs both 64-bit and 32-bit steps for LabVIEW 2021.
 - The script handles Verify IE Paths, VIPC, missing-in-project, unit tests, PPL builds, and VIP build.
+- If LabVIEW or g-cli is already running, the script waits for them to exit before starting.
 - You can skip steps with switches like `-SkipBuildVip` or `-SkipUnitTests`.
 
 ## Adaptive timeouts and continuous troubleshooting
@@ -52,7 +53,7 @@ New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logFile = Join-Path $logRoot "run-$timestamp.log"
 $csv = Join-Path $logRoot 'run-history.csv'
-$command = 'pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -Bitnesses 64,32 -EnsureCleanState'
+$command = 'pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -EnsureCleanState'
 
 $start = Get-Date
 Start-Transcript -Path $logFile -Append | Out-Null
@@ -103,7 +104,7 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
     continue
   }
 
-  $command = "pwsh -NoProfile -File .\\Tooling\\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -Bitnesses 64,32 -EnsureCleanState -ConnectTimeoutMs $connectTimeout -ProcessTimeoutMs $processTimeout"
+  $command = "pwsh -NoProfile -File .\\Tooling\\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -EnsureCleanState -ConnectTimeoutMs $connectTimeout -ProcessTimeoutMs $processTimeout"
 
   Start-Transcript -Path $logFile -Append | Out-Null
   try {

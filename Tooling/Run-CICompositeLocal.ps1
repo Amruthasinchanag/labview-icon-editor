@@ -20,9 +20,6 @@
 .PARAMETER LabVIEWBuildVersion
     LabVIEW major version for VIP build steps (default: 2023).
 
-.PARAMETER Bitnesses
-    Bitnesses to run for 2021 steps (default: 64,32).
-
 .PARAMETER SkipVerifyIEPaths
     Skip the Verify IE Paths gate.
 
@@ -94,10 +91,6 @@ param(
     [ValidateSet('2021', '2023', '2024', '2025')]
     [string]$LabVIEWBuildVersion = '2023',
 
-    [Parameter(Mandatory = $false)]
-    [ValidateSet('32', '64', IgnoreCase = $true)]
-    [string[]]$Bitnesses = @('64', '32'),
-
     [switch]$SkipVerifyIEPaths,
     [switch]$EnsureCleanState,
     [switch]$SkipVipc,
@@ -155,6 +148,35 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Ensure-CsvHeader {
+    param(
+        [string]$Path,
+        [string]$Header
+    )
+
+    if (-not (Test-Path -Path $Path)) {
+        $Header | Set-Content -Path $Path
+    }
+}
+
+function Wait-ForIdle {
+    param([string]$RunHistoryPath)
+
+    while ($true) {
+        $running = Get-Process -Name g-cli,LabVIEW -ErrorAction SilentlyContinue
+        if (-not $running) {
+            return
+        }
+
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Write-Host ("Waiting for existing g-cli/LabVIEW processes to exit ({0} running)..." -f $running.Count)
+        if ($RunHistoryPath) {
+            "{0},{1},{2},{3}" -f $timestamp, 'wait', 'processes_running', $running.Count | Add-Content -Path $RunHistoryPath
+        }
+        Start-Sleep -Seconds 30
+    }
+}
 
 function Resolve-RepoRoot {
     param([string]$PathOverride)
@@ -215,11 +237,33 @@ function Invoke-Checked {
         [string]$Label,
         [scriptblock]$Action
     )
+    $stepStart = Get-Date
+    $exitCode = $null
+    $stepError = $null
+
     Write-Host ""
     Write-Host ("=== {0} ===" -f $Label)
-    & $Action
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-        throw "$Label failed with exit code $LASTEXITCODE."
+    try {
+        $global:LASTEXITCODE = $null
+        & $Action
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        $stepError = $_
+    }
+
+    $duration = [Math]::Round((Get-Date - $stepStart).TotalSeconds, 2)
+    $status = if ($stepError) { 'error' } elseif ($exitCode -eq $null -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
+    if ($script:StepHistoryPath) {
+        "{0},{1},{2},{3}" -f $stepStart.ToString('yyyy-MM-dd HH:mm:ss'), ($Label -replace ',', ' '), $status, $duration | Add-Content -Path $script:StepHistoryPath
+    }
+    Write-Host ("=== {0} completed in {1}s ===" -f $Label, $duration)
+
+    if ($stepError) {
+        throw $stepError
+    }
+    if ($exitCode -ne 0 -and $exitCode -ne $null) {
+        throw "$Label failed with exit code $exitCode."
     }
 }
 
@@ -323,15 +367,21 @@ function Get-DisplayInformationJson {
 }
 
 function Copy-LatestVipToBuilds {
-    param([string]$RepoRoot)
+    param(
+        [string]$RepoRoot,
+        [datetime]$Since
+    )
 
     $buildsDir = Join-Path $RepoRoot 'builds'
     $vipDir = Join-Path $buildsDir 'VI Package'
     New-Item -Path $vipDir -ItemType Directory -Force | Out-Null
 
-    $latestVip = Get-ChildItem -Path $RepoRoot -Recurse -Filter *.vip -ErrorAction SilentlyContinue |
-        Sort-Object -Property LastWriteTime -Descending |
-        Select-Object -First 1
+    $vipCandidates = Get-ChildItem -Path $RepoRoot -Recurse -Filter *.vip -ErrorAction SilentlyContinue
+    if ($Since) {
+        $vipCandidates = $vipCandidates | Where-Object { $_.LastWriteTime -ge $Since }
+    }
+
+    $latestVip = $vipCandidates | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1
 
     if (-not $latestVip) {
         Write-Warning "No .vip file found under $RepoRoot."
@@ -349,14 +399,53 @@ function Copy-LatestVipToBuilds {
     return $targetPath
 }
 
+function Write-GCliBuildLogTail {
+    param(
+        [string]$RepoRoot,
+        [int]$TailLines = 120
+    )
+
+    $logFile = Join-Path $RepoRoot 'builds/logs/gcli-build.log'
+    if (-not (Test-Path -Path $logFile)) {
+        Write-Host ("g-cli build log not found at {0}" -f $logFile)
+        return
+    }
+
+    Write-Host ("---- g-cli build log (last {0} lines) ----" -f $TailLines)
+    Get-Content -Path $logFile -Tail $TailLines | ForEach-Object { Write-Host $_ }
+    Write-Host "---- end g-cli build log ----"
+}
+
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
 Push-Location -Path $repoRoot
+$script:RunFailed = $false
+$runStart = Get-Date
+$runTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$logRoot = Join-Path $repoRoot 'TestResults/agent-logs'
+New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
+$script:RunHistoryPath = Join-Path $logRoot 'run-history.csv'
+$script:StepHistoryPath = Join-Path $logRoot 'step-history.csv'
+Ensure-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration_seconds,command'
+Ensure-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
+$runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
+$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBuildVersion $LabVIEWBuildVersion -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds"
+$script:TranscriptStarted = $false
+try {
+    Start-Transcript -Path $runLog -Append | Out-Null
+    $script:TranscriptStarted = $true
+}
+catch {
+    Write-Warning "Failed to start transcript logging to $runLog. Continuing without transcript."
+}
+
 try {
     if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
         throw "g-cli.exe not found in PATH."
     }
 
-    $bitnessList = $Bitnesses | Select-Object -Unique
+    Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
+
+    $bitnessList = @('64', '32')
     foreach ($bitness in $bitnessList) {
         Assert-LabVIEWInstalled -Version $LabVIEWVersion -Bitness $bitness
     }
@@ -567,6 +656,8 @@ try {
     }
 
     if (-not $SkipBuildVip) {
+        $vipBuildStart = Get-Date
+
         Invoke-Checked -Label "Generate release notes" -Action {
             & (Join-Path $repoRoot '.github/actions/generate-release-notes/GenerateReleaseNotes.ps1') `
                 -OutputPath $ReleaseNotesPath
@@ -590,24 +681,34 @@ try {
                 -DisplayInformationJSON $displayInfo
         }
 
-        Invoke-Checked -Label "Build VIP (LV$LabVIEWBuildVersion 64-bit)" -Action {
-            & (Join-Path $repoRoot '.github/actions/build-vip/build_vip.ps1') `
-                -SupportedBitness 64 `
-                -RelativePath $repoRoot `
-                -VIPBPath $VipbPath `
-                -MinimumSupportedLVVersion $LabVIEWBuildVersion `
-                -LabVIEWMinorRevision 3 `
-                -Major $versionInfo.Major `
-                -Minor $versionInfo.Minor `
-                -Patch $versionInfo.Patch `
-                -Build $versionInfo.Build `
-                -Commit $versionInfo.Commit `
-                -ReleaseNotesFile (Join-Path $repoRoot $ReleaseNotesPath) `
-                -DisplayInformationJSON $displayInfo `
-                -VipmTimeoutSeconds $VipmTimeoutSeconds
+        try {
+            Invoke-Checked -Label "Build VIP (LV$LabVIEWBuildVersion 64-bit)" -Action {
+                & (Join-Path $repoRoot '.github/actions/build-vip/build_vip.ps1') `
+                    -SupportedBitness 64 `
+                    -RelativePath $repoRoot `
+                    -VIPBPath $VipbPath `
+                    -MinimumSupportedLVVersion $LabVIEWBuildVersion `
+                    -LabVIEWMinorRevision 3 `
+                    -Major $versionInfo.Major `
+                    -Minor $versionInfo.Minor `
+                    -Patch $versionInfo.Patch `
+                    -Build $versionInfo.Build `
+                    -Commit $versionInfo.Commit `
+                    -ReleaseNotesFile (Join-Path $repoRoot $ReleaseNotesPath) `
+                    -DisplayInformationJSON $displayInfo `
+                    -VipmTimeoutSeconds $VipmTimeoutSeconds
+            }
+        }
+        catch {
+            Write-GCliBuildLogTail -RepoRoot $repoRoot
+            throw
         }
 
-        Copy-LatestVipToBuilds -RepoRoot $repoRoot | Out-Null
+        $vipOutput = Copy-LatestVipToBuilds -RepoRoot $repoRoot -Since $vipBuildStart
+        if (-not $vipOutput) {
+            Write-GCliBuildLogTail -RepoRoot $repoRoot
+            throw "VIP build did not produce a .vip after $($vipBuildStart.ToString('yyyy-MM-dd HH:mm:ss'))."
+        }
 
         Invoke-Checked -Label "Close LabVIEW $LabVIEWBuildVersion (64-bit)" -Action {
             & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
@@ -619,6 +720,27 @@ try {
     Write-Host ""
     Write-Host "Local CI parity run completed successfully."
 }
+catch {
+    $script:RunFailed = $true
+    throw
+}
 finally {
+    if ($script:TranscriptStarted) {
+        try {
+            Stop-Transcript | Out-Null
+        }
+        catch {
+            # ignore transcript failures
+        }
+    }
+    $runDuration = [Math]::Round((Get-Date - $runStart).TotalSeconds, 2)
+    $runStatus = if ($script:RunFailed) {
+        'error'
+    } elseif ($LASTEXITCODE -eq $null -or $LASTEXITCODE -eq 0) {
+        'success'
+    } else {
+        "exit:$LASTEXITCODE"
+    }
+    "{0},{1},{2},{3}" -f $runTimestamp, $runStatus, $runDuration, ($commandLine -replace ',', ' ') | Add-Content -Path $script:RunHistoryPath
     Pop-Location
 }

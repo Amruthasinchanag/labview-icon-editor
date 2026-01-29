@@ -165,7 +165,7 @@ Although GitHub Actions primarily run on GitHub-hosted or self-hosted agents, yo
 You can also run a local parity pass of `ci-composite.yml` using the helper script:
 
 ```
-pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -Bitnesses 64,32 -EnsureCleanState
+pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -EnsureCleanState
 ```
 
 This runs Verify IE Paths, applies VIPC dependencies, runs missing-in-project checks and unit tests for both bitnesses, builds PPLs, and builds the VI package. Outputs are saved to `TestResults/ci-local`.
