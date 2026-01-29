@@ -32,8 +32,43 @@ on:
         type: string
 
 jobs:
+  dev-mode-gate:
+    name: Verify IE Paths Gate (2021 ${{ matrix.bitness }}-bit)
+    runs-on: self-hosted-windows-lv
+    strategy:
+      fail-fast: false
+      matrix:
+        bitness: ["64", "32"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Initialize VerifyIEPaths archive folder
+        shell: pwsh
+        run: |
+          New-Item -Path "$env:RUNNER_TEMP\\verify-iepaths" -ItemType Directory -Force | Out-Null
+      - name: Verify IE Paths (2021 ${{ matrix.bitness }}-bit)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ${{ github.workspace }}\Tooling\Invoke-MissingIEFilesFromLVInstall.ps1 `
+            -MinimumSupportedLVVersion 2021 `
+            -SupportedBitness ${{ matrix.bitness }} `
+            -RelativePath ${{ github.workspace }} `
+            -ConnectTimeoutMs 180000 `
+            -ProcessTimeoutMs 300000 `
+            -StatusFileTimeoutMs 60000 `
+            -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths"
+      - name: Upload VerifyIEPaths status (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-iepaths-${{ matrix.bitness }}-bit
+          path: ${{ runner.temp }}\verify-iepaths
+
   changes:
     name: Detect VIPC changes
+    needs: dev-mode-gate
     runs-on: ubuntu-latest
     outputs:
       vipc: ${{ steps.filter.outputs.vipc }}
@@ -112,6 +147,7 @@ jobs:
 
   version:
     name: Compute Version
+    needs: dev-mode-gate
     runs-on: self-hosted-windows-lv
     outputs:
       VERSION:       ${{ steps.compute.outputs.VERSION }}
@@ -257,8 +293,8 @@ jobs:
 
   build-vip:
     name: Build VI Package
-    # Chain after 32-bit build, which already depends on 64-bit, to enforce x64 -> x86 -> build-vip ordering
-    needs: [build-ppl-x86, version]
+    # Chain after close-lv-2021-before-vip, which depends on 32-bit (and thus 64-bit) PPL builds.
+    needs: [close-lv-2021-before-vip, version]
     runs-on: self-hosted-windows-lv
     steps:
       - uses: actions/checkout@v4
@@ -380,3 +416,17 @@ jobs:
           } else {
             Write-Host ("Tag validation ok: {0}" -f $provided)
           }
+
+  close-lv-2021-before-vip:
+    name: Close LabVIEW 2021 before VI Package
+    needs: build-ppl-x86
+    runs-on: self-hosted-windows-lv
+    steps:
+      - uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
+      - uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
