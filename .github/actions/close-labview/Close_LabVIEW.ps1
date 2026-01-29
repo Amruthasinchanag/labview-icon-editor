@@ -17,7 +17,9 @@
 #>
 param(
     [string]$MinimumSupportedLVVersion,
-    [string]$SupportedBitness
+    [string]$SupportedBitness,
+    [ValidateRange(5, 600)]
+    [int]$TimeoutSeconds = 30
 )
 
 $ErrorActionPreference = 'Stop'
@@ -58,12 +60,50 @@ function Invoke-SafeQuitLabVIEW {
 
 function Wait-ForLabVIEWExit {
     param(
+        [string]$Version,
+        [string]$Bitness,
         [int]$TimeoutSeconds = 30
     )
 
+    $installRoot = $null
+    if ($Bitness -eq '32') {
+        $installRoot = "C:\Program Files (x86)\National Instruments\LabVIEW $Version"
+    } else {
+        $installRoot = "C:\Program Files\National Instruments\LabVIEW $Version"
+    }
+
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
-        $running = Get-Process -Name LabVIEW -ErrorAction SilentlyContinue
+        $running = @()
+        try {
+            $running = Get-CimInstance Win32_Process -Filter "Name='LabVIEW.exe'" -ErrorAction Stop
+        } catch {
+            $running = @()
+        }
+
+        if ($running.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($installRoot)) {
+            $running = $running | Where-Object {
+                $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)
+            }
+        }
+
+        if (-not $running -or $running.Count -eq 0) {
+            $running = Get-Process -Name LabVIEW -ErrorAction SilentlyContinue
+            if ($running -and -not [string]::IsNullOrWhiteSpace($installRoot)) {
+                $filtered = @()
+                foreach ($process in $running) {
+                    $path = $null
+                    try { $path = $process.Path } catch { }
+                    if ($path -and $path.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        $filtered += $process
+                    }
+                }
+                if ($filtered.Count -gt 0) {
+                    $running = $filtered
+                }
+            }
+        }
+
         if (-not $running) {
             return $true
         }
@@ -75,8 +115,8 @@ function Wait-ForLabVIEWExit {
 
 try {
     Invoke-SafeQuitLabVIEW -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness
-    if (-not (Wait-ForLabVIEWExit -TimeoutSeconds 30)) {
-        throw "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) did not exit within 30 seconds."
+    if (-not (Wait-ForLabVIEWExit -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness -TimeoutSeconds $TimeoutSeconds)) {
+        throw "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) did not exit within $TimeoutSeconds seconds."
     }
     Write-Host "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) closed or not running."
 }

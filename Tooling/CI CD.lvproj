@@ -16,13 +16,14 @@
 		<Item Name="G-CLI" Type="Folder">
 			<Item Name="PrepareIESource.vi" Type="VI" URL="../PrepareIESource.vi"/>
 			<Item Name="RestoreSetupLVSource.vi" Type="VI" URL="../RestoreSetupLVSource.vi"/>
+			<Item Name="VerifyIEPaths.vi" Type="VI" URL="../VerifyIEPaths.vi"/>
 		</Item>
 		<Item Name="support" Type="Folder">
 			<Item Name="Add dev dist if present.vi" Type="VI" URL="../support/Add dev dist if present.vi"/>
 			<Item Name="Add Files to Archive.vi" Type="VI" URL="../support/Add Files to Archive.vi"/>
 			<Item Name="Delete Icon Editor from LV Installation.vi" Type="VI" URL="../support/Delete Icon Editor from LV Installation.vi"/>
-			<Item Name="GenerateIEDevModeDiagnosticsCode.vi" Type="VI" URL="../GenerateIEDevModeDiagnosticsCode.vi"/>
 			<Item Name="Get Paths to Icon Editor Files in LV Installation.vi" Type="VI" URL="../support/Get Paths to Icon Editor Files in LV Installation.vi"/>
+			<Item Name="MissingIEFilesFromLVInstall.vi" Type="VI" URL="../MissingIEFilesFromLVInstall.vi"/>
 			<Item Name="Prompt to Confirm Archival.vi" Type="VI" URL="../support/Prompt to Confirm Archival.vi"/>
 			<Item Name="Set LibraryPaths to Include Icon Editor.vi" Type="VI" URL="../support/Set LibraryPaths to Include Icon Editor.vi"/>
 		</Item>

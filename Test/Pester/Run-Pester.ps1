@@ -1,6 +1,17 @@
 param(
-    [ValidateSet('2021')]
-    [string]$LabVIEWVersion = '2021',
+    [ValidateSet('2025')]
+    [string]$LabVIEWVersion = '2025',
+
+    [ValidateSet('64')]
+    [string]$LabVIEWBitness = '64',
+
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 120000,
+
+    [ValidateRange(0, 1200000)]
+    [int]$ProcessTimeoutMs = 300000,
+
+    [switch]$RunDevModeTests,
 
     [switch]$CI
 )
@@ -9,6 +20,16 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path -Path (Join-Path $PSScriptRoot '..\..')
 $env:LABVIEW_VERSION = $LabVIEWVersion
+$env:LABVIEW_BITNESS = $LabVIEWBitness
+$env:LABVIEW_CONNECT_TIMEOUT_MS = $ConnectTimeoutMs.ToString()
+$env:LABVIEW_PROCESS_TIMEOUT_MS = $ProcessTimeoutMs.ToString()
+if ($PSBoundParameters.ContainsKey('RunDevModeTests')) {
+    if ($RunDevModeTests) {
+        $env:RUN_DEV_MODE_TESTS = '1'
+    } else {
+        Remove-Item Env:RUN_DEV_MODE_TESTS -ErrorAction SilentlyContinue
+    }
+}
 
 $configuration = New-PesterConfiguration
 $configuration.Run.Path = $PSScriptRoot

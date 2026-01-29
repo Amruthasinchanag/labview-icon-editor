@@ -33,49 +33,38 @@ on:
 
 jobs:
   dev-mode-gate:
-    name: Dev Mode Gate (2021 x64/x86)
+    name: Verify IE Paths Gate (2021 ${{ matrix.bitness }}-bit)
     runs-on: self-hosted-windows-lv
+    strategy:
+      fail-fast: false
+      matrix:
+        bitness: ["64", "32"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Enable Development Mode (2021 64-bit)
-        id: enable_2021_x64
-        continue-on-error: true
-        uses: ./.github/actions/set-development-mode
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 64
-          relative_path: ${{ github.workspace }}
-      - name: Enable Development Mode (2021 32-bit)
-        id: enable_2021_x86
-        continue-on-error: true
-        uses: ./.github/actions/set-development-mode
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 32
-          relative_path: ${{ github.workspace }}
-      - name: Revert Development Mode (2021 64-bit)
-        if: steps.enable_2021_x64.outcome == 'success'
-        uses: ./.github/actions/revert-development-mode
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 64
-          relative_path: ${{ github.workspace }}
-      - name: Revert Development Mode (2021 32-bit)
-        if: steps.enable_2021_x86.outcome == 'success'
-        uses: ./.github/actions/revert-development-mode
-        with:
-          minimum_supported_lv_version: 2021
-          supported_bitness: 32
-          relative_path: ${{ github.workspace }}
-      - name: Fail gate if dev mode could not be enabled
-        if: steps.enable_2021_x64.outcome != 'success' || steps.enable_2021_x86.outcome != 'success'
+      - name: Initialize VerifyIEPaths archive folder
         shell: pwsh
         run: |
-          Write-Error "Development mode gate failed. 64-bit=${{ steps.enable_2021_x64.outcome }} 32-bit=${{ steps.enable_2021_x86.outcome }}"
-          exit 1
+          New-Item -Path "$env:RUNNER_TEMP\\verify-iepaths" -ItemType Directory -Force | Out-Null
+      - name: Verify IE Paths (2021 ${{ matrix.bitness }}-bit)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ${{ github.workspace }}\Tooling\Invoke-MissingIEFilesFromLVInstall.ps1 `
+            -MinimumSupportedLVVersion 2021 `
+            -SupportedBitness ${{ matrix.bitness }} `
+            -RelativePath ${{ github.workspace }} `
+            -ConnectTimeoutMs 180000 `
+            -ProcessTimeoutMs 300000 `
+            -StatusFileTimeoutMs 60000 `
+            -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths"
+      - name: Upload VerifyIEPaths status (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-iepaths-${{ matrix.bitness }}-bit
+          path: ${{ runner.temp }}\verify-iepaths
 
   changes:
     name: Detect VIPC changes

@@ -18,6 +18,12 @@
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
 
+.PARAMETER ConnectTimeoutMs
+    g-cli connect timeout in milliseconds (0 disables the timeout).
+
+.PARAMETER ProcessTimeoutMs
+    Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
+
 .EXAMPLE
     .\RestoreSetupLVSource.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64"
 #>
@@ -32,7 +38,15 @@ param(
     [string]$SupportedBitness,
 
     [Parameter(Mandatory = $false)]
-    [string]$RelativePath
+    [string]$RelativePath,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 120000,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 1200000)]
+    [int]$ProcessTimeoutMs = 300000
 )
 
 $ErrorActionPreference = 'Stop'
@@ -92,13 +106,18 @@ function Get-LabVIEWInstallRoot {
 }
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
-$diagnosticsScript = Join-Path -Path $repoRoot -ChildPath 'Tooling\DevModeDiagnostics.ps1'
-$diagnosticsLoaded = $false
-if (Test-Path -Path $diagnosticsScript) {
-    . $diagnosticsScript
-    $diagnosticsLoaded = $true
+$gCliRunner = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\GcliRunner.ps1'
+if (-not (Test-Path -Path $gCliRunner)) {
+    throw "g-cli helper not found at $gCliRunner"
+}
+. $gCliRunner
+$missingPathsScript = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\DevModeMissingPaths.ps1'
+$missingPathsLoaded = $false
+if (Test-Path -Path $missingPathsScript) {
+    . $missingPathsScript
+    $missingPathsLoaded = $true
 } else {
-    Write-Warning "Dev-mode diagnostics helper not found at $diagnosticsScript"
+    Write-Warning "Dev-mode missing paths helper not found at $missingPathsScript"
 }
 $viPath = Join-Path -Path $repoRoot -ChildPath 'Tooling\RestoreSetupLVSource.vi'
 
@@ -114,80 +133,78 @@ if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
     throw "g-cli.exe not found in PATH."
 }
 
+$gCliPath = (Get-Command g-cli -ErrorAction SilentlyContinue).Source
+
 $gCliArgs = @(
     '--lv-ver', $MinimumSupportedLVVersion,
     '--arch', $SupportedBitness,
     '-v', $viPath
 )
 
+if ($ConnectTimeoutMs -gt 0) {
+    $gCliArgs = @('--connect-timeout', $ConnectTimeoutMs) + $gCliArgs
+}
+
 Write-Host ("Executing: g-cli {0}" -f ($gCliArgs -join ' '))
-$previousErrorAction = $ErrorActionPreference
-$nativePreferenceSet = $false
-if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
-    $previousNativePreference = $PSNativeCommandUseErrorActionPreference
-    $PSNativeCommandUseErrorActionPreference = $false
-    $nativePreferenceSet = $true
-}
-
-$ErrorActionPreference = 'Continue'
-try {
-    $output = & g-cli @gCliArgs 2>&1
-    $exitCode = $LASTEXITCODE
-}
-finally {
-    $ErrorActionPreference = $previousErrorAction
-    if ($nativePreferenceSet) {
-        $PSNativeCommandUseErrorActionPreference = $previousNativePreference
-    }
-}
-
-$output | ForEach-Object { Write-Host $_ }
-
-$combinedOutput = $output -join "`n"
-$ignoreExitCode = $false
-if ($combinedOutput -match '-593451') {
-    $diagnosticsSummary = $null
-    if (Get-Command Get-DevModeDiagnosticsFromOutput -ErrorAction SilentlyContinue) {
-        $diagnosticsInfo = Get-DevModeDiagnosticsFromOutput -Output $output
-        if ($diagnosticsInfo) {
-            Write-Host (Format-DevModeDiagnosticsReport -Diagnostics $diagnosticsInfo)
-            if (-not $diagnosticsInfo.GuardBitSet) {
-                Write-Warning "Diagnostics guard bit (bit 7) is not set. Upstream logic may have changed."
-            }
-            $diagnosticsSummary = Format-DevModeDiagnosticsSummary -Diagnostics $diagnosticsInfo
-            $missingCount = @($diagnosticsInfo.MissingPaths).Count
-            if ($diagnosticsInfo.GuardBitSet -and $missingCount -eq 0) {
-                Write-Warning "RestoreSetupLVSource.vi returned -593451 but no expected missing paths were detected. Development mode already appears reverted; treating as warning."
-                $ignoreExitCode = $true
-            }
-        } else {
-            Write-Warning "No dev-mode diagnostics bitmask detected in g-cli output."
-        }
-    } elseif (-not $diagnosticsLoaded) {
-        Write-Warning "Dev-mode diagnostics helper was not loaded."
-    }
-
-    if ($diagnosticsSummary -and -not $ignoreExitCode) {
-        throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted). $diagnosticsSummary"
-    }
-
-    if (-not $ignoreExitCode) {
-        throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted)."
-    }
-}
-
-if (-not $ignoreExitCode -and $exitCode -ne 0) {
-    throw "RestoreSetupLVSource.vi failed with exit code $exitCode."
-}
-
 $closeScript = Join-Path -Path $PSScriptRoot -ChildPath '..\close-labview\Close_LabVIEW.ps1'
-if (-not (Test-Path -Path $closeScript)) {
-    throw "Close_LabVIEW.ps1 not found at $closeScript"
+$failure = $null
+$closeFailure = $null
+try {
+    $result = Invoke-GCliCommand -ExecutablePath $gCliPath -Arguments $gCliArgs -TimeoutMs $ProcessTimeoutMs
+    $exitCode = $result.ExitCode
+    if ($result.TimedOut) {
+        throw "RestoreSetupLVSource.vi timed out after $ProcessTimeoutMs ms."
+    }
+
+    $allOutput = @($result.OutputLines + $result.ErrorLines)
+    $combinedOutput = $allOutput -join "`n"
+    $ignoreExitCode = $false
+    if ($combinedOutput -match '-593451') {
+        $missingPaths = @()
+        if (Get-Command Get-DevModeMissingPathsFromOutput -ErrorAction SilentlyContinue) {
+            $missingPaths = Get-DevModeMissingPathsFromOutput -Output $allOutput
+        } elseif (-not $missingPathsLoaded) {
+            Write-Warning "Dev-mode missing paths helper was not loaded."
+        }
+
+        $missingCount = @($missingPaths).Count
+        if ($missingCount -eq 0) {
+            Write-Warning "RestoreSetupLVSource.vi returned -593451 but no missing paths were reported. Development mode already appears reverted; treating as warning."
+            $ignoreExitCode = $true
+        } else {
+            $missingJoined = $missingPaths -join ', '
+            throw "RestoreSetupLVSource.vi reported error -593451 (development mode could not be reverted). Missing paths: $missingJoined"
+        }
+    }
+
+    if (-not $ignoreExitCode -and $exitCode -ne 0) {
+        throw "RestoreSetupLVSource.vi failed with exit code $exitCode."
+    }
+} catch {
+    $failure = $_
+} finally {
+    if (-not (Test-Path -Path $closeScript)) {
+        $closeFailure = "Close_LabVIEW.ps1 not found at $closeScript"
+    } else {
+        try {
+            Write-Host "Closing LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit)..."
+            & $closeScript -MinimumSupportedLVVersion $MinimumSupportedLVVersion -SupportedBitness $SupportedBitness
+            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+                $closeFailure = "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
+            }
+        } catch {
+            $closeFailure = $_.Exception.Message
+        }
+    }
 }
 
-Write-Host "Closing LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit)..."
-& $closeScript -MinimumSupportedLVVersion $MinimumSupportedLVVersion -SupportedBitness $SupportedBitness
+if ($failure) {
+    if ($closeFailure) {
+        Write-Warning $closeFailure
+    }
+    throw $failure
+}
 
-if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-    throw "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
+if ($closeFailure) {
+    throw $closeFailure
 }
