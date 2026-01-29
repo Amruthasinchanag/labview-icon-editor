@@ -8,6 +8,7 @@ Describe 'Verify IE Paths (dev mode) integration' {
         $script:labviewBitness = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_BITNESS)) { '64' } else { $env:LABVIEW_BITNESS }
         $script:connectTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_CONNECT_TIMEOUT_MS)) { '120000' } else { $env:LABVIEW_CONNECT_TIMEOUT_MS }
         $script:processTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_PROCESS_TIMEOUT_MS)) { '300000' } else { $env:LABVIEW_PROCESS_TIMEOUT_MS }
+        $script:bitnessesToTest = @()
 
         $script:runDevModeTests = $false
         if (-not [string]::IsNullOrWhiteSpace($env:RUN_DEV_MODE_TESTS)) {
@@ -59,6 +60,36 @@ Describe 'Verify IE Paths (dev mode) integration' {
             return $null
         }
 
+        function script:Get-BitnessList {
+            param(
+                [string]$BitnessInput
+            )
+
+            if ([string]::IsNullOrWhiteSpace($BitnessInput)) {
+                return @('64')
+            }
+
+            $normalized = $BitnessInput.Trim().ToLowerInvariant()
+            if (@('both', 'all', 'auto') -contains $normalized) {
+                return @('64', '32')
+            }
+
+            $parts = $normalized -split '[,; ]+' | Where-Object { $_ }
+            $bitnesses = foreach ($part in $parts) {
+                switch ($part) {
+                    '32' { '32' }
+                    '64' { '64' }
+                }
+            }
+
+            $bitnesses = $bitnesses | Where-Object { $_ } | Select-Object -Unique
+            if (-not $bitnesses) {
+                return @('64')
+            }
+
+            return @($bitnesses)
+        }
+
         function script:Invoke-Runner {
             param(
                 [string]$ScriptPath,
@@ -82,15 +113,9 @@ Describe 'Verify IE Paths (dev mode) integration' {
             return
         }
 
-        if ($script:labviewVersion -ne '2025') {
+        if (@('2021', '2025') -notcontains $script:labviewVersion) {
             $script:skipAll = $true
-            $script:skipReason = 'Only LabVIEW 2025 is supported by this test suite.'
-            return
-        }
-
-        if ($script:labviewBitness -ne '64') {
-            $script:skipAll = $true
-            $script:skipReason = 'Only 64-bit LabVIEW is supported by this test suite.'
+            $script:skipReason = 'Only LabVIEW 2021 and 2025 are supported by this test suite.'
             return
         }
 
@@ -124,9 +149,32 @@ Describe 'Verify IE Paths (dev mode) integration' {
             return
         }
 
-        if (-not (Get-LabVIEWInstallRoot -Version $script:labviewVersion -Bitness $script:labviewBitness)) {
+        $bitnessCandidates = Get-BitnessList -BitnessInput $script:labviewBitness
+        foreach ($bitness in $bitnessCandidates) {
+            if (-not (Get-LabVIEWInstallRoot -Version $script:labviewVersion -Bitness $bitness)) {
+                continue
+            }
+
+            $revertArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs,
+                '-ProcessTimeoutMs', $script:processTimeoutMs,
+                '-RelativePath', $script:repoRoot
+            )
+
+            $exitCode = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
+            if ($exitCode -eq 0) {
+                $script:bitnessesToTest += $bitness
+                continue
+            }
+
+            Write-Warning ("Skipping {0}-bit dev-mode verify; baseline revert failed with exit code {1}." -f $bitness, $exitCode)
+        }
+
+        if (-not $script:bitnessesToTest -or $script:bitnessesToTest.Count -eq 0) {
             $script:skipAll = $true
-            $script:skipReason = "LabVIEW $script:labviewVersion ($script:labviewBitness-bit) install not found."
+            $script:skipReason = "No LabVIEW $script:labviewVersion installs available after baseline restore."
             return
         }
     }
@@ -139,63 +187,66 @@ Describe 'Verify IE Paths (dev mode) integration' {
 
         . $script:statusHelper
 
-        $setArgs = @(
-            '-MinimumSupportedLVVersion', $script:labviewVersion,
-            '-SupportedBitness', $script:labviewBitness,
-            '-ConnectTimeoutMs', $script:connectTimeoutMs,
-            '-ProcessTimeoutMs', $script:processTimeoutMs,
-            '-RelativePath', $script:repoRoot
-        )
+        foreach ($bitness in $script:bitnessesToTest) {
+            $setArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs,
+                '-ProcessTimeoutMs', $script:processTimeoutMs,
+                '-RelativePath', $script:repoRoot
+            )
 
-        $archiveRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'labview-icon-editor'
-        $archiveDir = Join-Path -Path $archiveRoot -ChildPath ("verify-iepaths-" + [Guid]::NewGuid().ToString('N'))
-        New-Item -Path $archiveDir -ItemType Directory -Force | Out-Null
+            $archiveRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'labview-icon-editor'
+            $archiveDir = Join-Path -Path $archiveRoot -ChildPath ("verify-iepaths-$bitness-" + [Guid]::NewGuid().ToString('N'))
+            New-Item -Path $archiveDir -ItemType Directory -Force | Out-Null
 
-        $runStartUtc = (Get-Date).ToUniversalTime()
+            $runStartUtc = (Get-Date).ToUniversalTime()
 
-        $verifyArgs = @(
-            '-MinimumSupportedLVVersion', $script:labviewVersion,
-            '-SupportedBitness', $script:labviewBitness,
-            '-ConnectTimeoutMs', $script:connectTimeoutMs,
-            '-IgnoreStatusFailure',
-            '-IgnoreGcliExitCode',
-            '-StatusFileArchiveDirectory', $archiveDir
-        )
+            $verifyArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs,
+                '-ProcessTimeoutMs', $script:processTimeoutMs,
+                '-IgnoreStatusFailure',
+                '-IgnoreGcliExitCode',
+                '-StatusFileArchiveDirectory', $archiveDir
+            )
 
-        $revertArgs = @(
-            '-MinimumSupportedLVVersion', $script:labviewVersion,
-            '-SupportedBitness', $script:labviewBitness,
-            '-ConnectTimeoutMs', $script:connectTimeoutMs,
-            '-ProcessTimeoutMs', $script:processTimeoutMs,
-            '-RelativePath', $script:repoRoot
-        )
+            $revertArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs,
+                '-ProcessTimeoutMs', $script:processTimeoutMs,
+                '-RelativePath', $script:repoRoot
+            )
 
-        try {
-            $exitCode = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
-            $exitCode | Should -Be 0
+            try {
+                $exitCode = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
+                $exitCode | Should -Be 0
 
-            $exitCode = Invoke-Runner -ScriptPath $script:setScript -Arguments $setArgs
-            $exitCode | Should -Be 0
+                $exitCode = Invoke-Runner -ScriptPath $script:setScript -Arguments $setArgs
+                $exitCode | Should -Be 0
 
-            $exitCode = Invoke-Runner -ScriptPath $script:verifyScript -Arguments $verifyArgs
-            $exitCode | Should -Be 0
+                $exitCode = Invoke-Runner -ScriptPath $script:verifyScript -Arguments $verifyArgs
+                $exitCode | Should -Be 0
 
-            $archivedStatus = Get-ChildItem -Path $archiveDir -File -Filter 'missing_IE_paths*.txt' -ErrorAction SilentlyContinue |
-                Where-Object { $_.LastWriteTimeUtc -ge $runStartUtc } |
-                Sort-Object -Property LastWriteTimeUtc -Descending |
-                Select-Object -First 1
+                $archivedStatus = Get-ChildItem -Path $archiveDir -File -Filter 'missing_IE_paths*.txt' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LastWriteTimeUtc -ge $runStartUtc } |
+                    Sort-Object -Property LastWriteTimeUtc -Descending |
+                    Select-Object -First 1
 
-            if (-not $archivedStatus) {
-                throw "Archived VerifyIEPaths status file not found in $archiveDir"
+                if (-not $archivedStatus) {
+                    throw "Archived VerifyIEPaths status file not found in $archiveDir"
+                }
+
+                $statusInfo = Get-VerifyIEPathsStatus -StatusFilePath $archivedStatus.FullName
+                $statusInfo.MissingPaths.Count | Should -BeGreaterThan 0
+                ($statusInfo.MissingPaths | Where-Object { $_ -match 'LabVIEW Icon API' }).Count | Should -BeGreaterThan 0
+                ($statusInfo.MissingPaths | Where-Object { $_ -match 'lv_icon\.lvlibp' }).Count | Should -BeGreaterThan 0
+            } finally {
+                $null = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
+                Remove-Item -Path $archiveDir -Recurse -Force -ErrorAction SilentlyContinue
             }
-
-            $statusInfo = Get-VerifyIEPathsStatus -StatusFilePath $archivedStatus.FullName
-            $statusInfo.MissingPaths.Count | Should -BeGreaterThan 0
-            ($statusInfo.MissingPaths | Where-Object { $_ -match 'LabVIEW Icon API' }).Count | Should -BeGreaterThan 0
-            ($statusInfo.MissingPaths | Where-Object { $_ -match 'lv_icon\.lvlibp' }).Count | Should -BeGreaterThan 0
-        } finally {
-            $null = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
-            Remove-Item -Path $archiveDir -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 }

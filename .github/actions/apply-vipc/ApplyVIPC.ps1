@@ -99,33 +99,51 @@ Write-Verbose "VIP_LVVersion_A (for primary LVVersion): $VIP_LVVersion_A"
 Write-Verbose "VIP_LVVersion_B (for minimum LVVersion): $VIP_LVVersion_B"
 
 # -------------------------
-# 3) Construct the Script to Execute
+# 3) Construct the Commands to Execute
 # -------------------------
-Write-Verbose "Constructing the g-cli command script..."
-$script = @"
-g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_B"
-"@
-
+Write-Verbose "Constructing g-cli vipc command list..."
+$vipVersions = @($VIP_LVVersion_B)
 if ($VIP_LVVersion -ne $MinimumSupportedLVVersion) {
-    Write-Verbose "VIP_LVVersion and MinimumSupportedLVVersion differ; adding commands for $VIP_LVVersion..."
-    $script += @"
-g-cli vipc -- -t 3000 -v "$VIP_LVVersion" "$ResolvedVIPCPath"
-"@
+    Write-Verbose "VIP_LVVersion and MinimumSupportedLVVersion differ; adding commands for $VIP_LVVersion_A..."
+    $vipVersions += $VIP_LVVersion_A
 }
 
 # -------------------------
-# 4) Output the script for debugging
-# -------------------------
-Write-Output "Executing the following commands:"
-Write-Output $script
-Write-Verbose "Full script content (for debugging): `n$script"
-
-# -------------------------
-# 5) Execute the Script & Handle Errors (Try/Catch with Invoke-Expression)
+# 4) Execute the Commands & Handle Errors
 # -------------------------
 try {
-    Write-Verbose "Starting Invoke-Expression to run g-cli commands..."
-    Invoke-Expression $script
+    foreach ($vipVersion in $vipVersions) {
+        $targetLvVer = if ($vipVersion -eq $VIP_LVVersion_A) { $VIP_LVVersion } else { $MinimumSupportedLVVersion }
+        $vipcArgs = @(
+            '--lv-ver', $targetLvVer,
+            '--arch', $SupportedBitness,
+            'vipc', '--',
+            '-t', '3000',
+            '-v', $vipVersion,
+            $ResolvedVIPCPath
+        )
+
+        Write-Output ("Executing: g-cli {0}" -f ($vipcArgs -join ' '))
+        $output = & g-cli @vipcArgs 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($output) {
+            $output | ForEach-Object { Write-Host $_ }
+        }
+
+        if ($exitCode -ne 0) {
+            throw "g-cli vipc failed with exit code $exitCode."
+        }
+
+        try {
+            Write-Output ("Closing LabVIEW {0} ({1}-bit) after VIPC apply..." -f $targetLvVer, $SupportedBitness)
+            & g-cli --lv-ver $targetLvVer --arch $SupportedBitness QuitLabVIEW | Out-Null
+        }
+        catch {
+            Write-Warning ("Failed to close LabVIEW {0} ({1}-bit): {2}" -f $targetLvVer, $SupportedBitness, $_.Exception.Message)
+        }
+    }
+
+    $global:LASTEXITCODE = 0
     Write-Host "Successfully applied dependencies to LabVIEW: $VIP_LVVersion_B" `
         " (and potentially $VIP_LVVersion_A if switched)."
 }

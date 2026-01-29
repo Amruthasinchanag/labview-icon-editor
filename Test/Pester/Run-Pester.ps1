@@ -1,8 +1,8 @@
 param(
-    [ValidateSet('2025')]
+    [ValidateSet('2021', '2025')]
     [string]$LabVIEWVersion = '2025',
 
-    [ValidateSet('64')]
+    [ValidateSet('32', '64', 'both', 'all', 'auto')]
     [string]$LabVIEWBitness = '64',
 
     [ValidateRange(0, 600000)]
@@ -44,7 +44,7 @@ if ($CI) {
 
     $configuration.TestResult.Enabled = $true
     $configuration.TestResult.OutputFormat = 'NUnitXml'
-    $configuration.TestResult.OutputPath = (Join-Path $resultsDir 'pester-devmode-2021.xml')
+    $configuration.TestResult.OutputPath = (Join-Path $resultsDir ("pester-devmode-$LabVIEWVersion-$LabVIEWBitness.xml"))
 }
 
 $results = Invoke-Pester -Configuration $configuration

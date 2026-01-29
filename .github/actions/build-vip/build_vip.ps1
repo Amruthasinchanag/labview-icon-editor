@@ -64,7 +64,10 @@ param (
     [string]$ReleaseNotesFile,
 
     [Parameter(Mandatory=$true)]
-    [string]$DisplayInformationJSON
+    [string]$DisplayInformationJSON,
+
+    [ValidateRange(60, 3600)]
+    [int]$VipmTimeoutSeconds = 300
 )
 
 # 1) Resolve paths
@@ -162,60 +165,39 @@ $gcliArgs = @(
     "--buildspec", $ResolvedVIPBPath,
     "-v", "$Major.$Minor.$Patch.$Build",
     "--release-notes", $ResolvedReleaseNotesFile,
-    "--timeout", "300"
+    "--timeout", $VipmTimeoutSeconds.ToString()
 )
 
 $prettyCommand = "g-cli " + ($gcliArgs -join ' ')
 Write-Output "Base build command:"
 Write-Output $prettyCommand
 
-# 6) Execute the commands with retries and log capture
-$maxAttempts = 3
-$retryDelaySeconds = 15
-$success = $false
-$attemptLogs = @()
+# 6) Execute the command once with log capture
+$logFile = Join-Path -Path $LogDirectory -ChildPath "gcli-build.log"
+Write-Host "Starting g-cli build. Logs: $logFile"
 
-for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-    $logFile = Join-Path -Path $LogDirectory -ChildPath ("gcli-build-attempt-{0}.log" -f $attempt)
-    $attemptLogs += $logFile
-    Write-Host "Starting g-cli build attempt $attempt of $maxAttempts. Logs: $logFile"
-
-    try {
-        & g-cli @gcliArgs 2>&1 | Tee-Object -FilePath $logFile
-    }
-    catch {
-        $_ | Out-String | Tee-Object -FilePath $logFile -Append | Out-Null
-        $LASTEXITCODE = 1
-    }
-
-    if ($LASTEXITCODE -eq 0) {
-        $success = $true
-        break
-    }
-
-    if ($attempt -lt $maxAttempts) {
-        Write-Warning "g-cli attempt $attempt failed with exit code $LASTEXITCODE. Retrying in $retryDelaySeconds seconds..."
-        Start-Sleep -Seconds $retryDelaySeconds
-    }
+try {
+    & g-cli @gcliArgs 2>&1 | Tee-Object -FilePath $logFile
+}
+catch {
+    $_ | Out-String | Tee-Object -FilePath $logFile -Append | Out-Null
+    $LASTEXITCODE = 1
 }
 
-if (-not $success) {
-    for ($i = 0; $i -lt $attemptLogs.Count; $i++) {
-        $log = $attemptLogs[$i]
-        if (Test-Path $log) {
-            Write-Host ("---- g-cli build log attempt {0} ({1}) ----" -f ($i + 1), $log)
-            Get-Content -Path $log | ForEach-Object { Write-Host $_ }
-            Write-Host ("---- end g-cli build log attempt {0} ----" -f ($i + 1))
-        }
-        else {
-            Write-Host ("g-cli build log for attempt {0} not found at {1}" -f ($i + 1), $log)
-        }
+if ($LASTEXITCODE -ne 0) {
+    if (Test-Path $logFile) {
+        Write-Host ("---- g-cli build log ({0}) ----" -f $logFile)
+        Get-Content -Path $logFile | ForEach-Object { Write-Host $_ }
+        Write-Host ("---- end g-cli build log ----")
+    }
+    else {
+        Write-Host ("g-cli build log not found at {0}" -f $logFile)
     }
 
     $errorObject = [PSCustomObject]@{
-        error      = "g-cli failed after $maxAttempts attempt(s)."
-        exitCode   = $LASTEXITCODE
-        logs       = $attemptLogs
+        error    = "g-cli build failed."
+        exitCode = $LASTEXITCODE
+        log      = $logFile
     }
     $errorObject | ConvertTo-Json -Depth 10
     exit 1

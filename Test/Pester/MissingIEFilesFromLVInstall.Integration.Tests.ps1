@@ -8,6 +8,8 @@ Describe 'Verify IE Paths integration' {
         $script:labviewBitness = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_BITNESS)) { '64' } else { $env:LABVIEW_BITNESS }
         $script:connectTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_CONNECT_TIMEOUT_MS)) { '120000' } else { $env:LABVIEW_CONNECT_TIMEOUT_MS }
         $script:processTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_PROCESS_TIMEOUT_MS)) { '300000' } else { $env:LABVIEW_PROCESS_TIMEOUT_MS }
+        $script:bitnessesToTest = @()
+        $script:missingPathsHelperLoaded = $false
 
         function script:Get-RepoRoot {
             $root = Resolve-Path -Path (Join-Path $PSScriptRoot '..\..')
@@ -53,6 +55,36 @@ Describe 'Verify IE Paths integration' {
             return $null
         }
 
+        function script:Get-BitnessList {
+            param(
+                [string]$BitnessInput
+            )
+
+            if ([string]::IsNullOrWhiteSpace($BitnessInput)) {
+                return @('64')
+            }
+
+            $normalized = $BitnessInput.Trim().ToLowerInvariant()
+            if (@('both', 'all', 'auto') -contains $normalized) {
+                return @('64', '32')
+            }
+
+            $parts = $normalized -split '[,; ]+' | Where-Object { $_ }
+            $bitnesses = foreach ($part in $parts) {
+                switch ($part) {
+                    '32' { '32' }
+                    '64' { '64' }
+                }
+            }
+
+            $bitnesses = $bitnesses | Where-Object { $_ } | Select-Object -Unique
+            if (-not $bitnesses) {
+                return @('64')
+            }
+
+            return @($bitnesses)
+        }
+
         function script:Invoke-Runner {
             param(
                 [string]$ScriptPath,
@@ -79,6 +111,12 @@ Describe 'Verify IE Paths integration' {
         $script:repoRoot = Get-RepoRoot
         $script:scriptPath = Join-Path $script:repoRoot 'Tooling\Invoke-MissingIEFilesFromLVInstall.ps1'
         $script:revertScript = Join-Path $script:repoRoot '.github\actions\revert-development-mode\RevertDevelopmentMode.ps1'
+        $script:missingPathsHelper = Join-Path $script:repoRoot 'Tooling\support\DevModeMissingPaths.ps1'
+
+        if (Test-Path -Path $script:missingPathsHelper) {
+            . $script:missingPathsHelper
+            $script:missingPathsHelperLoaded = $true
+        }
 
         if (-not (Test-Path -Path $script:scriptPath)) {
             $script:skipAll = $true
@@ -86,15 +124,9 @@ Describe 'Verify IE Paths integration' {
             return
         }
 
-        if ($script:labviewVersion -ne '2025') {
+        if (@('2021', '2025') -notcontains $script:labviewVersion) {
             $script:skipAll = $true
-            $script:skipReason = 'Only LabVIEW 2025 is supported by this test suite.'
-            return
-        }
-
-        if ($script:labviewBitness -ne '64') {
-            $script:skipAll = $true
-            $script:skipReason = 'Only 64-bit LabVIEW is supported by this test suite.'
+            $script:skipReason = 'Only LabVIEW 2021 and 2025 are supported by this test suite.'
             return
         }
 
@@ -104,30 +136,47 @@ Describe 'Verify IE Paths integration' {
             return
         }
 
-        if (-not (Get-LabVIEWInstallRoot -Version $script:labviewVersion -Bitness $script:labviewBitness)) {
-            $script:skipAll = $true
-            $script:skipReason = "LabVIEW $script:labviewVersion ($script:labviewBitness-bit) install not found."
-            return
-        }
-
         if (-not (Test-Path -Path $script:revertScript)) {
             $script:skipAll = $true
             $script:skipReason = "RevertDevelopmentMode.ps1 not found at $script:revertScript"
             return
         }
 
-        $revertArgs = @(
-            '-MinimumSupportedLVVersion', $script:labviewVersion,
-            '-SupportedBitness', $script:labviewBitness,
-            '-RelativePath', $script:repoRoot,
-            '-ConnectTimeoutMs', $script:connectTimeoutMs,
-            '-ProcessTimeoutMs', $script:processTimeoutMs
-        )
+        $bitnessCandidates = Get-BitnessList -BitnessInput $script:labviewBitness
+        foreach ($bitness in $bitnessCandidates) {
+            if (-not (Get-LabVIEWInstallRoot -Version $script:labviewVersion -Bitness $bitness)) {
+                continue
+            }
 
-        $revertResult = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
-        if ($revertResult.ExitCode -ne 0) {
+            $revertArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness,
+                '-RelativePath', $script:repoRoot,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs,
+                '-ProcessTimeoutMs', $script:processTimeoutMs
+            )
+
+            $revertResult = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
+            if ($revertResult.ExitCode -eq 0) {
+                $script:bitnessesToTest += $bitness
+                continue
+            }
+
+            $missingPaths = @()
+            if ($script:missingPathsHelperLoaded -and (Get-Command Get-DevModeMissingPathsFromOutput -ErrorAction SilentlyContinue)) {
+                $missingPaths = Get-DevModeMissingPathsFromOutput -Output $revertResult.OutputLines
+            }
+
+            if ($missingPaths.Count -gt 0) {
+                Write-Warning ("Skipping {0}-bit baseline verify; missing paths during revert: {1}" -f $bitness, ($missingPaths -join ', '))
+            } else {
+                Write-Warning ("Skipping {0}-bit baseline verify; revert failed with exit code {1}." -f $bitness, $revertResult.ExitCode)
+            }
+        }
+
+        if (-not $script:bitnessesToTest -or $script:bitnessesToTest.Count -eq 0) {
             $script:skipAll = $true
-            $script:skipReason = 'Baseline restore failed; run RevertDevelopmentMode.ps1 and re-try.'
+            $script:skipReason = "No LabVIEW $script:labviewVersion installs available after baseline restore."
             return
         }
     }
@@ -138,14 +187,16 @@ Describe 'Verify IE Paths integration' {
             return
         }
 
-        $args = @(
-            '-MinimumSupportedLVVersion', $script:labviewVersion,
-            '-SupportedBitness', $script:labviewBitness,
-            '-ConnectTimeoutMs', $script:connectTimeoutMs,
-            '-IgnoreStatusFailure'
-        )
+        foreach ($bitness in $script:bitnessesToTest) {
+            $args = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs,
+                '-ProcessTimeoutMs', $script:processTimeoutMs
+            )
 
-        $result = Invoke-Runner -ScriptPath $script:scriptPath -Arguments $args
-        $result.ExitCode | Should -Be 0
+            $result = Invoke-Runner -ScriptPath $script:scriptPath -Arguments $args
+            $result.ExitCode | Should -Be 0
+        }
     }
 }

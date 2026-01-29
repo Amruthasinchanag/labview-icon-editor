@@ -18,6 +18,7 @@ This document lists the PowerShell scripts used to build, test, and distribute t
 - [Set_Development_Mode.ps1](#set_development_modeps1)
 - [RevertDevelopmentMode.ps1](#revertdevelopmentmodeps1)
 - [RunUnitTests.ps1](#rununittestsps1)
+- [Run-CICompositeLocal.ps1](#run-cicompositelocalps1)
 
 ---
 
@@ -62,4 +63,7 @@ Undoes development mode by invoking `RestoreSetupLVSource.ps1` for both bitnesse
 
 ## RunUnitTests.ps1
 Locates the `.lvproj`, runs unit tests through g-cli, and outputs a table of results. Used in CI workflows.
+
+## Run-CICompositeLocal.ps1
+Runs a local CI parity sequence based on `ci-composite.yml`. This script validates Verify IE Paths, applies VIPC dependencies, runs missing-in-project checks and unit tests for LabVIEW 2021 (32- and 64-bit), builds packed libraries, and produces the VI package using LabVIEW 2023 (64-bit). Outputs are stored under `TestResults/ci-local`, and most steps can be skipped via switches. Use `-ConnectTimeoutMs`, `-ProcessTimeoutMs`, and `-StatusFileTimeoutMs` to tune g-cli and status-file timing for your machine.
 
