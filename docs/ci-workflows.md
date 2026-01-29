@@ -109,6 +109,7 @@ Below are the **key GitHub Actions** provided in this repository:
 The [`ci-composite.yml`](../.github/workflows/ci-composite.yml) pipeline breaks the build into several jobs:
 
 - **issue-status** – skips the workflow if the pull request or branch has a `NoCI` label, then queries the **Status** field of the linked GitHub issue’s associated GitHub Project and proceeds only when that field is **In Progress**. Contributors must ensure their issue is added to a project with this Status value. It also requires the source branch name to contain `issue-<number>` (such as `issue-123` or `feature/issue-123`). For pull requests, the job evaluates the PR’s head branch.
+- **verify-ie-paths** – validates the LabVIEW Icon API installation for LabVIEW 2021 (32- and 64-bit) using `VerifyIEPaths.vi` and fails early if required files are missing. When it fails, the workflow uploads a `missing_IE_paths.txt` artifact that lists the missing paths.
 - **changes** – checks out the repository and detects `.vipc` file changes to determine if dependencies need to be applied.
 - **apply-deps** – installs VIPC dependencies for multiple LabVIEW versions and bitnesses **only when** the `changes` job reports `.vipc` modifications (`if: needs.changes.outputs.vipc == 'true'`).
 - **version** – computes the semantic version and build number using commit count and PR labels.

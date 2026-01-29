@@ -21,6 +21,7 @@ This document provides a collection of common **troubleshooting** scenarios (wit
    12. [No. 12: JSON Fields Overwritten Incorrectly](#no-12-json-fields-overwritten-incorrectly)
    13. [No. 13: Repository Forks Not Displaying Correct Metadata](#no-13-repository-forks-not-displaying-correct-metadata)
    14. [No. 14: Dev Mode Failure Missing Paths](#no-14-dev-mode-failure-missing-paths)
+   15. [No. 15: Verify IE Paths Gate Fails in CI](#no-15-verify-ie-paths-gate-fails-in-ci)
 
 
 2. [FAQ](#faq)
@@ -271,6 +272,21 @@ Below are 14 possible issues you might encounter, along with suggested steps to 
 2. Restore the missing paths from a known-good install or repo checkout, then re-run the Development Mode Toggle.
 
 ---
+
+### No. 15: Verify IE Paths Gate Fails in CI
+
+**Symptoms**:
+- The first CI gate fails with “Verify IE Paths Gate” or “VerifyIEPaths” errors.
+- The job logs show missing paths or an archived `missing_IE_paths.txt` file.
+
+**Possible Causes**:
+- One or more LabVIEW Icon API files are missing in the LabVIEW 2021 install.
+- The runner is in development mode (missing `LabVIEW Icon API` or `lv_icon.lvlibp`).
+
+**Solution**:
+1. Open the “verify-iepaths-32-bit” or “verify-iepaths-64-bit” artifact attached to the failed job.
+2. Check the comma-separated list of missing paths in `missing_IE_paths.txt`.
+3. Restore the missing files (or revert dev mode) and re-run the workflow.
 
 ## FAQ
 
