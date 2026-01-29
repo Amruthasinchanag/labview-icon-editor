@@ -293,8 +293,8 @@ jobs:
 
   build-vip:
     name: Build VI Package
-    # Chain after 32-bit build, which already depends on 64-bit, to enforce x64 -> x86 -> build-vip ordering
-    needs: [build-ppl-x86, version]
+    # Chain after close-lv-2021-before-vip, which depends on 32-bit (and thus 64-bit) PPL builds.
+    needs: [close-lv-2021-before-vip, version]
     runs-on: self-hosted-windows-lv
     steps:
       - uses: actions/checkout@v4
@@ -416,3 +416,17 @@ jobs:
           } else {
             Write-Host ("Tag validation ok: {0}" -f $provided)
           }
+
+  close-lv-2021-before-vip:
+    name: Close LabVIEW 2021 before VI Package
+    needs: build-ppl-x86
+    runs-on: self-hosted-windows-lv
+    steps:
+      - uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 64
+      - uses: ./.github/actions/close-labview
+        with:
+          minimum_supported_lv_version: 2021
+          supported_bitness: 32
