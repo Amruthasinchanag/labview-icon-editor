@@ -24,6 +24,9 @@
 .PARAMETER StatusFileTimeoutMs
     Timeout in milliseconds to wait for the status file to appear.
 
+.PARAMETER ProcessTimeoutMs
+    Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
+
 .PARAMETER StatusFileArchiveDirectory
     Optional directory to archive the status file after reading. If omitted,
     the status file is deleted.
@@ -66,6 +69,10 @@ param(
     [Parameter(Mandatory = $false)]
     [ValidateRange(0, 600000)]
     [int]$StatusFileTimeoutMs = 60000,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 1200000)]
+    [int]$ProcessTimeoutMs = 300000,
 
     [Parameter(Mandatory = $false)]
     [string]$StatusFileArchiveDirectory,
@@ -266,7 +273,10 @@ if (-not [string]::IsNullOrWhiteSpace($statusPathExpected) -and (Test-Path -Path
 }
 Push-Location -Path $repoRoot
 try {
-    $result = Invoke-GCliCommand -ExecutablePath $gCliPath -Arguments $gCliArgs
+    $result = Invoke-GCliCommand -ExecutablePath $gCliPath -Arguments $gCliArgs -TimeoutMs $ProcessTimeoutMs
+    if ($result.TimedOut) {
+        throw "VerifyIEPaths.vi timed out after $ProcessTimeoutMs ms."
+    }
     if ($result.ExitCode -ne 0) {
         if ($IgnoreGcliExitCode) {
             Write-Warning ("VerifyIEPaths.vi returned exit code {0}; continuing because IgnoreGcliExitCode is set." -f $result.ExitCode)

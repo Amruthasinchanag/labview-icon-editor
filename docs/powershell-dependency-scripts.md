@@ -40,7 +40,7 @@ Modifies a `.vipb` file and builds the final VI Package with g-cli, using versio
 Gracefully shuts down a running LabVIEW instance using g-cli's `QuitLabVIEW` command. Called throughout the pipeline to ensure LabVIEW exits cleanly.
 
 ## Invoke-MissingIEFilesFromLVInstall.ps1
-Runs `VerifyIEPaths.vi` via g-cli to validate the LabVIEW Icon API installation. The VI writes a status file to the repo root (default: `missing_IE_paths.txt`). An empty file indicates success; a comma-separated list of paths indicates missing files and should be treated as a failure. The script deletes any prior status file before running, waits for a new one (with timeout), and then deletes or archives it after reading. Use `-StatusFileArchiveDirectory` to preserve a copy. Set `-ConnectTimeoutMs` and `-StatusFileTimeoutMs` to control g-cli and status-file timing behavior.
+Runs `VerifyIEPaths.vi` via g-cli to validate the LabVIEW Icon API installation. The VI writes a status file to the repo root (default: `missing_IE_paths.txt`). An empty file indicates success; a comma-separated list of paths indicates missing files and should be treated as a failure. The script deletes any prior status file before running, waits for a new one (with timeout), and then deletes or archives it after reading. Use `-StatusFileArchiveDirectory` to preserve a copy. Set `-ConnectTimeoutMs`, `-ProcessTimeoutMs`, and `-StatusFileTimeoutMs` to control g-cli and status-file timing behavior.
 
 ## ModifyVIPBDisplayInfo.ps1
 Updates the display information inside a `.vipb` file and merges version and branding metadata. Typically called by `Build.ps1` before packaging.
