@@ -252,7 +252,7 @@ function Invoke-Checked {
         $stepError = $_
     }
 
-    $duration = [Math]::Round((Get-Date - $stepStart).TotalSeconds, 2)
+    $duration = [Math]::Round(((Get-Date) - $stepStart).TotalSeconds, 2)
     $status = if ($stepError) { 'error' } elseif ($exitCode -eq $null -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
     if ($script:StepHistoryPath) {
         "{0},{1},{2},{3}" -f $stepStart.ToString('yyyy-MM-dd HH:mm:ss'), ($Label -replace ',', ' '), $status, $duration | Add-Content -Path $script:StepHistoryPath
@@ -733,7 +733,7 @@ finally {
             # ignore transcript failures
         }
     }
-    $runDuration = [Math]::Round((Get-Date - $runStart).TotalSeconds, 2)
+    $runDuration = [Math]::Round(((Get-Date) - $runStart).TotalSeconds, 2)
     $runStatus = if ($script:RunFailed) {
         'error'
     } elseif ($LASTEXITCODE -eq $null -or $LASTEXITCODE -eq 0) {
