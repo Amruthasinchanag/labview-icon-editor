@@ -16,6 +16,12 @@
 #    .PARAMETER RelativePath
 #        Optional path to the repository root.
 #
+#    .PARAMETER ConnectTimeoutMs
+#        g-cli connect timeout in milliseconds (0 disables the timeout).
+#
+#    .PARAMETER ProcessTimeoutMs
+#        Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
+#
 #    .EXAMPLE
 #        .\Set_Development_Mode.ps1 -MinimumSupportedLVVersion 2021
 #
@@ -31,7 +37,15 @@ param(
     [string[]]$SupportedBitness = @('32', '64'),
 
     [Parameter(Mandatory = $false)]
-    [string]$RelativePath
+    [string]$RelativePath,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 120000,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 1200000)]
+    [int]$ProcessTimeoutMs = 300000
 )
 
 # Determine the directory where this script is located
@@ -65,6 +79,8 @@ function Invoke-PrepareLabviewSource {
     $scriptArgs = @{
         MinimumSupportedLVVersion = $MinimumSupportedLVVersion
         SupportedBitness          = $Bitness
+        ConnectTimeoutMs          = $ConnectTimeoutMs
+        ProcessTimeoutMs          = $ProcessTimeoutMs
     }
 
     if ($RelativePath) {

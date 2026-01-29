@@ -20,7 +20,7 @@ This document provides a collection of common **troubleshooting** scenarios (wit
    11. [No. 11: Company/Author Fields Not Populating](#no-11-companyauthor-fields-not-populating)
    12. [No. 12: JSON Fields Overwritten Incorrectly](#no-12-json-fields-overwritten-incorrectly)
    13. [No. 13: Repository Forks Not Displaying Correct Metadata](#no-13-repository-forks-not-displaying-correct-metadata)
-   14. [No. 14: Dev Mode Failure Diagnostics Code](#no-14-dev-mode-failure-diagnostics-code)
+   14. [No. 14: Dev Mode Failure Missing Paths](#no-14-dev-mode-failure-missing-paths)
 
 
 2. [FAQ](#faq)
@@ -258,25 +258,17 @@ Below are 14 possible issues you might encounter, along with suggested steps to 
 
 ---
 
-### No. 14: Dev Mode Failure Diagnostics Code
+### No. 14: Dev Mode Failure Missing Paths
 
 **Symptoms**:
-- The workflow fails with error `-593450` (enable) or `-593451` (disable), and the VI error source string prints an 8-bit diagnostics code.
+- The workflow fails with error `-593450` (enable) or `-593451` (disable), and the VI error source string prints a comma-separated list of missing paths.
 
 **Possible Causes**:
 - One or more expected folders or files are missing in the Icon Editor source or the LabVIEW Icon API setup.
 
 **Solution**:
-1. Decode the 8-bit diagnostics code (cleared bits indicate missing paths):
-   - Bit 0: `NIIconEditor`
-   - Bit 1: `lv_icon.lvlibp`
-   - Bit 2: `lv_IconEditor.lvlib`
-   - Bit 3: `lv_icon.vi`
-   - Bit 4: `lv_icon.vit`
-   - Bit 5: `SAMPLE_lv_icon.vi`
-   - Bit 6: `LabVIEW Icon API`
-   - Bit 7: All non-fatal paths (guard bit to ensure upstream logic remains consistent)
-2. Restore missing paths from a known-good install or repo checkout, then re-run the Development Mode Toggle.
+1. Read the comma-separated missing paths from the VI error source string.
+2. Restore the missing paths from a known-good install or repo checkout, then re-run the Development Mode Toggle.
 
 ---
 

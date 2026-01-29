@@ -1,0 +1,64 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Tooling: Verify IE Paths (g-cli)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+        "-MinimumSupportedLVVersion",
+        "${input:lvVersion}",
+        "-SupportedBitness",
+        "${input:lvBitness}",
+        "-ConnectTimeoutMs",
+        "${input:lvConnectTimeoutMs}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "group": "test"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "lvVersion",
+      "type": "pickString",
+      "description": "LabVIEW version for g-cli",
+      "options": [
+        "2020",
+        "2021",
+        "2022",
+        "2023",
+        "2024",
+        "2025"
+      ],
+      "default": "2021"
+    },
+    {
+      "id": "lvBitness",
+      "type": "pickString",
+      "description": "LabVIEW bitness",
+      "options": [
+        "32",
+        "64"
+      ],
+      "default": "64"
+    },
+    {
+      "id": "lvConnectTimeoutMs",
+      "type": "promptString",
+      "description": "g-cli connect timeout (ms)",
+      "default": "120000"
+    }
+  ]
+}

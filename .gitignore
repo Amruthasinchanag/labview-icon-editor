@@ -16,3 +16,6 @@
 # Build output
 /resource/plugins/lv_icon.lvlibp
 *.xml
+
+# VerifyIEPaths status output
+missing_IE_paths.txt

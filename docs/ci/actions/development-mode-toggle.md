@@ -130,25 +130,15 @@ These scripts run self-contained VIs that:
 Automation relies only on `PrepareIESource.vi` and `RestoreSetupLVSource.vi`. Other INI-token tooling such as `Create_LV_INI_Token.vi` is not part of this repository.
 The only authoritative indicators of dev-mode failures are the VI error codes: `PrepareIESource.vi` returns `-593450` when development mode cannot be set, and `RestoreSetupLVSource.vi` returns `-593451` when development mode cannot be reverted. Avoid adding other indicators or helper checks.
 
-When development mode fails, the VI error source string prints an **8-bit diagnostics code** to the console. This bitmask uses **cleared bits (0)** to indicate missing paths, plus a guard bit that confirms the upstream VI logic hasn't changed.
-
-**Diagnostics bitmask (LSB → MSB):**
-- Bit 0: `NIIconEditor`
-- Bit 1: `lv_icon.lvlibp`
-- Bit 2: `lv_IconEditor.lvlib`
-- Bit 3: `lv_icon.vi`
-- Bit 4: `lv_icon.vit`
-- Bit 5: `SAMPLE_lv_icon.vi`
-- Bit 6: `LabVIEW Icon API`
-- Bit 7: All non-fatal paths (guard bit to ensure upstream logic remains consistent)
+When development mode fails, the VI error source string prints a **comma-separated list of missing paths** to the console. This list is the authoritative detail for diagnosing why dev mode could not be set or reverted. An empty list means no missing paths were reported by the VI.
 
 **To change** how "dev mode" behaves, **edit those scripts** directly. 
 
 ### Integration Tests
-You can run the integration tests locally on a runner that has LabVIEW 2021 installed:
+You can run the integration tests locally on a runner that has LabVIEW 2025 (64-bit) installed:
 
 ```powershell
-pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2025 -LabVIEWBitness 64
 ```
 
 ### Pull Requests with Script Updates
