@@ -11,17 +11,17 @@
 .PARAMETER SupportedBitness
     LabVIEW bitness for the build ("32" or "64").
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Path to the repository root.
 
 .PARAMETER VIPBPath
     Relative path to the VIPB file to modify.
 
 .PARAMETER MinimumSupportedLVVersion
-    Minimum LabVIEW version supported by the package.
+    LabVIEW major version (2021 only; 21.0).
 
 .PARAMETER LabVIEWMinorRevision
-    Minor revision number of LabVIEW (0 or 3).
+    Minor revision number of LabVIEW (0 for 21.0).
 
 .PARAMETER Major
     Major version component for the package.
@@ -45,16 +45,17 @@
     JSON string representing the VIPB display information to update.
 
 .EXAMPLE
-    .\ModifyVIPBDisplayInfo.ps1 -SupportedBitness "64" -RelativePath "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2023 -LabVIEWMinorRevision 3 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
+    .\ModifyVIPBDisplayInfo.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
 #>
 param (
     [string]$SupportedBitness,
-    [string]$RelativePath,
+    [string]$RepoRoot,
     [string]$VIPBPath,
 
+    [ValidateSet(2021)]
     [int]$MinimumSupportedLVVersion,
 
-    [ValidateSet("0","3")]
+    [ValidateSet("0")]
     [string]$LabVIEWMinorRevision = "0",
 
     [int]$Major,
@@ -70,12 +71,12 @@ param (
 
 # 1) Resolve paths
 try {
-    $ResolvedRelativePath = Resolve-Path -Path $RelativePath -ErrorAction Stop
-    $ResolvedVIPBPath = Join-Path -Path $ResolvedRelativePath -ChildPath $VIPBPath -ErrorAction Stop
+    $ResolvedRepoRoot = Resolve-Path -Path $RepoRoot -ErrorAction Stop
+    $ResolvedVIPBPath = Join-Path -Path $ResolvedRepoRoot -ChildPath $VIPBPath -ErrorAction Stop
 }
 catch {
     $errorObject = [PSCustomObject]@{
-        error      = "Error resolving paths. Ensure RelativePath and VIPBPath are valid."
+        error      = "Error resolving paths. Ensure RepoRoot and VIPBPath are valid."
         exception  = $_.Exception.Message
         stackTrace = $_.Exception.StackTrace
     }
@@ -275,28 +276,35 @@ $licenseAgreementInput = $jsonObj.'License Agreement Name'
 if (-not [string]::IsNullOrWhiteSpace($licenseAgreementInput)) {
     $candidatePath = $licenseAgreementInput
     $relativePath  = $licenseAgreementInput
+    $resolvedLicensePath = $null
 
     if (-not [System.IO.Path]::IsPathRooted($candidatePath)) {
-        $candidatePath = Join-Path -Path $ResolvedRelativePath -ChildPath $licenseAgreementInput
+        $candidatePath = Join-Path -Path $ResolvedRepoRoot -ChildPath $licenseAgreementInput
     }
 
     if (Test-Path $candidatePath) {
         try {
             $resolvedLicensePath = (Resolve-Path -Path $candidatePath -ErrorAction Stop).Path
-
-            if ($resolvedLicensePath.StartsWith($ResolvedRelativePath, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $relativePath = $resolvedLicensePath.Substring($ResolvedRelativePath.Length).TrimStart('\','/')
-            }
         }
         catch {
             Write-Warning "Unable to resolve license file path '$candidatePath'. Using literal value instead."
         }
     }
     else {
-        Write-Warning "License agreement path '$licenseAgreementInput' does not exist relative to the repository."
+        Write-Warning "License agreement path '$licenseAgreementInput' does not exist relative to the repository. Skipping license assignment."
     }
 
-    Set-VipbElementValue -ParentNode $advancedSettings -ElementName "License_Agreement_Filepath" -Value $relativePath
+    if ($resolvedLicensePath) {
+        try {
+            $vipbDirectory = Split-Path -Parent $ResolvedVIPBPath
+            $relativePath = [System.IO.Path]::GetRelativePath($vipbDirectory, $resolvedLicensePath)
+        }
+        catch {
+            Write-Warning "Unable to compute a relative license path from '$ResolvedVIPBPath'. Using absolute path instead."
+            $relativePath = $resolvedLicensePath
+        }
+        Set-VipbElementValue -ParentNode $advancedSettings -ElementName "License_Agreement_Filepath" -Value $relativePath
+    }
 }
 
 # Warn about any DisplayInformation JSON keys we don't yet handle

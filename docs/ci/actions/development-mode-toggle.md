@@ -20,9 +20,11 @@ In LabVIEW-centric projects, “development mode” usually refers to a runner s
 You do **not** need to copy/paste the entire workflow snippet here, as it’s already in your repo (“Development mode toggle”). Instead, here is a conceptual usage overview:
 
 1. **Triggering Manually**
-   - Go to the “Actions” tab on your (or your fork’s) GitHub repository.
-   - Select the **“Toggle Development Mode”** workflow.
-   - Click “Run workflow” and choose either `enable` or `disable` from the dropdown.
+   - Go to the "Actions" tab on your (or your fork's) GitHub repository.
+   - Select the **"Toggle Development Mode"** workflow.
+   - Click "Run workflow" and choose either `enable` or `disable` from the dropdown.
+   - LabVIEW version is fixed to **2021** (`minimum_supported_lv_version` remains for compatibility; keep it set to `2021`).
+   - (Optional) Choose a bitness (`bitness`, default `64`).
    - This will execute the PowerShell scripts ([`Set_Development_Mode.ps1`](../../../.github/actions/set-development-mode/Set_Development_Mode.ps1) or [`RevertDevelopmentMode.ps1`](../../../.github/actions/revert-development-mode/RevertDevelopmentMode.ps1)) on the **target self-hosted runner** (your personal machine or a shared machine).
 
 2. **Important Note for Testing**
@@ -32,6 +34,8 @@ You do **not** need to copy/paste the entire workflow snippet here, as it’s al
 3. **Triggering from Another Workflow**
    - Use a `workflow_call` reference (detailed examples below).
    - Pass the input parameter `mode` set to `enable` or `disable`.
+   - Pass `minimum_supported_lv_version: 2021` if you include the input (other values are not supported).
+   - Optionally pass `bitness` (`32` or `64`) to select the LabVIEW bitness.
    - The runner that calls it will be the one switched into (or out of) dev mode.
 
 ## 3. Examples: Calling This Workflow
@@ -56,6 +60,8 @@ If you have another workflow file (e.g., `my-other-workflow.yml`) in the same re
             uses: ./.github/workflows/development-mode-toggle.yml
             with:
               mode: enable
+              minimum_supported_lv_version: 2021
+              bitness: 64
 
 1. `uses: ./.github/workflows/development-mode-toggle.yml` – Tells GitHub to run a local reusable workflow found in your repo.
 2. `with:` – Passes inputs to that workflow. Here, `mode: enable`.
@@ -77,6 +83,8 @@ If you store “Development mode toggle” in a separate public repo, you can re
             uses: <owner>/<repo>/.github/workflows/development-mode-toggle.yml@main
             with:
               mode: disable
+              minimum_supported_lv_version: 2021
+              bitness: 64
 
 1. Replace `<owner>/<repo>` with the actual GitHub account and repository name (for example, `ni/my-shared-workflows`).
 2. The suffix `@main` indicates which branch/ref to fetch. You can also use a tag or commit SHA.
@@ -99,6 +107,8 @@ If a collaborator forked your original repo, they might keep the workflow in the
             uses: <your-fork>/<repo>/.github/workflows/development-mode-toggle.yml@my-feature-branch
             with:
               mode: enable
+              minimum_supported_lv_version: 2021
+              bitness: 64
 
 Here, you might see something like `githubuser/labview-icon-editor-fork/.github/workflows/development-mode-toggle.yml@feature-xyz`. Again, you pass the `mode` input as needed. Whenever upstream changes are made to the scripts, the fork owner can **pull** to update their local `.github/workflows/development-mode-toggle.yml` file.
 
@@ -111,7 +121,35 @@ All “dev mode” logic resides in two PowerShell scripts located under `.githu
 - **[`Set_Development_Mode.ps1`](../../../.github/actions/set-development-mode/Set_Development_Mode.ps1)** – Called when mode is `enable`.
 - **[`RevertDevelopmentMode.ps1`](../../../.github/actions/revert-development-mode/RevertDevelopmentMode.ps1)** – Called when mode is `disable`.
 
-These scripts currently do things like update environment variables, configure LabVIEW paths, or install certain dependencies. **To change** how “dev mode” behaves, **edit those scripts** directly. 
+These scripts run self-contained VIs that:
+- Package or restore the LabVIEW Icon API
+- Rename `lv_icon.lvlibp` to `lv_icon.ship` (and back)
+- Set or remove the LabVIEW INI token for local sources
+- Close LabVIEW after each run so changes are picked up
+
+Both scripts accept optional timeout parameters:
+- `-ConnectTimeoutMs` controls g-cli's connection timeout (0 disables it).
+- `-ProcessTimeoutMs` enforces a hard limit for the g-cli process (0 disables it).
+
+Automation relies only on `PrepareIESource.vi` and `RestoreSetupLVSource.vi`. Other INI-token tooling such as `Create_LV_INI_Token.vi` is not part of this repository.
+The only authoritative indicators of dev-mode failures are the VI error codes: `PrepareIESource.vi` returns `-593450` when development mode cannot be set, and `RestoreSetupLVSource.vi` returns `-593451` when development mode cannot be reverted. Avoid adding other indicators or helper checks.
+
+When development mode fails, the VI error source string prints a **comma-separated list of missing paths** to the console. This list is the authoritative detail for diagnosing why dev mode could not be set or reverted. An empty list means no missing paths were reported by the VI.
+
+**To change** how "dev mode" behaves, **edit those scripts** directly. 
+
+### Integration Tests
+You can run the integration tests locally on a runner that has LabVIEW 2021 (21.0) 64-bit installed:
+
+```powershell
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021 -LabVIEWBitness 64 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
+```
+
+To include the dev-mode integration tests (enable/disable dev mode and VerifyIEPaths checks):
+
+```powershell
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -RunDevModeTests -LabVIEWVersion 2021 -LabVIEWBitness 64 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
+```
 
 ### Pull Requests with Script Updates
 Collaborators are free to:

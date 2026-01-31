@@ -20,6 +20,8 @@ This document provides a collection of common **troubleshooting** scenarios (wit
    11. [No. 11: Company/Author Fields Not Populating](#no-11-companyauthor-fields-not-populating)
    12. [No. 12: JSON Fields Overwritten Incorrectly](#no-12-json-fields-overwritten-incorrectly)
    13. [No. 13: Repository Forks Not Displaying Correct Metadata](#no-13-repository-forks-not-displaying-correct-metadata)
+   14. [No. 14: Dev Mode Failure Missing Paths](#no-14-dev-mode-failure-missing-paths)
+   15. [No. 15: Verify IE Paths Gate Fails in CI](#no-15-verify-ie-paths-gate-fails-in-ci)
 
 
 2. [FAQ](#faq)
@@ -31,7 +33,7 @@ This document provides a collection of common **troubleshooting** scenarios (wit
    6. [Q6: What About Draft Releases?](#q6-what-about-draft-releases)
    7. [Q7: Can I Use This Workflow Without Gitflow?](#q7-can-i-use-this-workflow-without-gitflow)
    8. [Q8: Why Is My Dev Mode Toggle Not Working Locally?](#q8-why-is-my-dev-mode-toggle-not-working-locally)
-   9. [Q9: Can I Use a Different LabVIEW Version (e.g., 2023)?](#q9-can-i-use-a-different-labview-version-eg-2023)
+   9. [Q9: Can I Use a Different LabVIEW Version?](#q9-can-i-use-a-different-labview-version)
    10. [Q10: How Do I Pass Repository Name and Organization?](#q10-how-do-i-pass-repository-name-and-organization)
    11. [Q11: Can I Omit the Company/Author Fields in My JSON?](#q11-can-i-omit-the-companyauthor-fields-in-my-json)
    12. [Q12: Why Must I Use Single-Dash Instead of Double-Dash?](#q12-why-must-i-use-single-dash-instead-of-double-dash)
@@ -42,7 +44,7 @@ This document provides a collection of common **troubleshooting** scenarios (wit
 
 ## Troubleshooting
 
-Below are 13 possible issues you might encounter, along with suggested steps to resolve them.
+Below are 14 possible issues you might encounter, along with suggested steps to resolve them.
 
 ### No. 1: LabVIEW Not Found on Runner
 
@@ -54,7 +56,7 @@ Below are 13 possible issues you might encounter, along with suggested steps to 
 - The environment variable or path to LabVIEW isn’t set correctly.
 
 **Solution**:
-1. Ensure you’ve actually installed LabVIEW on the machine (e.g., LabVIEW 2021 SP1).
+1. Ensure you’ve actually installed LabVIEW on the machine (e.g., LabVIEW 2021 (21.0)).
 2. Double-check your PATH or environment variables.  
 3. See `runner-setup-guide.md` for details on configuring the runner to locate LabVIEW.
 
@@ -257,6 +259,35 @@ Below are 13 possible issues you might encounter, along with suggested steps to 
 
 ---
 
+### No. 14: Dev Mode Failure Missing Paths
+
+**Symptoms**:
+- The workflow fails with error `-593450` (enable) or `-593451` (disable), and the VI error source string prints a comma-separated list of missing paths.
+
+**Possible Causes**:
+- One or more expected folders or files are missing in the Icon Editor source or the LabVIEW Icon API setup.
+
+**Solution**:
+1. Read the comma-separated missing paths from the VI error source string.
+2. Restore the missing paths from a known-good install or repo checkout, then re-run the Development Mode Toggle.
+
+---
+
+### No. 15: Verify IE Paths Gate Fails in CI
+
+**Symptoms**:
+- The first CI gate fails with “Verify IE Paths Gate” or “VerifyIEPaths” errors.
+- The job logs show missing paths or an archived `missing_IE_paths.txt` file.
+
+**Possible Causes**:
+- One or more LabVIEW Icon API files are missing in the LabVIEW 2021 (21.0) install.
+- The runner is in development mode (missing `LabVIEW Icon API` or `lv_icon.lvlibp`).
+
+**Solution**:
+1. Open the “verify-iepaths-32-bit” or “verify-iepaths-64-bit” artifact attached to the failed job.
+2. Check the comma-separated list of missing paths in `missing_IE_paths.txt`.
+3. Restore the missing files (or revert dev mode) and re-run the workflow.
+
 ## FAQ
 
 Below are 14 frequently asked questions about the CI workflow and Gitflow process.
@@ -317,10 +348,10 @@ The Dev Mode Toggle scripts rely on a self-hosted runner context. If you’re tr
 
 ---
 
-### Q9: Can I Use a Different LabVIEW Version (e.g., 2023)?
+### Q9: Can I Use a Different LabVIEW Version?
 
 **Answer**:  
-Yes, if your machine and project support it. You’ll need to install that version on your self-hosted runner, and potentially update environment variables or references in the build scripts (e.g., specifying the correct LabVIEW EXE path). Just ensure everything in the project is compatible.
+CI usage is standardized on **LabVIEW 2021 (21.0), 32-bit and 64-bit**. Other versions aren’t supported for the default workflows. If you want to use a different version locally, you’ll need to fork and update the scripts/workflows to match that version.
 
 ---
 

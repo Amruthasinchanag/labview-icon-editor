@@ -18,7 +18,7 @@ runs:
         $displayInformationJson = $Env:DISPLAY_INFORMATION_JSON
         & "${{ github.action_path }}/ModifyVIPBDisplayInfo.ps1" `
           -SupportedBitness ${{ inputs.supported_bitness }} `
-          -RelativePath "${{ inputs.relative_path }}" `
+          -RepoRoot "${{ inputs.repo_root }}" `
           -VIPBPath "${{ inputs.vipb_path }}" `
           -MinimumSupportedLVVersion ${{ inputs.minimum_supported_lv_version }} `
           -LabVIEWMinorRevision ${{ inputs.labview_minor_revision }} `
@@ -33,19 +33,19 @@ inputs:
   supported_bitness:
     description: '32 or 64'
     required: true
-  relative_path:
+  repo_root:
     description: 'Workspace root path'
     required: true
   vipb_path:
     description: 'Path to the VIPB file (relative to workspace)'
     required: true
   minimum_supported_lv_version:
-    description: 'LabVIEW major version'
+    description: 'LabVIEW 2021 (21.0)'
     required: true
   labview_minor_revision:
-    description: 'LabVIEW minor revision (0 or 3)'
+    description: 'LabVIEW minor revision (0 for 21.0)'
     required: false
-    default: '3'
+    default: '0'
   major:
     description: 'Major version component'
     required: true

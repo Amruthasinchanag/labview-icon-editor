@@ -11,9 +11,27 @@ runs:
     - name: Run RevertDevelopmentMode.ps1
       shell: pwsh
       run: |
-        & "${{ github.action_path }}/RevertDevelopmentMode.ps1" \
-          -RelativePath "${{ inputs.relative_path }}"
+        $scriptArgs = @{
+          MinimumSupportedLVVersion = "${{ inputs.minimum_supported_lv_version }}"
+        }
+
+        if ("${{ inputs.repo_root }}" -ne "") {
+          $scriptArgs.RepoRoot = "${{ inputs.repo_root }}"
+        }
+
+        if ("${{ inputs.supported_bitness }}" -ne "") {
+          $scriptArgs.SupportedBitness = "${{ inputs.supported_bitness }}"
+        }
+
+        & "${{ github.action_path }}/RevertDevelopmentMode.ps1" @scriptArgs
 inputs:
-  relative_path:
+  minimum_supported_lv_version:
+    description: 'LabVIEW 2021 (21.0) only'
+    required: false
+    default: '2021'
+  supported_bitness:
+    description: 'LabVIEW bitness (32 or 64). Defaults to both when omitted.'
+    required: false
+  repo_root:
     description: 'Workspace root path'
-    required: true
+    required: false

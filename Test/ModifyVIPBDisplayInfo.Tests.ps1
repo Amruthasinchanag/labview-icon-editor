@@ -37,14 +37,14 @@ Describe "ModifyVIPBDisplayInfo.ps1" {
         }
 
         $displayInformationJson = $displayInformation | ConvertTo-Json -Depth 5
-        $relativeVipbPath = [System.IO.Path]::GetRelativePath($repoRoot, $vipbPath)
+        $relativeVipbPath = [System.IO.Path]::GetRepoRoot($repoRoot, $vipbPath)
 
         & $scriptPath `
             -SupportedBitness 64 `
-            -RelativePath $repoRoot `
+            -RepoRoot $repoRoot `
             -VIPBPath $relativeVipbPath `
-            -MinimumSupportedLVVersion 2023 `
-            -LabVIEWMinorRevision 3 `
+            -MinimumSupportedLVVersion 2021 `
+            -LabVIEWMinorRevision 0 `
             -Major 1 `
             -Minor 4 `
             -Patch 1 `
@@ -57,6 +57,7 @@ Describe "ModifyVIPBDisplayInfo.ps1" {
         $generalSettings = $vipbXml.VI_Package_Builder_Settings.Library_General_Settings
         $descriptionSettings = $vipbXml.VI_Package_Builder_Settings.Advanced_Settings.Description
         $licenseSetting = $vipbXml.VI_Package_Builder_Settings.Advanced_Settings.License_Agreement_Filepath
+        $expectedLicensePath = [System.IO.Path]::GetRelativePath((Split-Path -Parent $vipbPath), (Join-Path $repoRoot "LICENSE"))
 
         $generalSettings.Company_Name | Should -Be $displayInformation."Company Name"
         $generalSettings.Product_Name | Should -Be $displayInformation."Product Name"
@@ -65,6 +66,6 @@ Describe "ModifyVIPBDisplayInfo.ps1" {
         $descriptionSettings.URL | Should -Be $displayInformation."Product Homepage (URL)"
         $descriptionSettings.Release_Notes | Should -Be $releaseNotesContent
         $descriptionSettings.Description | Should -Match "Commit: deadbeef"
-        $licenseSetting | Should -Be "LICENSE"
+        $licenseSetting | Should -Be $expectedLicensePath
     }
 }
