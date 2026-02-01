@@ -9,16 +9,14 @@ on:
         type: string
         required: true
         default: "enable"
-      minimum_supported_lv_version:
-        description: "LabVIEW major version (2021 only)."
+      labview_version:
+        description: "LabVIEW version to target (2021/21.0 only)."
         type: string
-        required: false
-        default: "2021"
+        required: true
       bitness:
         description: "LabVIEW bitness to target (32 or 64)."
         type: string
-        required: false
-        default: "64"
+        required: true
       sequence_id:
         description: "Optional sequence identifier for deterministic run tracking."
         type: string
@@ -36,16 +34,16 @@ on:
         options:
           - enable
           - disable
-      minimum_supported_lv_version:
-        description: "LabVIEW major version."
-        required: false
+      labview_version:
+        description: "LabVIEW version."
+        required: true
         default: "2021"
         type: choice
         options:
           - "2021"
       bitness:
         description: "LabVIEW bitness."
-        required: false
+        required: true
         default: "64"
         type: choice
         options:
@@ -62,12 +60,12 @@ run-name: ${{
     format('DevMode {0} {1}-bit LV{2} seq={3}', 
       github.event.inputs.mode == 'enable' && 'enable' || 'disable',
       github.event.inputs.bitness || '64',
-      github.event.inputs.minimum_supported_lv_version || '2021',
+      github.event.inputs.labview_version || '2021',
       github.event.inputs.sequence_id || 'none') || 
     format('DevMode {0} {1}-bit LV{2} seq={3}', 
       inputs.mode == 'enable' && 'enable' || 'disable',
       inputs.bitness || '64',
-      inputs.minimum_supported_lv_version || '2021',
+      inputs.labview_version || '2021',
       inputs.sequence_id || 'none') }}
 
 jobs:
@@ -84,11 +82,11 @@ jobs:
         format('{0} {1}-bit Dev Mode LV{2}', 
           github.event.inputs.mode == 'enable' && 'Enable' || 'Disable',
           github.event.inputs.bitness || '64',
-          github.event.inputs.minimum_supported_lv_version || '2021') || 
+          github.event.inputs.labview_version || '2021') || 
         format('{0} {1}-bit Dev Mode LV{2}', 
           inputs.mode == 'enable' && 'Enable' || 'Disable',
           inputs.bitness || '64',
-          inputs.minimum_supported_lv_version || '2021') }}
+          inputs.labview_version || '2021') }}
 
     runs-on: [self-hosted-windows-lv]
     env:
@@ -120,10 +118,10 @@ jobs:
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $mode = '${{ github.event.inputs.mode }}'
-            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ github.event.inputs.labview_version }}'
           } else {
             $mode = '${{ inputs.mode }}'
-            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ inputs.labview_version }}'
           }
 
           if ([string]::IsNullOrWhiteSpace($lvVersion)) {
@@ -135,9 +133,11 @@ jobs:
             SupportedBitness          = '64'
           }
 
-          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
-            $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
+          if ([string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
+            throw "GITHUB_WORKSPACE is required to resolve RepoRoot."
           }
+
+          $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
 
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
@@ -155,10 +155,10 @@ jobs:
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $mode = '${{ github.event.inputs.mode }}'
-            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ github.event.inputs.labview_version }}'
           } else {
             $mode = '${{ inputs.mode }}'
-            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ inputs.labview_version }}'
           }
 
           if ([string]::IsNullOrWhiteSpace($lvVersion)) {
@@ -170,9 +170,11 @@ jobs:
             SupportedBitness          = '32'
           }
 
-          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
-            $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
+          if ([string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
+            throw "GITHUB_WORKSPACE is required to resolve RepoRoot."
           }
+
+          $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
 
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs

@@ -18,7 +18,7 @@ Ensure a runner has all required LabVIEW packages installed before building or t
 | Requirement | Notes |
 |-------------|-------|
 | **Windows runner** | LabVIEW and g-cli are Windows only. |
-| **LabVIEW 2021 (21.0)** | Must match both `minimum_supported_lv_version` and `vip_lv_version`. |
+| **LabVIEW 2021 (21.0)** | Must match both `labview_version` and `vip_lv_version`. |
 | **g-cli** in `PATH` | Used to apply the `.vipc` configuration. Install via **VIPM (JKI)** or include the executable in the runner image. |
 | **PowerShell 7** | Composite steps use PowerShell Core (`pwsh`). |
 
@@ -27,8 +27,8 @@ Ensure a runner has all required LabVIEW packages installed before building or t
 ## Inputs
 | Name | Required | Example | Description |
 |------|----------|---------|-------------|
-| `minimum_supported_lv_version` | **Yes** | `2021` | LabVIEW *major* version that the repo supports. |
-| `vip_lv_version` | **Yes** | `2021` | LabVIEW version used to apply the `.vipc` file. Usually the same as `minimum_supported_lv_version`. |
+| `labview_version` | **Yes** | `2021` | LabVIEW *major* version that the repo supports. |
+| `vip_lv_version` | **Yes** | `2021` | LabVIEW version used to apply the `.vipc` file. Usually the same as `labview_version`. |
 | `supported_bitness` | **Yes** | `32` or `64` | LabVIEW bitness to target. |
 | `repo_root` | **Yes** | `${{ github.workspace }}` | Root path of the repository on disk. |
 | `vipc_path` | **Yes** | `Tooling/deployment/runner_dependencies.vipc` | Path (relative to `repo_root`) of the VI Package Configuration to apply. |
@@ -43,7 +43,7 @@ steps:
   - name: Install LabVIEW dependencies
     uses: ./.github/actions/apply-vipc
     with:
-      minimum_supported_lv_version: 2021
+      labview_version: 2021
       vip_lv_version: 2021
       supported_bitness: 64
       repo_root: ${{ github.workspace }}

@@ -85,7 +85,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 1. **Development Mode Toggle**  
    - `mode: enable` → calls `Set_Development_Mode.ps1`.  
    - `mode: disable` → calls `RevertDevelopmentMode.ps1`.  
-   - Optional `minimum_supported_lv_version` (default `2021`, only `2021` is supported).
+   - `labview_version` (default `2021`, only `2021` is supported).
    - Great for reconfiguring LabVIEW for local dev vs. distribution builds.
 
 2. **CI Pipeline (Composite)**
@@ -138,7 +138,7 @@ With your runner online:
 
 1. **Enable Dev Mode** (if needed)
    - **Actions → Development Mode Toggle**, set `mode: enable`.
-   - `minimum_supported_lv_version` is fixed to `2021` if provided.
+   - `labview_version` is fixed to `2021` if provided.
 
 2. **Run Tests via CI Pipeline (Composite)**
    - Execute the workflow and review the **test** job logs to confirm all unit tests pass.
@@ -150,10 +150,34 @@ With your runner online:
 
 4. **Disable Dev Mode** (if used)  
    - `mode: disable` reverts your LabVIEW environment.
-   - Keep `minimum_supported_lv_version` set to `2021` if you include it.
+   - Keep `labview_version` set to `2021` if you include it.
 
 5. **Review the `.vip`**
    - Download from **Artifacts**. Publishing to a GitHub release requires a separate workflow.
+
+#### Worktree naming (CI)
+CI jobs run from short-path worktrees to avoid Windows path limits. Each job creates:
+- `ci-<jobhash>-<bitness>-<runid>-<attempt>`
+- `jobhash` = first 8 chars of SHA1(`GITHUB_JOB`) to keep job names unique.
+- Some workflows insert an extra variant token (e.g. LabVIEW version) between `<jobhash>` and `<bitness>`.
+- Example: `C:\dev\ci-D170BDEE-64-21534416929-1`
+
+The workflow exports:
+- `REPO_ROOT` → worktree path (authoritative for scripts)
+- `PROJECT_PATH` → `$REPO_ROOT\lv_icon_editor.lvproj`
+- `LABVIEW_VERSION_YEAR` / `LABVIEW_MINOR_REVISION` → derived from `.lvversion` (e.g., `21.0` → `2021` and minor `0`)
+
+CI treats `.lvversion` in `REPO_ROOT` as the canonical LabVIEW version for the run.
+
+#### Run CI for a specific commit (workflow_dispatch)
+If you need deterministic runs for a specific commit, use the helper script:
+```
+pwsh -NoProfile -File .\Tooling\Run-CICompositeForCommit.ps1 -Sha <commit>
+```
+
+Notes:
+- The script creates a temporary `ci-run/<shortsha>` branch and dispatches the workflow on it.
+- Use `-CleanupRemote` to delete the temporary branch after dispatch.
 
 
 <a name="example-developer-workflow"></a>

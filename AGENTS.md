@@ -22,6 +22,7 @@ Override:
 Preflight requirement:
 - If the chosen worktree root does not exist, ask the user to create it before proceeding.
 - For CI/self-hosted runners, ensure the directory is pre-created; fail fast with a clear message if missing.
+ - Local parity scripts hard-fail if `RepoRoot` is not under the worktree root; set `LVIE_WORKTREE_ROOT` or run from a worktree path.
 
 Example preflight (PowerShell):
 ```
@@ -42,6 +43,26 @@ Notes:
 - The helper enforces the worktree root and fails fast if it is missing.
 - Use `-Name` to label the worktree directory.
 - Use `-WorktreeRoot` (or `LVIE_WORKTREE_ROOT`) to override the default.
+
+## CI worktree naming (ci-composite.yml)
+CI jobs create short-path worktrees under `LVIE_WORKTREE_ROOT` with a deterministic name:
+- `ci-<jobhash>-<bitness>-<runid>-<attempt>`
+- Some workflows insert an extra variant token (e.g. LabVIEW version) between `<jobhash>` and `<bitness>`.
+- `jobhash` is the first 8 chars of the SHA1 of `GITHUB_JOB` (prevents collisions across jobs).
+- `bitness` is `32` or `64`.
+Example: `C:\dev\ci-D170BDEE-64-21534416929-1`
+
+The workflow exports:
+- `REPO_ROOT` → worktree path (authoritative for all scripts)
+- `PROJECT_PATH` → `$REPO_ROOT\lv_icon_editor.lvproj`
+- `LABVIEW_VERSION_YEAR` / `LABVIEW_MINOR_REVISION` → derived from `.lvversion` (e.g., `21.0` → `2021` and minor `0`)
+
+Note: CI reads `.lvversion` from `REPO_ROOT` as the canonical LabVIEW version for runs.
+
+Helper used by CI:
+```
+pwsh -NoProfile -File .\Tooling\New-CIWorktreeForJob.ps1 -Bitness 64
+```
 
 ## Local CI Parity (recommended)
 Run the local parity script that mirrors `ci-composite.yml`:
@@ -136,6 +157,16 @@ Prune stale worktree metadata (after deleting folders manually):
 ```
 git worktree prune
 ```
+
+## Run CI for a specific commit (workflow_dispatch)
+Use the helper to target a specific commit without relying on PR pushes:
+```
+pwsh -NoProfile -File .\Tooling\Run-CICompositeForCommit.ps1 -Sha <commit>
+```
+
+Notes:
+- The script creates a temporary branch under `ci-run/<shortsha>` and dispatches the workflow.
+- Use `-CleanupRemote` if you want the temporary branch deleted after dispatch.
 
 ## Background automation safety
 Some automation may be running in the background and must not be killed. Do not terminate `g-cli` or `LabVIEW` processes unless you have explicit confirmation it is safe.

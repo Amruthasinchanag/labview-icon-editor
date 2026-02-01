@@ -11,13 +11,18 @@ runs:
     - name: Run RestoreSetupLVSource.ps1
       shell: pwsh
       run: |
+        $lvVersion = "${{ inputs.labview_version }}"
+        if ([string]::IsNullOrWhiteSpace($lvVersion)) {
+          throw "labview_version is required."
+        }
+
         & "${{ github.action_path }}/RestoreSetupLVSource.ps1" \
-          -MinimumSupportedLVVersion ${{ inputs.minimum_supported_lv_version }} \
+          -MinimumSupportedLVVersion $lvVersion \
           -SupportedBitness ${{ inputs.supported_bitness }} \
           -RepoRoot "${{ inputs.repo_root }}"
 inputs:
-  minimum_supported_lv_version:
-    description: 'LabVIEW 2021 (21.0)'
+  labview_version:
+    description: 'LabVIEW version to target (2021/21.0 only).'
     required: true
   supported_bitness:
     description: '32 or 64'
@@ -25,3 +30,5 @@ inputs:
   repo_root:
     description: 'Workspace root path'
     required: false
+
+

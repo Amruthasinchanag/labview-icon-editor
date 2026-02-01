@@ -419,7 +419,6 @@ function Get-DisplayInformationJson {
         "Author Name (Person or Company)" = $meta.FullName
         "Product Homepage (URL)" = if ([string]::IsNullOrWhiteSpace($meta.Url)) { "" } else { $meta.Url }
         "Legal Copyright" = "(c) $(Get-Date -Format yyyy) $($meta.Owner)"
-        "License Agreement Name" = "LICENSE"
         "Product Description Summary" = $description
         "Product Description" = $description
         "Release Notes - Change Log" = $releaseNotes
@@ -492,7 +491,7 @@ if (-not $repoRootFull.EndsWith('\')) {
     $repoRootFull += '\'
 }
 if (-not $repoRootFull.StartsWith($worktreeRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
-    Write-Warning ("RepoRoot '{0}' is not under worktree root '{1}'. Consider using a short path or set LVIE_WORKTREE_ROOT." -f $repoRootFull.TrimEnd('\'), $worktreeRootFull.TrimEnd('\'))
+    throw ("RepoRoot '{0}' is not under worktree root '{1}'. Consider using a short path or set LVIE_WORKTREE_ROOT." -f $repoRootFull.TrimEnd('\'), $worktreeRootFull.TrimEnd('\'))
 }
 Push-Location -Path $repoRoot
 $script:RunFailed = $false

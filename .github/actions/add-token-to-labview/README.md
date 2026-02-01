@@ -8,7 +8,7 @@ This action depends on `Tooling/deployment/Create_LV_INI_Token.vi`, which is not
 ## Inputs
 | Name | Required | Example | Description |
 |------|----------|---------|-------------|
-| `minimum_supported_lv_version` | **Yes** | `2021` | LabVIEW 2021 (21.0) used by g-cli. |
+| `labview_version` | **Yes** | `2021` | LabVIEW 2021 (21.0) used by g-cli. |
 | `supported_bitness` | **Yes** | `32` or `64` | Target LabVIEW bitness. |
 | `repo_root` | **Yes** | `${{ github.workspace }}` | Repository root on disk. |
 
@@ -16,7 +16,7 @@ This action depends on `Tooling/deployment/Create_LV_INI_Token.vi`, which is not
 ```yaml
 - uses: ./.github/actions/add-token-to-labview
   with:
-    minimum_supported_lv_version: 2021
+    labview_version: 2021
     supported_bitness: 64
     repo_root: ${{ github.workspace }}
 ```
