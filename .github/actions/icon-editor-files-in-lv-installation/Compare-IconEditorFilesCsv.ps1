@@ -7,11 +7,16 @@ param(
     [Parameter(Mandatory)]
     [string]$AfterCsv,
 
+    [Parameter(Mandatory)]
     [string]$RepoRoot,
 
     [switch]$IncludeGitMetadata,
 
-    [string]$SummaryTitle = 'Icon Editor Files Diff'
+    [string]$SummaryTitle = 'Icon Editor Files Diff',
+
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -56,18 +61,15 @@ function Resolve-RepoRoot {
         [string]$PathOverride
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($PathOverride)) {
-        if (-not (Test-Path -Path $PathOverride)) {
-            return $null
-        }
-        return (Resolve-Path -Path $PathOverride).Path
+    if ([string]::IsNullOrWhiteSpace($PathOverride)) {
+        throw "RepoRoot is required."
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE) -and (Test-Path -Path $env:GITHUB_WORKSPACE)) {
-        return (Resolve-Path -Path $env:GITHUB_WORKSPACE).Path
+    if (-not (Test-Path -Path $PathOverride)) {
+        throw "RepoRoot does not exist: $PathOverride"
     }
 
-    return $null
+    return (Resolve-Path -Path $PathOverride).Path
 }
 
 function Get-RepoRelativePath {
@@ -223,14 +225,32 @@ if (-not (Ensure-SummaryFile -SummaryPath $summaryPath)) {
     return
 }
 
-$repoRootResolved = $null
+$repoRootResolved = Resolve-RepoRoot -PathOverride $RepoRoot
+$preflightScript = Join-Path $repoRootResolved 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRootResolved -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRootResolved `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion '' `
+        -LabVIEWBitness '' `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRootResolved = $preflight.RepoRoot
+}
 $script:RepoRootResolved = $null
 $script:GitEnabled = $false
 $script:GitMetadataCache = @{}
 $gitColumns = @()
 
 if ($IncludeGitMetadata) {
-    $repoRootResolved = Resolve-RepoRoot -PathOverride $RepoRoot
     if ($repoRootResolved -and (Get-Command git -ErrorAction SilentlyContinue)) {
         $insideRepo = & git -C $repoRootResolved rev-parse --is-inside-work-tree 2>$null
         if ($LASTEXITCODE -eq 0 -and $insideRepo -eq 'true') {

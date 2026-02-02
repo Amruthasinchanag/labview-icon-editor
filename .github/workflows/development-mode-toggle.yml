@@ -1,5 +1,12 @@
 name: "Toggle Development Mode"
 
+permissions:
+  actions: read
+
+concurrency:
+  group: labview-${{ github.repository }}-self-hosted-windows-lv-ie
+  cancel-in-progress: false
+
 on:
   # 1) Called by other workflows
   workflow_call:
@@ -9,16 +16,14 @@ on:
         type: string
         required: true
         default: "enable"
-      minimum_supported_lv_version:
-        description: "LabVIEW major version (2020-2025)."
+      labview_version:
+        description: "LabVIEW version to target (year or numeric)."
         type: string
-        required: false
-        default: "2021"
+        required: true
       bitness:
         description: "LabVIEW bitness to target (32 or 64)."
         type: string
-        required: false
-        default: "64"
+        required: true
       sequence_id:
         description: "Optional sequence identifier for deterministic run tracking."
         type: string
@@ -36,21 +41,14 @@ on:
         options:
           - enable
           - disable
-      minimum_supported_lv_version:
-        description: "LabVIEW major version."
-        required: false
+      labview_version:
+        description: "LabVIEW version (year or numeric)."
+        required: true
         default: "2021"
-        type: choice
-        options:
-          - "2020"
-          - "2021"
-          - "2022"
-          - "2023"
-          - "2024"
-          - "2025"
+        type: string
       bitness:
         description: "LabVIEW bitness."
-        required: false
+        required: true
         default: "64"
         type: choice
         options:
@@ -67,12 +65,12 @@ run-name: ${{
     format('DevMode {0} {1}-bit LV{2} seq={3}', 
       github.event.inputs.mode == 'enable' && 'enable' || 'disable',
       github.event.inputs.bitness || '64',
-      github.event.inputs.minimum_supported_lv_version || '2021',
+      github.event.inputs.labview_version || '2021',
       github.event.inputs.sequence_id || 'none') || 
     format('DevMode {0} {1}-bit LV{2} seq={3}', 
       inputs.mode == 'enable' && 'enable' || 'disable',
       inputs.bitness || '64',
-      inputs.minimum_supported_lv_version || '2021',
+      inputs.labview_version || '2021',
       inputs.sequence_id || 'none') }}
 
 jobs:
@@ -89,19 +87,24 @@ jobs:
         format('{0} {1}-bit Dev Mode LV{2}', 
           github.event.inputs.mode == 'enable' && 'Enable' || 'Disable',
           github.event.inputs.bitness || '64',
-          github.event.inputs.minimum_supported_lv_version || '2021') || 
+          github.event.inputs.labview_version || '2021') || 
         format('{0} {1}-bit Dev Mode LV{2}', 
           inputs.mode == 'enable' && 'Enable' || 'Disable',
           inputs.bitness || '64',
-          inputs.minimum_supported_lv_version || '2021') }}
+          inputs.labview_version || '2021') }}
 
-    runs-on: [self-hosted-windows-lv]
+    runs-on: [self-hosted-windows-lv-ie]
     env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
       selected_bitness: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bitness || inputs.bitness }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
 
       - name: Log context
         shell: pwsh
@@ -125,10 +128,10 @@ jobs:
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $mode = '${{ github.event.inputs.mode }}'
-            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ github.event.inputs.labview_version }}'
           } else {
             $mode = '${{ inputs.mode }}'
-            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ inputs.labview_version }}'
           }
 
           if ([string]::IsNullOrWhiteSpace($lvVersion)) {
@@ -140,9 +143,11 @@ jobs:
             SupportedBitness          = '64'
           }
 
-          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
-            $scriptArgs.RelativePath = $env:GITHUB_WORKSPACE
+          if ([string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
+            throw "GITHUB_WORKSPACE is required to resolve RepoRoot."
           }
+
+          $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
 
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
@@ -154,16 +159,22 @@ jobs:
             exit $LASTEXITCODE
           }
 
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+
       - name: Toggle dev mode (32-bit)
         if: ${{ env.selected_bitness == '32' && success() }}
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $mode = '${{ github.event.inputs.mode }}'
-            $lvVersion = '${{ github.event.inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ github.event.inputs.labview_version }}'
           } else {
             $mode = '${{ inputs.mode }}'
-            $lvVersion = '${{ inputs.minimum_supported_lv_version }}'
+            $lvVersion = '${{ inputs.labview_version }}'
           }
 
           if ([string]::IsNullOrWhiteSpace($lvVersion)) {
@@ -175,9 +186,11 @@ jobs:
             SupportedBitness          = '32'
           }
 
-          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
-            $scriptArgs.RelativePath = $env:GITHUB_WORKSPACE
+          if ([string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
+            throw "GITHUB_WORKSPACE is required to resolve RepoRoot."
           }
+
+          $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
 
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
@@ -188,3 +201,4 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             exit $LASTEXITCODE
           }
+

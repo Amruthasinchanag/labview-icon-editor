@@ -5,20 +5,17 @@
 
 .DESCRIPTION
     Executes the key LabVIEW steps from ci-composite.yml locally:
-    - Verify IE Paths gate (2021 32/64)
-    - Apply VIPC dependencies (2021 32/64, 2023 64)
-    - Missing-in-project checks (2021 32/64)
-    - Unit tests (2021 32/64)
-    - Build PPLs (2021 32/64) + rename
-    - Build VIP (2023 64)
+    - Verify IE Paths gate (version 32/64)
+    - Apply VIPC dependencies (version 32/64)
+    - Missing-in-project checks (version 32/64)
+    - Unit tests (version 32/64)
+    - Build PPLs (version 32/64) + rename
+    - Build VIP (version 64)
 
     GitHub-only gates (issue-status, labels, artifact upload) are not included.
 
 .PARAMETER LabVIEWVersion
-    LabVIEW major version for 2021 steps (default: 2021).
-
-.PARAMETER LabVIEWBuildVersion
-    LabVIEW major version for VIP build steps (default: 2023).
+    LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
 .PARAMETER SkipVerifyIEPaths
     Skip the Verify IE Paths gate.
@@ -62,8 +59,26 @@
 .PARAMETER ReleaseNotesPath
     Path to release notes file (relative to repo root).
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Optional repository root override.
+
+.PARAMETER WorktreeRoot
+    Optional override for the worktree root used by guardrails.
+
+.PARAMETER SkipWorktreeRootCheck
+    Skip enforcing that RepoRoot is under the worktree root.
+
+.PARAMETER AutoWorktree
+    Auto-create a short-path worktree and re-run from there when needed.
+
+.PARAMETER RunId
+    Optional run identifier used for artifact isolation.
+
+.PARAMETER ArtifactRoot
+    Optional override for the artifact output root.
+
+.PARAMETER CleanRoom
+    If set, purge known output folders before and after the run.
 
 .PARAMETER Major
     Override major version.
@@ -84,12 +99,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('2020', '2021', '2022', '2023', '2024', '2025')]
-    [string]$LabVIEWVersion = '2021',
-
-    [Parameter(Mandatory = $false)]
-    [ValidateSet('2021', '2023', '2024', '2025')]
-    [string]$LabVIEWBuildVersion = '2023',
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string]$LabVIEWVersion = '',
 
     [switch]$SkipVerifyIEPaths,
     [switch]$EnsureCleanState,
@@ -120,6 +132,10 @@ param(
     [int]$VipmTimeoutSeconds = 900,
 
     [Parameter(Mandatory = $false)]
+    [ValidateSet('always', 'if-running')]
+    [string]$CloseLabVIEWMode = 'if-running',
+
+    [Parameter(Mandatory = $false)]
     [string]$VipcPath = '.github/actions/apply-vipc/runner_dependencies.vipc',
 
     [Parameter(Mandatory = $false)]
@@ -129,7 +145,22 @@ param(
     [string]$ReleaseNotesPath = 'Tooling/deployment/release_notes.md',
 
     [Parameter(Mandatory = $false)]
-    [string]$RelativePath,
+    [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck,
+
+    [switch]$AutoWorktree,
+
+    [Parameter(Mandatory = $false)]
+    [string]$RunId,
+
+    [Parameter(Mandatory = $false)]
+    [string]$ArtifactRoot,
+
+    [switch]$CleanRoom,
 
     [Parameter(Mandatory = $false)]
     [int]$Major,
@@ -160,6 +191,20 @@ function Ensure-CsvHeader {
     }
 }
 
+function Write-StepHistoryEntry {
+    param(
+        [string]$Label,
+        [string]$Status,
+        [double]$DurationSeconds
+    )
+
+    if (-not $script:StepHistoryPath) {
+        return
+    }
+
+    "{0},{1},{2},{3}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), ($Label -replace ',', ' '), $Status, $DurationSeconds | Add-Content -Path $script:StepHistoryPath
+}
+
 function Wait-ForIdle {
     param([string]$RunHistoryPath)
 
@@ -182,7 +227,7 @@ function Resolve-RepoRoot {
     param([string]$PathOverride)
     if ($PathOverride) {
         if (-not (Test-Path -Path $PathOverride)) {
-            throw "RelativePath does not exist: $PathOverride"
+            throw "RepoRoot does not exist: $PathOverride"
         }
         return (Resolve-Path -Path $PathOverride).Path
     }
@@ -229,6 +274,57 @@ function Assert-LabVIEWInstalled {
     param([string]$Version, [string]$Bitness)
     if (-not (Get-LabVIEWInstallRoot -Version $Version -Bitness $Bitness)) {
         throw "LabVIEW $Version ($Bitness-bit) install not found."
+    }
+}
+
+function Test-LabVIEWRunning {
+    param(
+        [string]$Version,
+        [string]$Bitness
+    )
+
+    $installRoot = Get-LabVIEWInstallRoot -Version $Version -Bitness $Bitness
+    if ([string]::IsNullOrWhiteSpace($installRoot)) {
+        return $false
+    }
+
+    $processes = @()
+    try {
+        $processes = Get-CimInstance Win32_Process -Filter "Name='LabVIEW.exe'" -ErrorAction Stop
+    } catch {
+        $processes = @()
+    }
+
+    if (-not $processes) {
+        return $false
+    }
+
+    $matches = $processes | Where-Object {
+        $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+
+    return ($matches -and $matches.Count -gt 0)
+}
+
+function Invoke-CloseLabVIEW {
+    param(
+        [string]$Bitness,
+        [string]$Context
+    )
+
+    $label = "Close LabVIEW $LabVIEWVersion ($Bitness-bit)"
+    if ($CloseLabVIEWMode -eq 'if-running') {
+        if (-not (Test-LabVIEWRunning -Version $LabVIEWVersion -Bitness $Bitness)) {
+            Write-Host ("Skipping {0}{1} (not running)." -f $label, $(if ($Context) { " - $Context" } else { "" }))
+            Write-StepHistoryEntry -Label $label -Status 'skipped' -DurationSeconds 0
+            return
+        }
+    }
+
+    Invoke-Checked -Label $label -Action {
+        & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
+            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -SupportedBitness $Bitness
     }
 }
 
@@ -357,7 +453,6 @@ function Get-DisplayInformationJson {
         "Author Name (Person or Company)" = $meta.FullName
         "Product Homepage (URL)" = if ([string]::IsNullOrWhiteSpace($meta.Url)) { "" } else { $meta.Url }
         "Legal Copyright" = "(c) $(Get-Date -Format yyyy) $($meta.Owner)"
-        "License Agreement Name" = "LICENSE"
         "Product Description Summary" = $description
         "Product Description" = $description
         "Release Notes - Change Log" = $releaseNotes
@@ -369,10 +464,16 @@ function Get-DisplayInformationJson {
 function Copy-LatestVipToBuilds {
     param(
         [string]$RepoRoot,
-        [datetime]$Since
+        [datetime]$Since,
+        [string]$ArtifactRoot
     )
 
-    $buildsDir = Join-Path $RepoRoot 'builds'
+    $artifactRootResolved = if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) { $env:LVIE_ARTIFACT_ROOT } else { $ArtifactRoot }
+    $buildsDir = if ([string]::IsNullOrWhiteSpace($artifactRootResolved)) {
+        Join-Path $RepoRoot 'builds'
+    } else {
+        Join-Path $artifactRootResolved 'builds'
+    }
     $vipDir = Join-Path $buildsDir 'VI Package'
     New-Item -Path $vipDir -ItemType Directory -Force | Out-Null
 
@@ -402,10 +503,16 @@ function Copy-LatestVipToBuilds {
 function Write-GCliBuildLogTail {
     param(
         [string]$RepoRoot,
-        [int]$TailLines = 120
+        [int]$TailLines = 120,
+        [string]$ArtifactRoot
     )
 
-    $logFile = Join-Path $RepoRoot 'builds/logs/gcli-build.log'
+    $artifactRootResolved = if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) { $env:LVIE_ARTIFACT_ROOT } else { $ArtifactRoot }
+    $logFile = if ([string]::IsNullOrWhiteSpace($artifactRootResolved)) {
+        Join-Path $RepoRoot 'builds/logs/gcli-build.log'
+    } else {
+        Join-Path $artifactRootResolved 'builds/logs/gcli-build.log'
+    }
     if (-not (Test-Path -Path $logFile)) {
         Write-Host ("g-cli build log not found at {0}" -f $logFile)
         return
@@ -416,19 +523,61 @@ function Write-GCliBuildLogTail {
     Write-Host "---- end g-cli build log ----"
 }
 
-$repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
+$repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
+$artifactRootResolved = $null
+$preflight = $null
+$preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $LabVIEWVersion `
+        -LabVIEWBitness 'both' `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$AutoWorktree `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs `
+        -RunId $RunId `
+        -ArtifactRoot $ArtifactRoot `
+        -CleanRoom:$CleanRoom `
+        -RequireGcli
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRoot = $preflight.RepoRoot
+    $artifactRootResolved = $preflight.ArtifactRoot
+}
+
+$versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
+$labviewInfo = if ($preflight -and $preflight.LabVIEWInfo) { $preflight.LabVIEWInfo } else { $null }
+if (-not $labviewInfo -and (Test-Path -Path $versionHelper)) {
+    . $versionHelper
+    $labviewInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
+    $LabVIEWVersion = $labviewInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($LabVIEWVersion) -and $labviewInfo) {
+    $LabVIEWVersion = $labviewInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($LabVIEWVersion)) {
+    $LabVIEWVersion = '2021'
+}
 Push-Location -Path $repoRoot
 $script:RunFailed = $false
 $runStart = Get-Date
 $runTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$logRoot = Join-Path $repoRoot 'TestResults/agent-logs'
+$logRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'agent-logs' } else { Join-Path $repoRoot 'TestResults/agent-logs' }
 New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $script:RunHistoryPath = Join-Path $logRoot 'run-history.csv'
 $script:StepHistoryPath = Join-Path $logRoot 'step-history.csv'
+$script:CloseHistoryPath = Join-Path $logRoot ("close-history-{0}.csv" -f $runTimestamp)
 Ensure-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration_seconds,command'
 Ensure-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
+$env:LABVIEW_CLOSE_METRICS_PATH = $script:CloseHistoryPath
 $runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
-$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBuildVersion $LabVIEWBuildVersion -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds"
+$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
 $script:TranscriptStarted = $false
 try {
     Start-Transcript -Path $runLog -Append | Out-Null
@@ -445,11 +594,11 @@ try {
 
     Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
 
-    $bitnessList = @('64', '32')
+$bitnessList = @('64', '32')
     foreach ($bitness in $bitnessList) {
         Assert-LabVIEWInstalled -Version $LabVIEWVersion -Bitness $bitness
     }
-    Assert-LabVIEWInstalled -Version $LabVIEWBuildVersion -Bitness '64'
+    $vipLabVIEWMinorRevision = if ($labviewInfo) { [int]$labviewInfo.MinorRevision } else { 0 }
 
     $versionInfo = Get-LocalVersionInfo -RepoRoot $repoRoot -BumpType $BumpType
     if ($PSBoundParameters.ContainsKey('Major')) { $versionInfo.Major = $Major }
@@ -458,7 +607,7 @@ try {
     if ($PSBoundParameters.ContainsKey('Build')) { $versionInfo.Build = $Build }
     if ($PSBoundParameters.ContainsKey('Commit')) { $versionInfo.Commit = $Commit }
 
-    $artifactsRoot = Join-Path $repoRoot 'TestResults/ci-local'
+    $artifactsRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'ci-local' } else { Join-Path $repoRoot 'TestResults/ci-local' }
     New-Item -Path $artifactsRoot -ItemType Directory -Force | Out-Null
 
     if (-not $SkipVerifyIEPaths) {
@@ -471,7 +620,7 @@ try {
                     & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
-                        -RelativePath $repoRoot `
+                        -RepoRoot $repoRoot `
                         -ConnectTimeoutMs $ConnectTimeoutMs `
                         -ProcessTimeoutMs $ProcessTimeoutMs
                 }
@@ -481,7 +630,7 @@ try {
                 & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') `
                     -MinimumSupportedLVVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
-                    -RelativePath $repoRoot `
+                    -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs `
                     -StatusFileTimeoutMs $StatusFileTimeoutMs `
@@ -497,29 +646,11 @@ try {
                     -MinimumSupportedLVVersion $LabVIEWVersion `
                     -VIP_LVVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
-                    -RelativePath $repoRoot `
+                    -RepoRoot $repoRoot `
                     -VIPCPath $VipcPath
             }
         }
 
-        Invoke-Checked -Label "Close LabVIEW $LabVIEWVersion before $LabVIEWBuildVersion" -Action {
-            foreach ($bitness in $bitnessList) {
-                & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness
-            }
-        }
-
-        if (-not $SkipBuildVip) {
-            Invoke-Checked -Label "Apply VIPC (LV$LabVIEWBuildVersion 64-bit)" -Action {
-                & (Join-Path $repoRoot '.github/actions/apply-vipc/ApplyVIPC.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWBuildVersion `
-                    -VIP_LVVersion $LabVIEWBuildVersion `
-                    -SupportedBitness 64 `
-                    -RelativePath $repoRoot `
-                    -VIPCPath $VipcPath
-            }
-        }
     }
 
     if (-not $SkipMissingInProject) {
@@ -537,7 +668,7 @@ try {
                     & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
-                        -RelativePath $repoRoot `
+                        -RepoRoot $repoRoot `
                         -ConnectTimeoutMs $ConnectTimeoutMs `
                         -ProcessTimeoutMs $ProcessTimeoutMs
                 }
@@ -553,12 +684,10 @@ try {
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                     -MinimumSupportedLVVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
-                    -RelativePath $repoRoot `
+                    -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
-                & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness | Out-Null
+                Invoke-CloseLabVIEW -Bitness $bitness -Context 'after missing-in-project'
             }
 
             $missingPath = Join-Path $repoRoot '.github/actions/missing-in-project/missing_files.txt'
@@ -575,7 +704,7 @@ try {
                     & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
-                        -RelativePath $repoRoot `
+                        -RepoRoot $repoRoot `
                         -ConnectTimeoutMs $ConnectTimeoutMs `
                         -ProcessTimeoutMs $ProcessTimeoutMs
                 }
@@ -583,19 +712,18 @@ try {
                 Invoke-Checked -Label "Run unit tests ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/run-unit-tests/RunUnitTests.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
-                        -SupportedBitness $bitness
+                        -SupportedBitness $bitness `
+                        -ProjectPath (Join-Path $repoRoot 'lv_icon_editor.lvproj')
                 }
             }
             finally {
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                     -MinimumSupportedLVVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
-                    -RelativePath $repoRoot `
+                    -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
-                & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness | Out-Null
+                Invoke-CloseLabVIEW -Bitness $bitness -Context 'after unit tests'
             }
         }
     }
@@ -607,7 +735,7 @@ try {
                     & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
-                        -RelativePath $repoRoot `
+                        -RepoRoot $repoRoot `
                         -ConnectTimeoutMs $ConnectTimeoutMs `
                         -ProcessTimeoutMs $ProcessTimeoutMs
                 }
@@ -616,7 +744,7 @@ try {
                     & (Join-Path $repoRoot '.github/actions/build-lvlibp/Build_lvlibp.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
-                        -RelativePath $repoRoot `
+                        -RepoRoot $repoRoot `
                         -Major $versionInfo.Major `
                         -Minor $versionInfo.Minor `
                         -Patch $versionInfo.Patch `
@@ -628,12 +756,10 @@ try {
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                     -MinimumSupportedLVVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
-                    -RelativePath $repoRoot `
+                    -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
-                & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness | Out-Null
+                Invoke-CloseLabVIEW -Bitness $bitness -Context 'after PPL build'
             }
 
             $currentFile = Join-Path $repoRoot 'resource/plugins/lv_icon.lvlibp'
@@ -665,13 +791,13 @@ try {
 
         $displayInfo = Get-DisplayInformationJson -RepoRoot $repoRoot -ReleaseNotesPath (Join-Path $repoRoot $ReleaseNotesPath) -Major $versionInfo.Major -Minor $versionInfo.Minor -Patch $versionInfo.Patch -Build $versionInfo.Build
 
-        Invoke-Checked -Label "Modify VIPB display info (LV$LabVIEWBuildVersion 64-bit)" -Action {
+        Invoke-Checked -Label "Modify VIPB display info (LV$LabVIEWVersion 64-bit)" -Action {
             & (Join-Path $repoRoot '.github/actions/modify-vipb-display-info/ModifyVIPBDisplayInfo.ps1') `
                 -SupportedBitness 64 `
-                -RelativePath $repoRoot `
+                -RepoRoot $repoRoot `
                 -VIPBPath $VipbPath `
-                -MinimumSupportedLVVersion $LabVIEWBuildVersion `
-                -LabVIEWMinorRevision 3 `
+                -MinimumSupportedLVVersion $LabVIEWVersion `
+                -LabVIEWMinorRevision $vipLabVIEWMinorRevision `
                 -Major $versionInfo.Major `
                 -Minor $versionInfo.Minor `
                 -Patch $versionInfo.Patch `
@@ -682,13 +808,13 @@ try {
         }
 
         try {
-            Invoke-Checked -Label "Build VIP (LV$LabVIEWBuildVersion 64-bit)" -Action {
-                & (Join-Path $repoRoot '.github/actions/build-vip/build_vip.ps1') `
+            Invoke-Checked -Label "Build VIP (LV$LabVIEWVersion 64-bit)" -Action {
+                & (Join-Path $repoRoot 'Tooling/Invoke-VipBuild.ps1') `
                     -SupportedBitness 64 `
-                    -RelativePath $repoRoot `
+                    -RepoRoot $repoRoot `
                     -VIPBPath $VipbPath `
-                    -MinimumSupportedLVVersion $LabVIEWBuildVersion `
-                    -LabVIEWMinorRevision 3 `
+                    -MinimumSupportedLVVersion $LabVIEWVersion `
+                    -LabVIEWMinorRevision $vipLabVIEWMinorRevision `
                     -Major $versionInfo.Major `
                     -Minor $versionInfo.Minor `
                     -Patch $versionInfo.Patch `
@@ -700,21 +826,17 @@ try {
             }
         }
         catch {
-            Write-GCliBuildLogTail -RepoRoot $repoRoot
+            Write-GCliBuildLogTail -RepoRoot $repoRoot -ArtifactRoot $artifactRootResolved
             throw
         }
 
-        $vipOutput = Copy-LatestVipToBuilds -RepoRoot $repoRoot -Since $vipBuildStart
+        $vipOutput = Copy-LatestVipToBuilds -RepoRoot $repoRoot -Since $vipBuildStart -ArtifactRoot $artifactRootResolved
         if (-not $vipOutput) {
-            Write-GCliBuildLogTail -RepoRoot $repoRoot
+            Write-GCliBuildLogTail -RepoRoot $repoRoot -ArtifactRoot $artifactRootResolved
             throw "VIP build did not produce a .vip after $($vipBuildStart.ToString('yyyy-MM-dd HH:mm:ss'))."
         }
 
-        Invoke-Checked -Label "Close LabVIEW $LabVIEWBuildVersion (64-bit)" -Action {
-            & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
-                -MinimumSupportedLVVersion $LabVIEWBuildVersion `
-                -SupportedBitness 64
-        }
+        Invoke-CloseLabVIEW -Bitness 64 -Context 'after VIP build'
     }
 
     Write-Host ""
@@ -732,6 +854,12 @@ finally {
         catch {
             # ignore transcript failures
         }
+    }
+    if ($preflight -and $preflight.CleanRoomAfter) {
+        Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
+    }
+    if ($env:LABVIEW_CLOSE_METRICS_PATH) {
+        Remove-Item Env:LABVIEW_CLOSE_METRICS_PATH -ErrorAction SilentlyContinue
     }
     $runDuration = [Math]::Round(((Get-Date) - $runStart).TotalSeconds, 2)
     $runStatus = if ($script:RunFailed) {

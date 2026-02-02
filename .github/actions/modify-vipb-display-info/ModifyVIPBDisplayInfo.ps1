@@ -11,17 +11,17 @@
 .PARAMETER SupportedBitness
     LabVIEW bitness for the build ("32" or "64").
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Path to the repository root.
 
 .PARAMETER VIPBPath
     Relative path to the VIPB file to modify.
 
 .PARAMETER MinimumSupportedLVVersion
-    Minimum LabVIEW version supported by the package.
+    LabVIEW major version year (e.g., 2021).
 
 .PARAMETER LabVIEWMinorRevision
-    Minor revision number of LabVIEW (0 or 3).
+    Minor revision number of LabVIEW (e.g., 0 for 21.0).
 
 .PARAMETER Major
     Major version component for the package.
@@ -45,17 +45,21 @@
     JSON string representing the VIPB display information to update.
 
 .EXAMPLE
-    .\ModifyVIPBDisplayInfo.ps1 -SupportedBitness "64" -RelativePath "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2023 -LabVIEWMinorRevision 3 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
+    .\ModifyVIPBDisplayInfo.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
 #>
 param (
     [string]$SupportedBitness,
-    [string]$RelativePath,
+    [string]$RepoRoot,
     [string]$VIPBPath,
+    [string]$WorktreeRoot,
+    [switch]$SkipWorktreeRootCheck,
 
+    [Alias('LabVIEWVersion')]
+    [ValidateRange(2000, 2100)]
     [int]$MinimumSupportedLVVersion,
 
-    [ValidateSet("0","3")]
-    [string]$LabVIEWMinorRevision = "0",
+    [ValidateRange(0, 99)]
+    [int]$LabVIEWMinorRevision = 0,
 
     [int]$Major,
     [int]$Minor,
@@ -70,17 +74,38 @@ param (
 
 # 1) Resolve paths
 try {
-    $ResolvedRelativePath = Resolve-Path -Path $RelativePath -ErrorAction Stop
-    $ResolvedVIPBPath = Join-Path -Path $ResolvedRelativePath -ChildPath $VIPBPath -ErrorAction Stop
+    $ResolvedRepoRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $ResolvedVIPBPath = Join-Path -Path $ResolvedRepoRoot -ChildPath $VIPBPath -ErrorAction Stop
 }
 catch {
     $errorObject = [PSCustomObject]@{
-        error      = "Error resolving paths. Ensure RelativePath and VIPBPath are valid."
+        error      = "Error resolving paths. Ensure RepoRoot and VIPBPath are valid."
         exception  = $_.Exception.Message
         stackTrace = $_.Exception.StackTrace
     }
     $errorObject | ConvertTo-Json -Depth 10
     exit 1
+}
+
+# 1a) Worktree preflight (optional for local runs)
+$preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $ResolvedRepoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $ResolvedRepoRoot = $preflight.RepoRoot
 }
 
 # 2) Create release notes if needed
@@ -272,31 +297,62 @@ Set-VipbElementValue -ParentNode $descriptionSettings -ElementName "Description"
 
 # Update optional license reference (resolve to an actual file path when possible)
 $licenseAgreementInput = $jsonObj.'License Agreement Name'
+$resolvedLicensePath = $null
 if (-not [string]::IsNullOrWhiteSpace($licenseAgreementInput)) {
     $candidatePath = $licenseAgreementInput
-    $relativePath  = $licenseAgreementInput
-
     if (-not [System.IO.Path]::IsPathRooted($candidatePath)) {
-        $candidatePath = Join-Path -Path $ResolvedRelativePath -ChildPath $licenseAgreementInput
+        $candidatePath = Join-Path -Path $ResolvedRepoRoot -ChildPath $licenseAgreementInput
     }
 
     if (Test-Path $candidatePath) {
         try {
             $resolvedLicensePath = (Resolve-Path -Path $candidatePath -ErrorAction Stop).Path
-
-            if ($resolvedLicensePath.StartsWith($ResolvedRelativePath, [System.StringComparison]::OrdinalIgnoreCase)) {
-                $relativePath = $resolvedLicensePath.Substring($ResolvedRelativePath.Length).TrimStart('\','/')
-            }
         }
         catch {
-            Write-Warning "Unable to resolve license file path '$candidatePath'. Using literal value instead."
+            Write-Warning "Unable to resolve license file path '$candidatePath'."
         }
     }
     else {
         Write-Warning "License agreement path '$licenseAgreementInput' does not exist relative to the repository."
     }
+}
 
+if ($resolvedLicensePath) {
+    $relativePath = $resolvedLicensePath
+    try {
+        $vipbDirectory = Split-Path -Parent $ResolvedVIPBPath
+        $relativePath = [System.IO.Path]::GetRelativePath($vipbDirectory, $resolvedLicensePath)
+    }
+    catch {
+        Write-Warning "Unable to compute a relative license path from '$ResolvedVIPBPath'. Using absolute path instead."
+    }
     Set-VipbElementValue -ParentNode $advancedSettings -ElementName "License_Agreement_Filepath" -Value $relativePath
+}
+else {
+    # Ensure VIP builds don't depend on any local license file by default.
+    Set-VipbElementValue -ParentNode $advancedSettings -ElementName "License_Agreement_Filepath" -Value ''
+}
+
+# Ensure we don't accidentally ship local build artifacts (logs, diagnostics) in the VI package.
+# The VIPB already excludes many non-shipping folders, but TestResults is intentionally used by
+# CI/local tooling and should never be included in the built VIP.
+try {
+    $sourceFiles = $advancedSettings.SelectSingleNode('Source_Files')
+    if ($null -ne $sourceFiles) {
+        $existing = $sourceFiles.SelectNodes('Exclusions/Path') | Where-Object { $_.InnerText -eq 'TestResults' }
+        if (-not $existing -or $existing.Count -eq 0) {
+            $exclusion = $vipbXml.CreateElement('Exclusions')
+            $pathNode = $vipbXml.CreateElement('Path')
+            $pathNode.InnerText = 'TestResults'
+            [void]$exclusion.AppendChild($pathNode)
+            [void]$sourceFiles.AppendChild($exclusion)
+        }
+    } else {
+        Write-Warning "VIPB does not contain an Advanced_Settings/Source_Files section; cannot enforce TestResults exclusion."
+    }
+}
+catch {
+    Write-Warning ("Failed to enforce TestResults exclusion in VIPB. {0}" -f $_.Exception.Message)
 }
 
 # Warn about any DisplayInformation JSON keys we don't yet handle

@@ -8,13 +8,18 @@ param(
     [ValidateSet('32', '64')]
     [string]$Arch,
 
+    [Parameter(Mandatory)]
     [string]$RepoRoot,
 
     [string]$CsvFileName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics.csv',
 
     [string]$ProjectFile = '',
 
-    [string]$SummaryTitle = 'Icon Editor Files in LabVIEW Installation'
+    [string]$SummaryTitle = 'Icon Editor Files in LabVIEW Installation',
+
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,29 +27,22 @@ $ErrorActionPreference = 'Stop'
 $headers = @('File Path', 'Bytes', 'Last modified')
 $diagnosticsBaseName = 'Icon_Editor_Files_In_LV_Installation_Diagnostics'
 $defaultCsvName = "$diagnosticsBaseName.csv"
+$labviewYear = $LVVersion
 
 function Resolve-RepoRoot {
     param(
         [string]$PathOverride
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($PathOverride)) {
-        if (-not (Test-Path -Path $PathOverride)) {
-            throw "RepoRoot does not exist: $PathOverride"
-        }
-        return (Resolve-Path -Path $PathOverride).Path
+    if ([string]::IsNullOrWhiteSpace($PathOverride)) {
+        throw "RepoRoot is required."
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE) -and (Test-Path -Path $env:GITHUB_WORKSPACE)) {
-        return (Resolve-Path -Path $env:GITHUB_WORKSPACE).Path
+    if (-not (Test-Path -Path $PathOverride)) {
+        throw "RepoRoot does not exist: $PathOverride"
     }
 
-    $fallback = Join-Path $PSScriptRoot '..\..\..'
-    if (-not (Test-Path -Path $fallback)) {
-        throw "Unable to resolve repository root. Provide -RepoRoot."
-    }
-
-    return (Resolve-Path -Path $fallback).Path
+    return (Resolve-Path -Path $PathOverride).Path
 }
 
 function Resolve-CsvPath {
@@ -110,7 +108,7 @@ function Invoke-IconEditorDiagnostics {
     }
 
     $gCliArgs = @(
-        '--lv-ver', $LVVersion,
+        '--lv-ver', $labviewYear,
         '--arch', $Arch
     )
 
@@ -189,7 +187,7 @@ function Write-GitHubOutputs {
 
 function Safe-QuitLabVIEW {
     try {
-        & g-cli --lv-ver $LVVersion --arch $Arch QuitLabVIEW | Out-Null
+        & g-cli --lv-ver $labviewYear --arch $Arch QuitLabVIEW | Out-Null
     }
     catch {
         Write-Warning ("Failed to close LabVIEW: {0}" -f $_.Exception.Message)
@@ -205,12 +203,44 @@ try {
     }
 
     $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
+    $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+    if (Test-Path -Path $preflightScript) {
+        . $preflightScript
+        $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+        $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+        $preflight = Invoke-Preflight `
+            -RepoRoot $repoRoot `
+            -WorktreeRoot $WorktreeRoot `
+            -LabVIEWVersion $LVVersion `
+            -LabVIEWBitness $Arch `
+            -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+            -AutoWorktree:$false `
+            -ScriptPath $relativeScript `
+            -ScriptArguments $scriptArgs
+        if ($preflight.Reinvoked) {
+            return
+        }
+        $repoRoot = $preflight.RepoRoot
+    }
+    $versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
+    if (Test-Path -Path $versionHelper) {
+        . $versionHelper
+        $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LVVersion -RepoRoot $repoRoot
+        $labviewYear = $versionInfo.Year
+    }
+    if ([string]::IsNullOrWhiteSpace($labviewYear)) {
+        $labviewYear = '2021'
+    }
     $viPath = Join-Path $repoRoot 'Tooling\GetPathsToIconEditorFilesInLVInstallationCLI.vi'
     if (-not (Test-Path -Path $viPath)) {
         throw "VI not found: $viPath"
     }
 
-    $csvPath = Resolve-CsvPath -Root $repoRoot -FileName $CsvFileName
+    $csvRoot = if ([string]::IsNullOrWhiteSpace($env:LVIE_ARTIFACT_ROOT)) { $repoRoot } else { $env:LVIE_ARTIFACT_ROOT }
+    if (-not (Test-Path -Path $csvRoot)) {
+        $null = New-Item -ItemType Directory -Path $csvRoot -Force
+    }
+    $csvPath = Resolve-CsvPath -Root $csvRoot -FileName $CsvFileName
     $bitnessCsvName = "{0}_{1}.csv" -f $diagnosticsBaseName, $Arch
     $bitnessCsvNameNoExt = "{0}_{1}" -f $diagnosticsBaseName, $Arch
     $defaultCsvPath = Join-Path $repoRoot $defaultCsvName

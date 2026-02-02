@@ -9,17 +9,17 @@
 .PARAMETER SupportedBitness
     LabVIEW bitness for the build ("32" or "64").
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Path to the repository root.
 
 .PARAMETER VIPBPath
     Relative path to the VIPB file to update.
 
 .PARAMETER MinimumSupportedLVVersion
-    Minimum LabVIEW version supported by the package.
+    LabVIEW major version year (e.g., 2021).
 
 .PARAMETER LabVIEWMinorRevision
-    Minor revision number of LabVIEW (0 or 3).
+    Minor revision number of LabVIEW (e.g., 0 for 21.0).
 
 .PARAMETER Major
     Major version component for the package.
@@ -43,18 +43,22 @@
     JSON string representing the VIPB display information to update.
 
 .EXAMPLE
-    .\build_vip.ps1 -SupportedBitness "64" -RelativePath "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 3 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
+    .\build_vip.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
 #>
 
 param (
     [string]$SupportedBitness,
-    [string]$RelativePath,
+    [string]$RepoRoot,
     [string]$VIPBPath,
+    [string]$WorktreeRoot,
+    [switch]$SkipWorktreeRootCheck,
 
+    [Alias('LabVIEWVersion')]
+    [ValidateRange(2000, 2100)]
     [int]$MinimumSupportedLVVersion,
 
-    [ValidateSet("0","3")]
-    [string]$LabVIEWMinorRevision = "0",
+    [ValidateRange(0, 99)]
+    [int]$LabVIEWMinorRevision = 0,
 
     [int]$Major,
     [int]$Minor,
@@ -63,8 +67,8 @@ param (
     [string]$Commit,
     [string]$ReleaseNotesFile,
 
-    [Parameter(Mandatory=$true)]
     [string]$DisplayInformationJSON,
+    [string]$DisplayInformationJsonPath,
 
     [ValidateRange(60, 3600)]
     [int]$VipmTimeoutSeconds = 300
@@ -72,18 +76,48 @@ param (
 
 # 1) Resolve paths
 try {
-    $ResolvedRelativePath = Resolve-Path -Path $RelativePath -ErrorAction Stop
-    $ResolvedVIPBPath = Join-Path -Path $ResolvedRelativePath -ChildPath $VIPBPath -ErrorAction Stop
+    $ResolvedRepoRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $ResolvedVIPBPath = Join-Path -Path $ResolvedRepoRoot -ChildPath $VIPBPath -ErrorAction Stop
 }
 catch {
     $errorObject = [PSCustomObject]@{
-        error      = "Error resolving paths. Ensure RelativePath and VIPBPath are valid."
+        error      = "Error resolving paths. Ensure RepoRoot and VIPBPath are valid."
         exception  = $_.Exception.Message
         stackTrace = $_.Exception.StackTrace
     }
     $errorObject | ConvertTo-Json -Depth 10
     exit 1
 }
+
+# 1a) Worktree preflight (optional for local runs)
+$preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $ResolvedRepoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $ResolvedRepoRoot = $preflight.RepoRoot
+}
+
+# 1b) Ensure VI Package output directory exists to avoid VIPM prompts
+$artifactRoot = $env:LVIE_ARTIFACT_ROOT
+$vipOutputDir = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
+    Join-Path -Path $ResolvedRepoRoot -ChildPath "builds/VI Package"
+} else {
+    Join-Path -Path $artifactRoot -ChildPath "builds/VI Package"
+}
+New-Item -ItemType Directory -Path $vipOutputDir -Force | Out-Null
 
 # 2) Create release notes if needed and resolve the paths
 if (-not (Test-Path $ReleaseNotesFile)) {
@@ -105,7 +139,11 @@ catch {
 }
 
 # 3a) Ensure build log directory exists for troubleshooting
-$LogDirectory = Join-Path -Path $ResolvedRelativePath -ChildPath "builds/logs"
+$LogDirectory = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
+    Join-Path -Path $ResolvedRepoRoot -ChildPath "builds/logs"
+} else {
+    Join-Path -Path $artifactRoot -ChildPath "builds/logs"
+}
 New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
 
 # 3) Calculate the LabVIEW version string
@@ -119,13 +157,35 @@ else {
 }
 Write-Output "Building VI Package for LabVIEW $VIP_LVVersion_A..."
 
-# 4) Parse and update the DisplayInformationJSON
+# 4) Resolve and parse DisplayInformation JSON
+$resolvedDisplayJson = $DisplayInformationJSON
+if ([string]::IsNullOrWhiteSpace($resolvedDisplayJson) -and -not [string]::IsNullOrWhiteSpace($DisplayInformationJsonPath)) {
+    if (-not (Test-Path -Path $DisplayInformationJsonPath)) {
+        $errorObject = [PSCustomObject]@{
+            error      = "DisplayInformationJsonPath '$DisplayInformationJsonPath' does not exist."
+        }
+        $errorObject | ConvertTo-Json -Depth 10
+        exit 1
+    }
+    $resolvedDisplayJson = Get-Content -Raw -Path $DisplayInformationJsonPath
+}
+if ([string]::IsNullOrWhiteSpace($resolvedDisplayJson) -and -not [string]::IsNullOrWhiteSpace($env:DISPLAY_INFORMATION_JSON)) {
+    $resolvedDisplayJson = $env:DISPLAY_INFORMATION_JSON
+}
+if ([string]::IsNullOrWhiteSpace($resolvedDisplayJson)) {
+    $errorObject = [PSCustomObject]@{
+        error = "DisplayInformationJSON was not provided. Pass -DisplayInformationJSON, -DisplayInformationJsonPath, or set DISPLAY_INFORMATION_JSON."
+    }
+    $errorObject | ConvertTo-Json -Depth 10
+    exit 1
+}
+
 try {
-    $jsonObj = $DisplayInformationJSON | ConvertFrom-Json
+    $jsonObj = $resolvedDisplayJson | ConvertFrom-Json
 }
 catch {
     $errorObject = [PSCustomObject]@{
-        error      = "Failed to parse DisplayInformationJSON into valid JSON."
+        error      = "Failed to parse DisplayInformation JSON."
         exception  = $_.Exception.Message
         stackTrace = $_.Exception.StackTrace
     }
@@ -204,3 +264,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Successfully built VI package: $ResolvedVIPBPath"
+
+if (-not [string]::IsNullOrWhiteSpace($artifactRoot)) {
+    try {
+        $vipCandidates = Get-ChildItem -Path $ResolvedRepoRoot -Recurse -Filter *.vip -ErrorAction SilentlyContinue
+        $latestVip = $vipCandidates | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1
+        if ($latestVip) {
+            $targetPath = Join-Path $vipOutputDir $latestVip.Name
+            Copy-Item -Path $latestVip.FullName -Destination $targetPath -Force
+            Write-Host ("Copied .vip to artifact root: {0}" -f $targetPath)
+        }
+    } catch {
+        Write-Warning ("Failed to copy .vip to artifact root: {0}" -f $_.Exception.Message)
+    }
+}

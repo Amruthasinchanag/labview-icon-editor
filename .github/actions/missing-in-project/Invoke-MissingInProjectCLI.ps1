@@ -3,10 +3,43 @@
 param(
     [Parameter(Mandatory)][string]$LVVersion,
     [Parameter(Mandatory)][ValidateSet('32','64')][string]$Arch,
-    [Parameter(Mandatory)][string]$ProjectFile
+    [Parameter(Mandatory)][string]$ProjectFile,
+    [string]$WorktreeRoot,
+    [switch]$SkipWorktreeRootCheck
 )
 
 $ErrorActionPreference = 'Stop'
+
+$repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $LVVersion `
+        -LabVIEWBitness $Arch `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRoot = $preflight.RepoRoot
+}
+$versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
+$labviewYear = $LVVersion
+if (Test-Path -Path $versionHelper) {
+    . $versionHelper
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LVVersion -RepoRoot $repoRoot
+    $labviewYear = $versionInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($labviewYear)) {
+    $labviewYear = '2021'
+}
 
 # ---------- GLOBAL STATE ----------
 $Script:HelperExitCode   = 0
@@ -24,7 +57,7 @@ if (-not (Test-Path $HelperPath)) {
 # =========================  SETUP  =========================
 function Setup {
     Write-Host "=== Setup ==="
-    Write-Host "LVVersion  : $LVVersion"
+    Write-Host "LVVersion  : $labviewYear"
     Write-Host "Arch       : $Arch-bit"
     Write-Host "ProjectFile: $ProjectFile"
 
@@ -42,7 +75,7 @@ function MainSequence {
     Write-Host "Invoking missing‑file check via helper script …`n"
 
     # call helper & capture any stdout (not strictly needed now)
-    & $HelperPath -LVVersion $LVVersion -Arch $Arch -ProjectFile $ProjectFile
+    & $HelperPath -LVVersion $labviewYear -Arch $Arch -ProjectFile $ProjectFile
     $Script:HelperExitCode = $LASTEXITCODE
 
     if ($Script:HelperExitCode -ne 0) {
@@ -100,7 +133,7 @@ function Cleanup {
 # Close LabVIEW but do not fail the job if it is already closed/missing
 function SafeQuitLabVIEW {
     try {
-        & g-cli --lv-ver $LVVersion --arch $Arch QuitLabVIEW | Out-Null
+        & g-cli --lv-ver $labviewYear --arch $Arch QuitLabVIEW | Out-Null
     }
     catch {
         Write-Warning ("Failed to close LabVIEW: {0}" -f $_.Exception.Message)
@@ -130,6 +163,19 @@ finally {
 $passed = ($Script:HelperExitCode -eq 0) -and ($Script:MissingFileLines.Count -eq 0) -and (-not $Script:ParsingFailed)
 $passedStr   = $passed.ToString().ToLower()
 $missingCsv  = ($Script:MissingFileLines -join ',')
+
+$artifactRoot = $env:LVIE_ARTIFACT_ROOT
+if (-not [string]::IsNullOrWhiteSpace($artifactRoot) -and (Test-Path $MissingFilePath)) {
+    try {
+        $targetDir = Join-Path $artifactRoot 'missing-in-project'
+        if (-not (Test-Path -Path $targetDir)) {
+            New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+        }
+        Copy-Item -Path $MissingFilePath -Destination (Join-Path $targetDir 'missing_files.txt') -Force
+    } catch {
+        Write-Warning ("Failed to copy missing_files.txt to artifact root: {0}" -f $_.Exception.Message)
+    }
+}
 
 if ($env:GITHUB_OUTPUT) {
     Add-Content -Path $env:GITHUB_OUTPUT -Value "passed=$passedStr"
