@@ -24,9 +24,9 @@ This document describes how to **build, test, and distribute** the **LabVIEW Ico
   - Debug locally the same steps used in CI, ensuring consistent results.
 
 - **Prerequisites**:
-  1. **LabVIEW 2021 SP1 (both 32-bit and 64-bit)** and **LabVIEW 2023 (64-bit) for package building**.
+  1. **LabVIEW 2021 (21.0), both 32-bit and 64-bit**.
   2. **PowerShell 7+** and **Git**.  
-  3. **Apply** `.github\actions\apply-vipc\runner_dependencies.vipc` to **LabVIEW 2021 (32-bit & 64-bit)** and **LabVIEW 2023 (64-bit)**—matching the `apply-deps` matrix in [`../.github/workflows/ci-composite.yml`](../.github/workflows/ci-composite.yml).
+  3. **Apply** `.github\actions\apply-vipc\runner_dependencies.vipc` to **LabVIEW 2021 (21.0), 32-bit & 64-bit**—matching the `apply-deps` matrix in [`../.github/workflows/ci-composite.yml`](../.github/workflows/ci-composite.yml).
 
 ---
 
@@ -40,7 +40,7 @@ This document describes how to **build, test, and distribute** the **LabVIEW Ico
 2. **Clone** the [Icon Editor](https://github.com/ni/labview-icon-editor.git) to your development location.
 
 3. **Apply** dependencies:  
-   `.github\actions\apply-vipc\runner_dependencies.vipc` to **LabVIEW 2021 (32-bit & 64-bit)** and **LabVIEW 2023 (64-bit)**.
+   `.github\actions\apply-vipc\runner_dependencies.vipc` to **LabVIEW 2021 (21.0), 32-bit & 64-bit**.
 
 4. **Open** PowerShell (Admin):
    Navigate to `.github\actions\set-development-mode`
@@ -63,7 +63,7 @@ This document describes how to **build, test, and distribute** the **LabVIEW Ico
 
 1. **Apply Dependencies** in VIPM:
    - Set LabVIEW to 2021 (32-bit) and apply `.github\actions\apply-vipc\runner_dependencies.vipc`.
-   - Repeat for **2021 (64-bit)** and **2023 (64-bit)** so all versions from the `apply-deps` matrix are covered.
+   - Repeat for **2021 (64-bit)** so both bitnesses are covered.
 
 2. **Disable LabVIEW Security Warnings** *(to prevent popups from "run when opened" VIs)*:
    - **Tools → Options → Security** → **Run VI Without Warnings**.
@@ -76,10 +76,10 @@ This document describes how to **build, test, and distribute** the **LabVIEW Ico
 4. **Run** `Build.ps1`:
    ```powershell
    .\Build.ps1 `
-       -RelativePath "C:\labview-icon-editor" `
+       -RepoRoot "C:\labview-icon-editor" `
        -Major 1 -Minor 2 -Patch 3 -Build 45 `
     -Commit "my-commit-sha" `
-    -LabVIEWMinorRevision 3 `
+    -LabVIEWMinorRevision 0 `
     -Verbose
     ```
     This generates a `.vip` in `builds\VI Package`.
@@ -118,7 +118,7 @@ An example step in a GitHub Actions file might look like:
 - name: Build Icon Editor
   run: |
     pwsh .\.github\actions\build\Build.ps1 `
-      -RelativePath "$env:GITHUB_WORKSPACE" `
+      -RepoRoot "$env:GITHUB_WORKSPACE" `
       -Major 1 -Minor 2 -Patch 0 -Build 10 `
       -Commit "${{ github.sha }}" `
       # You can pass metadata fields to brand the package:

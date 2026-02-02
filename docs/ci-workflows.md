@@ -27,7 +27,7 @@ Automating your Icon Editor builds and tests:
 - **Allows you to brand** each VI Package build with your organization or repository name for unique identification
 
 **Prerequisites**:
-- LabVIEW 2021 SP1 (32-bit and 64-bit) and LabVIEW 2023 (64-bit)
+- LabVIEW 2021 (21.0), 32-bit and 64-bit
 - PowerShell 7+
 - Git for Windows
 
@@ -109,14 +109,15 @@ Below are the **key GitHub Actions** provided in this repository:
 The [`ci-composite.yml`](../.github/workflows/ci-composite.yml) pipeline breaks the build into several jobs:
 
 - **issue-status** – skips the workflow if the pull request or branch has a `NoCI` label, then queries the **Status** field of the linked GitHub issue’s associated GitHub Project and proceeds only when that field is **In Progress**. Contributors must ensure their issue is added to a project with this Status value. It also requires the source branch name to contain `issue-<number>` (such as `issue-123` or `feature/issue-123`). For pull requests, the job evaluates the PR’s head branch.
-- **verify-ie-paths** – validates the LabVIEW Icon API installation for LabVIEW 2021 (32- and 64-bit) using `VerifyIEPaths.vi` and fails early if required files are missing. When it fails, the workflow uploads a `missing_IE_paths.txt` artifact that lists the missing paths.
+- **verify-ie-paths** – validates the LabVIEW Icon API installation for LabVIEW 2021 (21.0), 32- and 64-bit using `VerifyIEPaths.vi` and fails early if required files are missing. When it fails, the workflow uploads a `missing_IE_paths.txt` artifact that lists the missing paths.
 - **changes** – checks out the repository and detects `.vipc` file changes to determine if dependencies need to be applied.
-- **apply-deps** – installs VIPC dependencies for multiple LabVIEW versions and bitnesses **only when** the `changes` job reports `.vipc` modifications (`if: needs.changes.outputs.vipc == 'true'`).
+- **apply-deps** – installs VIPC dependencies for LabVIEW 2021 (21.0), 32- and 64-bit **only when** the `changes` job reports `.vipc` modifications (`if: needs.changes.outputs.vipc == 'true'`).
 - **version** – computes the semantic version and build number using commit count and PR labels.
-- **missing-in-project-check** – verifies every source file is referenced in the `.lvproj`.
-- **test** – runs LabVIEW unit tests on Windows in LabVIEW 2021 (32- and 64-bit).
+- **missing-in-project** – verifies every source file is referenced in the `.lvproj` (inlined in `ci-composite.yml` to avoid reusable workflow skips).
+- **test** – runs LabVIEW unit tests on Windows in LabVIEW 2021 (21.0), 32- and 64-bit.
 - **build-ppl** – uses a matrix to build 32-bit and 64-bit packed libraries, then uses the `rename-file` action to append the bitness to each library’s filename.
 - **build-vi-package** – packages the final VI Package using the built libraries and version information. In `ci-composite.yml` this job passes `supported_bitness: 64`, so it produces only a 64-bit `.vip`.
+- **pipeline-contract** – fails the workflow when required jobs are skipped or cancelled, preventing silent CI gaps.
 
 Both `build-ppl` and `build-vi-package` run a `close-labview` step after their build actions finish but before any steps that rename files or upload artifacts, so it isn't the job's final step.
 
@@ -129,7 +130,7 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
 ### 3.3 Setting Up a Self-Hosted Runner
 
 1. **Install Prerequisites**:
-   - LabVIEW 2021 SP1 (32-bit and 64-bit) and LabVIEW 2023 (64-bit)
+   - LabVIEW 2021 (21.0), 32-bit and 64-bit
    - PowerShell 7+
    - Git for Windows
 
@@ -137,7 +138,7 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
    Go to **Settings → Actions → Runners** in your GitHub repository (or organization) and follow the steps to register a runner on your machine that has LabVIEW installed.
 
 3. **Label the Runner** (optional):
-   - Use labels such as `self-hosted-windows-lv` for the default jobs. The default CI matrix currently runs only on this Windows label.
+   - Use labels such as `self-hosted-windows-lv-ie` for the default jobs. The default CI matrix currently runs only on this Windows label.
    - `self-hosted-linux-lv` is included for potential future expansion but isn't used by the default jobs yet.
    - Adjust the workflow’s `runs-on` lines to match your runner labels. This helps ensure the correct environment is used for building the Icon Editor.
 
@@ -165,7 +166,7 @@ Although GitHub Actions primarily run on GitHub-hosted or self-hosted agents, yo
 You can also run a local parity pass of `ci-composite.yml` using the helper script:
 
 ```
-pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -LabVIEWBuildVersion 2023 -EnsureCleanState
+pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -EnsureCleanState
 ```
 
 This runs Verify IE Paths, applies VIPC dependencies, runs missing-in-project checks and unit tests for both bitnesses, builds PPLs, and builds the VI package. Outputs are saved to `TestResults/ci-local`.
@@ -204,3 +205,4 @@ This runs Verify IE Paths, applies VIPC dependencies, runs missing-in-project ch
 - **Branding**: To highlight the **organization** or **repository** behind a particular build, simply pass `-CompanyName` and `-AuthorName` (or similar parameters) into the `Build.ps1` script. This metadata flows into the final **Display Information** of the Icon Editor’s VI Package.
 
 By adopting these workflows—**Development Mode Toggle** and **Build VI Package**—you can maintain a **streamlined, consistent** CI/CD process for the Icon Editor while customizing the VI Package with your own **unique** or **fork-specific** branding.
+

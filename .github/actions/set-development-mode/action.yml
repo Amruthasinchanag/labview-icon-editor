@@ -1,14 +1,13 @@
 name: "Set Development Mode"
 description: "Runs Set_Development_Mode.ps1 to configure the repo for development."
 inputs:
-  minimum_supported_lv_version:
-    description: 'LabVIEW major version (2020-2025)'
-    required: false
-    default: '2021'
+  labview_version:
+    description: 'LabVIEW version to target (year or numeric).'
+    required: true
   supported_bitness:
-    description: 'LabVIEW bitness (32 or 64). Defaults to both when omitted.'
-    required: false
-  relative_path:
+    description: 'LabVIEW bitness (32 or 64).'
+    required: true
+  repo_root:
     description: 'Workspace root path'
     required: false
 runs:
@@ -22,16 +21,21 @@ runs:
     - name: Run Set_Development_Mode.ps1
       shell: pwsh
       run: |
+        $lvVersion = "${{ inputs.labview_version }}"
+        if ([string]::IsNullOrWhiteSpace($lvVersion)) {
+          throw "labview_version is required."
+        }
+
         $scriptArgs = @{
-          MinimumSupportedLVVersion = "${{ inputs.minimum_supported_lv_version }}"
+          MinimumSupportedLVVersion = $lvVersion
         }
 
-        if ("${{ inputs.relative_path }}" -ne "") {
-          $scriptArgs.RelativePath = "${{ inputs.relative_path }}"
+        if ("${{ inputs.repo_root }}" -ne "") {
+          $scriptArgs.RepoRoot = "${{ inputs.repo_root }}"
         }
 
-        if ("${{ inputs.supported_bitness }}" -ne "") {
-          $scriptArgs.SupportedBitness = "${{ inputs.supported_bitness }}"
-        }
+        $scriptArgs.SupportedBitness = "${{ inputs.supported_bitness }}"
 
         & "${{ github.action_path }}/Set_Development_Mode.ps1" @scriptArgs
+
+

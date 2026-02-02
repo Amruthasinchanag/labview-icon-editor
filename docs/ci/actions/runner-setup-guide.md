@@ -27,7 +27,7 @@ This document details how to automate **building**, **testing**, and **packaging
 Additionally, **you can pass metadata fields** (like **organization** or **repository name**) to the **build script**. These fields are embedded into the **VI Package** display information, effectively **branding** the Icon Editor package with a unique identifier. This is especially useful when multiple forks or organizations produce their own versions of the Icon Editor—ensuring each `.vip` is clearly labeled with the correct “author” or “company.”
 
 > **Prerequisites**:
-> - **LabVIEW 2021 SP1 (32-bit and 64-bit)** – and **LabVIEW 2023 (64-bit) for building the package**.
+> - **LabVIEW 2021 (21.0), 32-bit and 64-bit**.
 > - The relevant **VIPC** file is now at `.github/actions/apply-vipc/runner_dependencies.vipc`.
 > - [PowerShell 7+](https://github.com/PowerShell/PowerShell/releases/latest)
 > - [Git for Windows](https://github.com/git-for-windows/git/releases/latest)
@@ -38,12 +38,12 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 **For experienced users**, a brief overview:
 
 1. **Install Required Software**
-   - Ensure **LabVIEW 2021 SP1 32-bit and 64-bit** are installed. If you plan to build the package, install **LabVIEW 2023 (64-bit)** as well.
+   - Ensure **LabVIEW 2021 (21.0) 32-bit and 64-bit** are installed.
    - [PowerShell 7+](https://github.com/PowerShell/PowerShell/releases/latest)
    - [Git for Windows](https://github.com/git-for-windows/git/releases/latest)
 
 2. **Apply the VIPC**
-  - Apply `.github/actions/apply-vipc/runner_dependencies.vipc` with VIPM in **LabVIEW 2021 (32-bit)**; repeat for **LabVIEW 2021 (64-bit)**. If using **LabVIEW 2023 (64-bit)** for builds, apply the same VIPC there as well.
+  - Apply `.github/actions/apply-vipc/runner_dependencies.vipc` with VIPM in **LabVIEW 2021 (21.0) 32-bit**; repeat for **LabVIEW 2021 (21.0) 64-bit**.
    - This is required on new runners because the workflow's `apply-deps` job in `.github/workflows/ci-composite.yml` runs only when `.vipc` files change (`if: needs.changes.outputs.vipc == 'true'`). When no `.vipc` updates exist, dependencies aren't installed automatically, so apply the VIPC manually.
 
 3. **Configure a Self-Hosted Runner**  
@@ -85,7 +85,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 1. **Development Mode Toggle**  
    - `mode: enable` → calls `Set_Development_Mode.ps1`.  
    - `mode: disable` → calls `RevertDevelopmentMode.ps1`.  
-   - Optional `minimum_supported_lv_version` (default `2021`, supports `2020`-`2025`).
+   - `labview_version` (default `2021`, only `2021` is supported).
    - Great for reconfiguring LabVIEW for local dev vs. distribution builds.
 
 2. **CI Pipeline (Composite)**
@@ -104,7 +104,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 
 **Steps**:
 
-1. **Install LabVIEW 2021 SP1 (32-bit and 64-bit)**  
+1. **Install LabVIEW 2021 (21.0), 32-bit and 64-bit**  
    - Confirm both are present on your Windows machine.  
    - Apply `.github/actions/apply-vipc/runner_dependencies.vipc` to each if needed.
 
@@ -116,7 +116,27 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
    - Follow GitHub’s CLI instructions.
 
 4. **Labels** (optional)
-   - The workflow uses the `self-hosted-windows-lv` label. Its `runs-on` expression also references `self-hosted-linux-lv` for potential Linux jobs, though the default matrix runs only on Windows. Label your runner accordingly, and prepare a Linux runner with `self-hosted-linux-lv` if you expand the matrix.
+   - The workflow uses the `self-hosted-windows-lv-ie` label. Its `runs-on` expression also references `self-hosted-linux-lv` for potential Linux jobs, though the default matrix runs only on Windows. Label your runner accordingly, and prepare a Linux runner with `self-hosted-linux-lv` if you expand the matrix.
+
+5. **Runner diagnostics cleanup (recommended)**
+   - Some runner failures can occur before checkout if old diagnostics logs accumulate under the runner's `_diag\pages` folder.
+   - Use the job-started hook to clean that folder before each job.
+   - Copy the scripts from the repo to the runner:
+     - `.github\scripts\cleanup-runner-diag-pages.ps1`
+     - `.github\scripts\runner-job-started-clean-diag.ps1`
+   - Place them under `<runner-root>\scripts\` and set the hook in `<runner-root>\.env`:
+     - `ACTIONS_RUNNER_HOOK_JOB_STARTED=C:\path\to\runner\scripts\runner-job-started-clean-diag.ps1`
+   - Restart the runner service after updating `.env`.
+   - Optional: set `RUNNER_DIAG_RETENTION_DAYS=7` in `.env` if you want to keep recent logs.
+   - The cleanup skips any diagnostics file that is still in use, so the job does not fail.
+
+6. **Standardize worktree root under the runner directory (recommended)**
+   - Use a short path under the runner root to avoid Windows path-length issues.
+   - Recommended path: `<runner-root>\_work\lvie\w` (for example `C:\actions-runner\_work\lvie\w`).
+   - Runner contract helper (run from repo root):
+     - `pwsh -NoProfile -File .\Tooling\Setup-Runner.ps1 -RunnerRoot C:\actions-runner -Scope Machine`
+   - This writes `<runner-root>\_work\lvie\runner-contract.json` and sets `LVIE_WORKTREE_ROOT`, `LVIE_ARTIFACT_ROOT`, `LVIE_LOCK_ROOT`, and `LVIE_LOG_ROOT`.
+   - Restart the runner service after setting Machine/User environment variables.
 
 5. **Runner diagnostics cleanup (recommended)**
    - Some runner failures can occur before checkout if old diagnostics logs accumulate under the runner's `_diag\pages` folder.
@@ -138,7 +158,7 @@ With your runner online:
 
 1. **Enable Dev Mode** (if needed)
    - **Actions → Development Mode Toggle**, set `mode: enable`.
-   - Optionally set `minimum_supported_lv_version` (default `2021`).
+   - `labview_version` is fixed to `2021` if provided.
 
 2. **Run Tests via CI Pipeline (Composite)**
    - Execute the workflow and review the **test** job logs to confirm all unit tests pass.
@@ -150,10 +170,34 @@ With your runner online:
 
 4. **Disable Dev Mode** (if used)  
    - `mode: disable` reverts your LabVIEW environment.
-   - Optionally set `minimum_supported_lv_version` to match the version you toggled.
+   - Keep `labview_version` set to `2021` if you include it.
 
 5. **Review the `.vip`**
    - Download from **Artifacts**. Publishing to a GitHub release requires a separate workflow.
+
+#### Worktree naming (CI)
+CI jobs run from short-path worktrees to avoid Windows path limits. Each job creates:
+- `ci-<jobhash>-<bitness>-<runid>-<attempt>`
+- `jobhash` = first 8 chars of SHA1(`GITHUB_JOB`) to keep job names unique.
+- Some workflows insert an extra variant token (e.g. LabVIEW version) between `<jobhash>` and `<bitness>`.
+- Example: `C:\dev\ci-D170BDEE-64-21534416929-1`
+
+The workflow exports:
+- `REPO_ROOT` → worktree path (authoritative for scripts)
+- `PROJECT_PATH` → `$REPO_ROOT\lv_icon_editor.lvproj`
+- `LABVIEW_VERSION_YEAR` / `LABVIEW_MINOR_REVISION` → derived from `.lvversion` (e.g., `21.0` → `2021` and minor `0`)
+
+CI treats `.lvversion` in `REPO_ROOT` as the canonical LabVIEW version for the run.
+
+#### Run CI for a specific commit (workflow_dispatch)
+If you need deterministic runs for a specific commit, use the helper script:
+```
+pwsh -NoProfile -File .\Tooling\Run-CICompositeForCommit.ps1 -Sha <commit>
+```
+
+Notes:
+- The script creates a temporary `ci-run/<shortsha>` branch and dispatches the workflow on it.
+- Use `-CleanupRemote` to delete the temporary branch after dispatch.
 
 
 <a name="example-developer-workflow"></a>
@@ -180,5 +224,6 @@ With your runner online:
 - **Troubleshoot**: If manual environment edits are needed, consult `ManualSetup.md` or the original documentation for advanced configuration steps.  
 
 **Happy Building!** By integrating these workflows, you’ll maintain a **robust, automated CI/CD** pipeline for the LabVIEW Icon Editor—complete with **semantic versioning**, **build artifact uploads**, and **metadata branding** (company/repo).
+
 
 

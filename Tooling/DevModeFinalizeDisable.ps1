@@ -7,7 +7,7 @@
     to leave the system in a disabled state after iteration runs.
 
 .PARAMETER MinimumSupportedLVVersion
-    LabVIEW version used by g-cli (e.g., "2021").
+    LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
 .PARAMETER SupportedBitness
     LabVIEW bitness to target ("32" or "64"). Defaults to "64".
@@ -15,15 +15,34 @@
 .PARAMETER LogPath
     Optional log file path. If omitted, a log file is created under Tooling\logs.
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
+
+.PARAMETER WorktreeRoot
+    Optional override for the worktree root used by guardrails.
+
+.PARAMETER SkipWorktreeRootCheck
+    Skip enforcing that RepoRoot is under the worktree root.
+
+.PARAMETER AutoWorktree
+    Auto-create a short-path worktree and re-run from there when needed.
+
+.PARAMETER RunId
+    Optional run identifier used for artifact isolation.
+
+.PARAMETER ArtifactRoot
+    Optional override for the artifact output root.
+
+.PARAMETER CleanRoom
+    If set, purge known output folders before and after the run.
 #>
 
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('2020', '2021', '2022', '2023', '2024', '2025')]
-    [string]$MinimumSupportedLVVersion = '2021',
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string]$MinimumSupportedLVVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -33,7 +52,20 @@ param(
     [string]$LogPath,
 
     [Parameter(Mandatory = $false)]
-    [string]$RelativePath
+    [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck,
+
+    [switch]$AutoWorktree,
+
+    [string]$RunId,
+
+    [string]$ArtifactRoot,
+
+    [switch]$CleanRoom
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,7 +77,7 @@ function Resolve-RepoRoot {
 
     if ($PathOverride) {
         if (-not (Test-Path -Path $PathOverride)) {
-            throw "RelativePath does not exist: $PathOverride"
+            throw "RepoRoot does not exist: $PathOverride"
         }
         return (Resolve-Path -Path $PathOverride).Path
     }
@@ -64,10 +96,45 @@ function Write-Log {
     Write-Host $line
 }
 
-$repoRoot = Resolve-RepoRoot -PathOverride $RelativePath
+$repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
+$artifactRootResolved = $null
+$preflight = $null
+$preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$AutoWorktree `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs `
+        -RunId $RunId `
+        -ArtifactRoot $ArtifactRoot `
+        -CleanRoom:$CleanRoom
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRoot = $preflight.RepoRoot
+    $artifactRootResolved = $preflight.ArtifactRoot
+}
+$versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
+$labviewYear = $MinimumSupportedLVVersion
+if (Test-Path -Path $versionHelper) {
+    . $versionHelper
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $labviewYear = $versionInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($labviewYear)) {
+    $labviewYear = '2021'
+}
 $logPathResolved = $LogPath
 if ([string]::IsNullOrWhiteSpace($logPathResolved)) {
-    $logDir = Join-Path -Path $repoRoot -ChildPath 'Tooling\logs'
+    $logDir = if ($artifactRootResolved) { Join-Path -Path $artifactRootResolved -ChildPath 'logs' } else { Join-Path -Path $repoRoot -ChildPath 'Tooling\logs' }
     $null = New-Item -Path $logDir -ItemType Directory -Force
     $logPathResolved = Join-Path -Path $logDir -ChildPath ("dev-mode-final-disable-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 } else {
@@ -83,12 +150,12 @@ if (-not (Test-Path -Path $revertScript)) {
 }
 
 $scriptArgs = @{
-    MinimumSupportedLVVersion = $MinimumSupportedLVVersion
+    MinimumSupportedLVVersion = $labviewYear
     SupportedBitness          = $SupportedBitness
-    RelativePath              = $repoRoot
+    RepoRoot              = $repoRoot
 }
 
-Write-Log ("start version={0} bitness={1} log={2}" -f $MinimumSupportedLVVersion, $SupportedBitness, $logPathResolved)
+Write-Log ("start version={0} bitness={1} log={2}" -f $labviewYear, $SupportedBitness, $logPathResolved)
 
 try {
     & $revertScript @scriptArgs
@@ -100,4 +167,8 @@ try {
 } catch {
     Write-Log ("error message={0}" -f $($_.Exception.Message))
     throw
+} finally {
+    if ($preflight -and $preflight.CleanRoomAfter) {
+        Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
+    }
 }

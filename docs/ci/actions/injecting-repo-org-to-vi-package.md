@@ -49,7 +49,7 @@ An abbreviated **GitHub Actions** example below mirrors the [`ci-composite.yml`]
 ```yaml
 jobs:
   version:
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,7 +62,7 @@ jobs:
       PATCH: ${{ steps.compute-version.outputs.PATCH }}
       BUILD: ${{ steps.compute-version.outputs.BUILD }}
   build-ppl:
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
     needs: version
     strategy:
       matrix:
@@ -71,9 +71,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/build-lvlibp
         with:
-          minimum_supported_lv_version: 2021
+          labview_version: 2021
           supported_bitness: ${{ matrix.bitness }}
-          relative_path: ${{ github.workspace }}
+          repo_root: ${{ github.workspace }}
           major: ${{ needs.version.outputs.MAJOR }}
           minor: ${{ needs.version.outputs.MINOR }}
           patch: ${{ needs.version.outputs.PATCH }}
@@ -81,7 +81,7 @@ jobs:
           commit: ${{ github.sha }}
 
   build-vi-package:
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
     needs: [build-ppl, version]
     steps:
       - uses: actions/checkout@v4
@@ -97,9 +97,9 @@ jobs:
       - uses: ./.github/actions/modify-vipb-display-info
         with:
           vipb_path: .github/actions/build-vi-package/NI Icon editor.vipb
-          minimum_supported_lv_version: 2023
-          labview_minor_revision: 3
-          relative_path: ${{ github.workspace }}
+          labview_version: 2021
+          labview_minor_revision: 0
+          repo_root: ${{ github.workspace }}
           supported_bitness: 64
           major: ${{ needs.version.outputs.MAJOR }}
           minor: ${{ needs.version.outputs.MINOR }}
@@ -110,8 +110,8 @@ jobs:
           display_information_json: ${{ steps.display-info.outputs.json }}
       - uses: ./.github/actions/build-vi-package
         with:
-          minimum_supported_lv_version: 2023
-          labview_minor_revision: 3
+          labview_version: 2021
+          labview_minor_revision: 0
           supported_bitness: 64
           major: ${{ needs.version.outputs.MAJOR }}
           minor: ${{ needs.version.outputs.MINOR }}
@@ -145,7 +145,7 @@ jobs:
    2. `build-lvlibp` compiles the **32- and 64-bit** packed libraries.
    3. A PowerShell step generates JSON with `CompanyName` and `AuthorName` fields derived from GitHub variables.
    4. `modify-vipb-display-info` merges that JSON into the `.vipb` file.
-   5. `build-vi-package` produces the final **64-bit LabVIEW 2023** Icon Editor `.vip` package.
+   5. `build-vi-package` produces the final **64-bit LabVIEW 2021 (21.0)** Icon Editor `.vip` package.
 4. **Actions** can then upload the resulting `.vip` as an artifact.
 
 ---
@@ -158,7 +158,7 @@ The previous build system used a `Build.ps1` script. For historical reference, y
 
 ```powershell
 \.github\actions\build\Build.ps1 `
-  -RelativePath "C:\labview-icon-editor-fork" `
+  -RepoRoot "C:\labview-icon-editor-fork" `
   -Major 2 -Minor 1 -Patch 0 -Build 5 `
   -Commit "abc12345" `
   -CompanyName "Acme Corporation" `
@@ -176,3 +176,4 @@ This legacy script produces a `.vip` file that, when inspected in VIPM or LabVIE
 - Each fork or organization can **uniquely** brand its builds.
 - CI/CD with **GitHub Actions** automatically **populates** build metadata, removing manual steps.  
 - You have a **clear**, **traceable** record of each build’s origin—particularly useful in multi-team or open-source projects.
+

@@ -6,15 +6,20 @@
     Validates that required paths exist and sequentially executes supporting
     scripts to prepare and test the LabVIEW icon editor project.
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Path to the repository root.
 
 .EXAMPLE
-    .\unit_tests.ps1 -RelativePath "C:\labview-icon-editor"
+    .\unit_tests.ps1 -RepoRoot "C:\labview-icon-editor"
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [string]$RelativePath
+    [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck
 )
 
 # Helper function to check for file or directory existence
@@ -55,10 +60,32 @@ function Execute-Script {
 # Main script logic
 try {
     # Validate required paths
-    Assert-PathExists $RelativePath "RelativePath"
-    if (-not (Test-Path "$RelativePath\resource\plugins")) {
-        Write-Host "Plugins folder missing; creating $RelativePath\resource\plugins" -ForegroundColor Yellow
-        New-Item -ItemType Directory -Path "$RelativePath\resource\plugins" -Force | Out-Null
+    Assert-PathExists $RepoRoot "RepoRoot"
+    $repoRootResolved = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $RepoRoot = $repoRootResolved
+    $preflightScript = Join-Path -Path $repoRootResolved -ChildPath 'Tooling\Invoke-Preflight.ps1'
+    if (Test-Path -Path $preflightScript) {
+        . $preflightScript
+        $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+        $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRootResolved -Path $PSCommandPath } else { $null }
+        $preflight = Invoke-Preflight `
+            -RepoRoot $repoRootResolved `
+            -WorktreeRoot $WorktreeRoot `
+            -LabVIEWVersion '2021' `
+            -LabVIEWBitness 'both' `
+            -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+            -AutoWorktree:$false `
+            -ScriptPath $relativeScript `
+            -ScriptArguments $scriptArgs
+        if ($preflight.Reinvoked) {
+            return
+        }
+        $repoRootResolved = $preflight.RepoRoot
+        $RepoRoot = $repoRootResolved
+    }
+    if (-not (Test-Path "$RepoRoot\resource\plugins")) {
+        Write-Host "Plugins folder missing; creating $RepoRoot\resource\plugins" -ForegroundColor Yellow
+        New-Item -ItemType Directory -Path "$RepoRoot\resource\plugins" -Force | Out-Null
     }
 
     $ActionsPath = Split-Path -Parent $PSScriptRoot
@@ -66,7 +93,7 @@ try {
 
     # Clean up .lvlibp files in the plugins folder
     Write-Host "Cleaning up old .lvlibp files in plugins folder..." -ForegroundColor Yellow
-    $PluginFiles = Get-ChildItem -Path "$RelativePath\resource\plugins" -Filter '*.lvlibp' -ErrorAction SilentlyContinue
+    $PluginFiles = Get-ChildItem -Path "$RepoRoot\resource\plugins" -Filter '*.lvlibp' -ErrorAction SilentlyContinue
     if ($PluginFiles) {
         foreach ($file in $PluginFiles) {
             try {
@@ -83,8 +110,9 @@ try {
     
     # Run Unit Tests
     $RunUnitTests = Join-Path $ActionsPath "run-unit-tests/RunUnitTests.ps1"
+    $ProjectPath = Join-Path $RepoRoot 'lv_icon_editor.lvproj'
     Execute-Script $RunUnitTests `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 32 -RelativePath `"$RelativePath`""
+        "-MinimumSupportedLVVersion 2021 -SupportedBitness 32 -ProjectPath `"$ProjectPath`""
 
     # Close LabVIEW
     $CloseLabVIEW = Join-Path $ActionsPath "close-labview/Close_LabVIEW.ps1"
@@ -93,7 +121,7 @@ try {
 
     # Run Unit Tests
     Execute-Script $RunUnitTests `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64 -RelativePath `"$RelativePath`""
+        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64 -ProjectPath `"$ProjectPath`""
 
 	# Close LabVIEW
     Execute-Script $CloseLabVIEW `

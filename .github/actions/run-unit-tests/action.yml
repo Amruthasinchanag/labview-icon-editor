@@ -11,13 +11,24 @@ runs:
     - name: Run RunUnitTests.ps1
       shell: pwsh
       run: |
+        $lvVersion = "${{ inputs.labview_version }}"
+        if ([string]::IsNullOrWhiteSpace($lvVersion)) {
+          throw "labview_version is required."
+        }
+
         & "${{ github.action_path }}/RunUnitTests.ps1" `
-          -MinimumSupportedLVVersion ${{ inputs.minimum_supported_lv_version }} `
-          -SupportedBitness ${{ inputs.supported_bitness }}
+          -MinimumSupportedLVVersion $lvVersion `
+          -SupportedBitness ${{ inputs.supported_bitness }} `
+          -ProjectPath "${{ inputs.project_path }}"
 inputs:
-  minimum_supported_lv_version:
-    description: 'LabVIEW major version'
+  labview_version:
+    description: 'LabVIEW version to run (year or numeric).'
     required: true
   supported_bitness:
     description: '32 or 64'
     required: true
+  project_path:
+    description: 'Path to the LabVIEW project (.lvproj)'
+    required: true
+
+

@@ -12,10 +12,16 @@ param(
     [ValidateSet('32', '64')]
     [string]$Bitness,
 
-    [ValidateSet('2020', '2021', '2022', '2023', '2024', '2025')]
+    [AllowNull()]
+    [AllowEmptyString()]
     [string]$LabVIEWVersion = '2021',
 
-    [string]$RepoRoot
+    [Parameter(Mandatory)]
+    [string]$RepoRoot,
+
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,23 +33,15 @@ function Resolve-RepoRoot {
         [string]$PathOverride
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($PathOverride)) {
-        if (-not (Test-Path -Path $PathOverride)) {
-            throw "RepoRoot does not exist: $PathOverride"
-        }
-        return (Resolve-Path -Path $PathOverride).Path
+    if ([string]::IsNullOrWhiteSpace($PathOverride)) {
+        throw "RepoRoot is required."
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE) -and (Test-Path -Path $env:GITHUB_WORKSPACE)) {
-        return (Resolve-Path -Path $env:GITHUB_WORKSPACE).Path
+    if (-not (Test-Path -Path $PathOverride)) {
+        throw "RepoRoot does not exist: $PathOverride"
     }
 
-    $fallback = Split-Path -Parent $CsvPath
-    if ($fallback -and (Test-Path -Path $fallback)) {
-        return (Resolve-Path -Path $fallback).Path
-    }
-
-    throw "Unable to resolve repository root. Provide -RepoRoot."
+    return (Resolve-Path -Path $PathOverride).Path
 }
 
 function Import-IconEditorCsv {
@@ -191,9 +189,39 @@ if (-not (Test-Path -Path $CsvPath)) {
 }
 
 $repoRootResolved = Resolve-RepoRoot -PathOverride $RepoRoot
+$preflightScript = Join-Path $repoRootResolved 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRootResolved -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRootResolved `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $LabVIEWVersion `
+        -LabVIEWBitness $Bitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRootResolved = $preflight.RepoRoot
+}
 $repoRootNormalized = Normalize-Path -Path $repoRootResolved
 if (-not $repoRootNormalized) {
     throw "Unable to normalize RepoRoot: $repoRootResolved"
+}
+
+$versionHelper = Join-Path $repoRootResolved 'Tooling\support\LabVIEWVersion.ps1'
+$labviewYear = $LabVIEWVersion
+if (Test-Path -Path $versionHelper) {
+    . $versionHelper
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRootResolved
+    $labviewYear = $versionInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($labviewYear)) {
+    $labviewYear = '2021'
 }
 
 $separator = [System.IO.Path]::DirectorySeparatorChar
@@ -209,9 +237,9 @@ if (-not $rows -or $rows.Count -eq 0) {
 $repoRows = $rows | Where-Object { Test-PathUnderRoot -Path $_.'File Path' -Root $repoRootNormalized }
 $iconApiRows = $rows | Where-Object { $_.'File Path' -like "*\vi.lib\LabVIEW Icon API\*" }
 
-$installRoot = Get-LabVIEWInstallRoot -Version $LabVIEWVersion -Bitness $Bitness
+$installRoot = Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $Bitness
 if (-not $installRoot) {
-    throw "LabVIEW $LabVIEWVersion ($Bitness-bit) install not found."
+    throw "LabVIEW $labviewYear ($Bitness-bit) install not found."
 }
 
 $iconApiDir = Join-Path $installRoot 'vi.lib\LabVIEW Icon API'
@@ -228,7 +256,7 @@ $iniHasRepoRoot = Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $
 
 Write-Host "Mode: $Mode"
 Write-Host "Bitness: $Bitness"
-Write-Host "LabVIEW version: $LabVIEWVersion"
+Write-Host "LabVIEW version: $labviewYear"
 Write-Host "Repo root: $repoRootResolved"
 Write-Host "LabVIEW install root: $installRoot"
 Write-Host ("Total rows: {0}" -f $rows.Count)

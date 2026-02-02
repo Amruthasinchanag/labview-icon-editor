@@ -26,8 +26,8 @@ Results are returned as standard GitHub Action outputs so downstream jobs can d
 | Requirement            | Notes |
 |------------------------|-------|
 | **Windows runner**     | LabVIEW and g‑cli are only available on Windows. |
-| **LabVIEW** `>= 2020`  | Must match the *numeric* version you pass in **`lv-ver`**. |
-| **g‑cli** in `PATH`    | The action calls `g-cli --lv-ver …`. Install from NI Package Manager or copy the executable into the runner image. |
+| **LabVIEW 2021 (21.0)**  | Must match the *numeric* version you pass in **`lv-ver`**. |
+| **g‑cli** in `PATH`    | The action calls `g-cli --lv-ver …`. Install via **VIPM (JKI)** or copy the executable into the runner image. |
 | **PowerShell 7**       | Composite steps use PowerShell Core (`pwsh`). |
 
 ---
@@ -37,7 +37,8 @@ Results are returned as standard GitHub Action outputs so downstream jobs can d
 |------|----------|---------|-------------|
 | `lv-ver` | **Yes** | `2021` | LabVIEW *major* version number that should be used to run `MissingInProjectCLI.vi` |
 | `arch` | **Yes** | `32` or `64` | Bitness of the LabVIEW runtime to launch |
-| `project-file` | No | `source/MyPlugin.lvproj` | Path (absolute or relative to repository root) of the project to inspect. Defaults to **`lv_icon.lvproj`** |
+| `repo-root` | **Yes** | `${{ github.workspace }}` | Absolute path to the repository root. Relative paths are resolved against this. |
+| `project-file` | No | `source/MyPlugin.lvproj` | Path (absolute or relative to `repo-root`) of the project to inspect. Defaults to **`lv_icon_editor.lvproj`** |
 
 ---
 
@@ -54,7 +55,7 @@ Results are returned as standard GitHub Action outputs so downstream jobs can d
 # .github/workflows/ci-composite.yml  (excerpt)
 jobs:
   prepare:
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -65,6 +66,7 @@ jobs:
         with:
           lv-ver: 2021
           arch: 64
+          repo-root: ${{ github.workspace }}
 
       - name: Print report
         if: ${{ steps.mip.outputs.passed == 'false' }}
@@ -79,12 +81,12 @@ If you want **any** missing file to abort the pipeline immediately, place the st
 ```yaml
 jobs:
   missing-check:
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/missing-in-project
         with:
-          lv-ver: 2024
+          lv-ver: 2021
           arch: 64
 
   build-package:
@@ -119,7 +121,7 @@ jobs:
 | Symptom | Hint |
 |---------|------|
 | *“g‑cli executable not found”* | Verify g‑cli is installed and on `PATH` |
-| *“Project file not found”* | Double‑check the value of `project-file`; relative paths are resolved against `GITHUB_WORKSPACE` |
+| *“Project file not found”* | Double‑check the value of `project-file`; relative paths are resolved against `repo-root` |
 | *Step times out* | Large projects can be slow to load; consider bumping the job’s default timeout. |
 
 ---
@@ -127,7 +129,7 @@ jobs:
 ## Developing & testing locally
 ```powershell
 pwsh -File .github/actions/missing-in-project/Invoke-MissingInProjectCLI.ps1 `
-      -LVVersion 2024 `
+      -LVVersion 2021 `
       -Arch 64 `
       -ProjectFile 'C:\path	o\MyProj.lvproj'
 
@@ -139,3 +141,4 @@ type .github/actions/missing-in-project/missing_files.txt
 
 ## License
 This directory inherits the root repository’s license (MIT, unless otherwise noted).
+
