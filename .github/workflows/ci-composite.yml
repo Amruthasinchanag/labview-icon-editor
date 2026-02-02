@@ -1,7 +1,10 @@
 name: CI Pipeline (Composite)
 
+permissions:
+  actions: read
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.head_ref || github.ref_name }}
+  group: labview-${{ github.repository }}-self-hosted-windows-lv-ie
   cancel-in-progress: false
 
 on:
@@ -34,7 +37,9 @@ on:
 jobs:
   dev-mode-gate:
     name: Verify IE Paths Gate (LV ${{ matrix.bitness }}-bit)
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +49,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -78,6 +87,11 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   changes:
     name: Detect VIPC changes
@@ -99,12 +113,18 @@ jobs:
   apply-deps-2021-x64:
     name: Apply VIPC (LV x64)
     needs: changes
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -131,16 +151,27 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   apply-deps-2021-x86:
     name: Apply VIPC (LV x86)
     needs: [apply-deps-2021-x64, changes]
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -167,11 +198,18 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   version:
     name: Compute Version
     needs: dev-mode-gate
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     outputs:
       VERSION:       ${{ steps.compute.outputs.VERSION }}
       MAJOR:         ${{ steps.compute.outputs.MAJOR }}
@@ -183,20 +221,135 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - id: compute
         uses: ./.github/actions/compute-version
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   missing-in-project:
-    name: Test Missing-In-Project (LV)
+    name: Missing-In-Project (LV ${{ matrix.bitness }}-bit)
     needs: apply-deps-2021-x86
-    uses: ./.github/workflows/test-missing-in-project-windows.yml
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        bitness: ["64", "32"]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
+      - name: Create short-path worktree
+        id: worktree
+        shell: pwsh
+        run: |
+          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" `
+            -Bitness ${{ matrix.bitness }}
+      - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
+        shell: pwsh
+        working-directory: ${{ env.REPO_ROOT }}
+        run: |
+          & ".github\\actions\\set-development-mode\\Set_Development_Mode.ps1" `
+            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
+            -SupportedBitness ${{ matrix.bitness }} `
+            -RepoRoot "$env:REPO_ROOT"
+      - name: Resolve LabVIEW project path
+        id: proj
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PROJECT_PATH)) {
+            throw "PROJECT_PATH was not set."
+          }
+          if (-not (Test-Path -Path $env:PROJECT_PATH)) {
+            throw "Project file not found: $env:PROJECT_PATH"
+          }
+          Write-Host "Using project file: $env:PROJECT_PATH"
+          "project_file=$env:PROJECT_PATH" >> $env:GITHUB_OUTPUT
+      - name: Missing-In-Project (LV ${{ matrix.bitness }}-bit)
+        id: mip
+        shell: pwsh
+        working-directory: ${{ env.REPO_ROOT }}
+        run: |
+          & ".github\\actions\\missing-in-project\\Invoke-MissingInProjectCLI.ps1" `
+            -LVVersion   "$env:LABVIEW_VERSION_YEAR" `
+            -Arch        "${{ matrix.bitness }}" `
+            -ProjectFile "${{ steps.proj.outputs.project_file }}"
+
+          $missingFile = Join-Path $env:REPO_ROOT '.github\\actions\\missing-in-project\\missing_files.txt'
+          $missingCsv = ''
+          if (Test-Path $missingFile) {
+            $missingCsv = Get-Content -Path $missingFile -Raw
+          }
+          $passed = [string]::IsNullOrWhiteSpace($missingCsv)
+          "passed=$($passed.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          "missing-files=$missingCsv" >> $env:GITHUB_OUTPUT
+      - name: Summarize to run Summary tab
+        if: always()
+        shell: pwsh
+        env:
+          PROJ_FILE: ${{ steps.proj.outputs.project_file }}
+          MISSING_CSV: ${{ steps.mip.outputs.missing-files }}
+        run: |
+          echo "INFO: Using project file: $env:PROJ_FILE" >> $GITHUB_STEP_SUMMARY
+          if ("${{ steps.mip.outputs.passed }}" -eq "true") {
+            echo "OK: Nothing missing for $env:LABVIEW_VERSION_YEAR-${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          }
+          echo "ERROR: Missing files for $env:LABVIEW_VERSION_YEAR-${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
+          echo "$env:MISSING_CSV" >> $GITHUB_STEP_SUMMARY
+          exit 1
+      - name: Revert Development Mode (LV ${{ matrix.bitness }}-bit)
+        if: always()
+        shell: pwsh
+        working-directory: ${{ env.REPO_ROOT }}
+        run: |
+          & ".github\\actions\\revert-development-mode\\RevertDevelopmentMode.ps1" `
+            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
+            -SupportedBitness ${{ matrix.bitness }} `
+            -RepoRoot "$env:REPO_ROOT"
+      - name: Close LabVIEW (LV ${{ matrix.bitness }}-bit)
+        if: always()
+        shell: pwsh
+        run: |
+          & "$env:REPO_ROOT\\.github\\actions\\close-labview\\Close_LabVIEW.ps1" `
+            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
+            -SupportedBitness ${{ matrix.bitness }}
+      - name: Cleanup worktree
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
+            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
+            git -C "$env:GITHUB_WORKSPACE" worktree prune
+          }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   test-2021:
     name: Run Unit Tests (LV ${{ matrix.bitness }}-bit)
     needs: missing-in-project
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -207,6 +360,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -259,16 +416,27 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   build-ppl-x86:
     name: Build 32-bit Packed Library
     needs: [build-ppl-x64, version]
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -330,16 +498,27 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
     needs: [test-2021, version]
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -401,16 +580,30 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
 
   build-vip:
     name: Build VI Package
     # Chain after 32-bit PPL build (which depends on 64-bit PPL build).
     needs: [build-ppl-x86, version]
-    runs-on: self-hosted-windows-lv
+    runs-on: self-hosted-windows-lv-ie
+    env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_VIPM_TIMEOUT_SECONDS: 900
+      LVIE_VIPM_MAX_ATTEMPTS: 2
+      LVIE_VIPM_RETRY_DELAY_SECONDS: 30
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
       - name: Create short-path worktree
         id: worktree
         shell: pwsh
@@ -508,7 +701,7 @@ jobs:
             ${{ steps.display-info.outputs.json }}
         run: |
           $displayInformationJson = $Env:DISPLAY_INFORMATION_JSON
-          & "$env:REPO_ROOT\\.github\\actions\\build-vip\\build_vip.ps1" `
+          & "$env:REPO_ROOT\\Tooling\\Invoke-VipBuild.ps1" `
             -SupportedBitness 64 `
             -RepoRoot "$env:REPO_ROOT" `
             -VIPBPath "Tooling/deployment/NI Icon editor.vipb" `
@@ -520,7 +713,15 @@ jobs:
             -Build ${{ needs.version.outputs.BUILD }} `
             -Commit "${{ github.sha }}" `
             -ReleaseNotesFile "$env:REPO_ROOT\\Tooling\\deployment\\release_notes.md" `
-            -DisplayInformationJSON $displayInformationJson
+            -DisplayInformationJSON $displayInformationJson `
+            -VipmTimeoutSeconds $env:LVIE_VIPM_TIMEOUT_SECONDS
+      - name: Upload VIP build status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vip-build-status
+          path: ${{ env.REPO_ROOT }}/builds/status/vip-build.json
+          if-no-files-found: warn
       - name: Prepare release notes artifact
         id: release-notes
         shell: pwsh
@@ -628,6 +829,90 @@ jobs:
             git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
             git -C "$env:GITHUB_WORKSPACE" worktree prune
           }
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+
+  pipeline-contract:
+    name: Pipeline Contract
+    if: always()
+    needs:
+      - dev-mode-gate
+      - changes
+      - apply-deps-2021-x64
+      - apply-deps-2021-x86
+      - missing-in-project
+      - test-2021
+      - build-ppl-x64
+      - build-ppl-x86
+      - build-vip
+      - version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VIP build status (if available)
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: vip-build-status
+          path: vip-build-status
+      - name: Validate required jobs
+        shell: pwsh
+        run: |
+          $required = @(
+            'dev-mode-gate',
+            'changes',
+            'apply-deps-2021-x64',
+            'apply-deps-2021-x86',
+            'missing-in-project',
+            'test-2021',
+            'build-ppl-x64',
+            'build-ppl-x86',
+            'build-vip',
+            'version'
+          )
+          $needs = ConvertFrom-Json -InputObject '${{ toJson(needs) }}'
+          $needsProps = $needs.PSObject.Properties
+          $failed = @()
+
+          $vipStatus = $null
+          $vipStatusPath = Join-Path -Path $PWD -ChildPath 'vip-build-status/vip-build.json'
+          if (Test-Path $vipStatusPath) {
+            try {
+              $vipStatus = Get-Content -Raw -Path $vipStatusPath | ConvertFrom-Json
+            } catch {
+              Write-Warning "Failed to parse VIP build status file at ${vipStatusPath}: $($_.Exception.Message)"
+            }
+          }
+
+          foreach ($job in $required) {
+            $entryProp = $needsProps[$job]
+            if (-not $entryProp) {
+              $failed += "$($job):missing"
+              continue
+            }
+            $result = $entryProp.Value.result
+            if ($result -ne 'success') {
+              if ($job -eq 'build-vip' -and $vipStatus) {
+                $label = if ($vipStatus.reason) { $vipStatus.reason } elseif ($vipStatus.status) { $vipStatus.status } else { $null }
+                if ($label) {
+                  $failed += "$($job):$result ($label)"
+                } else {
+                  $failed += "$($job):$result"
+                }
+              } else {
+                $failed += "$($job):$result"
+              }
+            }
+          }
+          if ($failed.Count -gt 0) {
+            Write-Error ("Pipeline contract failed: {0}" -f ($failed -join ', '))
+          } else {
+            Write-Host 'Pipeline contract satisfied.'
+          }
+
 
 
 

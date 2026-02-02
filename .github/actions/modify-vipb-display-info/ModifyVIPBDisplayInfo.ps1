@@ -18,10 +18,10 @@
     Relative path to the VIPB file to modify.
 
 .PARAMETER MinimumSupportedLVVersion
-    LabVIEW major version (2021 only; 21.0).
+    LabVIEW major version year (e.g., 2021).
 
 .PARAMETER LabVIEWMinorRevision
-    Minor revision number of LabVIEW (0 for 21.0).
+    Minor revision number of LabVIEW (e.g., 0 for 21.0).
 
 .PARAMETER Major
     Major version component for the package.
@@ -51,12 +51,15 @@ param (
     [string]$SupportedBitness,
     [string]$RepoRoot,
     [string]$VIPBPath,
+    [string]$WorktreeRoot,
+    [switch]$SkipWorktreeRootCheck,
 
-    [ValidateSet(2021)]
+    [Alias('LabVIEWVersion')]
+    [ValidateRange(2000, 2100)]
     [int]$MinimumSupportedLVVersion,
 
-    [ValidateSet("0")]
-    [string]$LabVIEWMinorRevision = "0",
+    [ValidateRange(0, 99)]
+    [int]$LabVIEWMinorRevision = 0,
 
     [int]$Major,
     [int]$Minor,
@@ -71,7 +74,7 @@ param (
 
 # 1) Resolve paths
 try {
-    $ResolvedRepoRoot = Resolve-Path -Path $RepoRoot -ErrorAction Stop
+    $ResolvedRepoRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
     $ResolvedVIPBPath = Join-Path -Path $ResolvedRepoRoot -ChildPath $VIPBPath -ErrorAction Stop
 }
 catch {
@@ -82,6 +85,27 @@ catch {
     }
     $errorObject | ConvertTo-Json -Depth 10
     exit 1
+}
+
+# 1a) Worktree preflight (optional for local runs)
+$preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $ResolvedRepoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $ResolvedRepoRoot = $preflight.RepoRoot
 }
 
 # 2) Create release notes if needed

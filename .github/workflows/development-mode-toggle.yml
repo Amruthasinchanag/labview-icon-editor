@@ -1,5 +1,12 @@
 name: "Toggle Development Mode"
 
+permissions:
+  actions: read
+
+concurrency:
+  group: labview-${{ github.repository }}-self-hosted-windows-lv-ie
+  cancel-in-progress: false
+
 on:
   # 1) Called by other workflows
   workflow_call:
@@ -10,7 +17,7 @@ on:
         required: true
         default: "enable"
       labview_version:
-        description: "LabVIEW version to target (2021/21.0 only)."
+        description: "LabVIEW version to target (year or numeric)."
         type: string
         required: true
       bitness:
@@ -35,12 +42,10 @@ on:
           - enable
           - disable
       labview_version:
-        description: "LabVIEW version."
+        description: "LabVIEW version (year or numeric)."
         required: true
         default: "2021"
-        type: choice
-        options:
-          - "2021"
+        type: string
       bitness:
         description: "LabVIEW bitness."
         required: true
@@ -88,13 +93,18 @@ jobs:
           inputs.bitness || '64',
           inputs.labview_version || '2021') }}
 
-    runs-on: [self-hosted-windows-lv]
+    runs-on: [self-hosted-windows-lv-ie]
     env:
+      LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
       selected_bitness: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bitness || inputs.bitness }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Acquire LabVIEW runner lock
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
 
       - name: Log context
         shell: pwsh
@@ -149,6 +159,12 @@ jobs:
             exit $LASTEXITCODE
           }
 
+      - name: Release LabVIEW runner lock
+        if: always()
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+
       - name: Toggle dev mode (32-bit)
         if: ${{ env.selected_bitness == '32' && success() }}
         shell: pwsh
@@ -185,3 +201,4 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             exit $LASTEXITCODE
           }
+

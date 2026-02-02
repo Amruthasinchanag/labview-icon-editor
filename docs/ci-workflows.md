@@ -113,10 +113,11 @@ The [`ci-composite.yml`](../.github/workflows/ci-composite.yml) pipeline breaks 
 - **changes** – checks out the repository and detects `.vipc` file changes to determine if dependencies need to be applied.
 - **apply-deps** – installs VIPC dependencies for LabVIEW 2021 (21.0), 32- and 64-bit **only when** the `changes` job reports `.vipc` modifications (`if: needs.changes.outputs.vipc == 'true'`).
 - **version** – computes the semantic version and build number using commit count and PR labels.
-- **missing-in-project-check** – verifies every source file is referenced in the `.lvproj`.
+- **missing-in-project** – verifies every source file is referenced in the `.lvproj` (inlined in `ci-composite.yml` to avoid reusable workflow skips).
 - **test** – runs LabVIEW unit tests on Windows in LabVIEW 2021 (21.0), 32- and 64-bit.
 - **build-ppl** – uses a matrix to build 32-bit and 64-bit packed libraries, then uses the `rename-file` action to append the bitness to each library’s filename.
 - **build-vi-package** – packages the final VI Package using the built libraries and version information. In `ci-composite.yml` this job passes `supported_bitness: 64`, so it produces only a 64-bit `.vip`.
+- **pipeline-contract** – fails the workflow when required jobs are skipped or cancelled, preventing silent CI gaps.
 
 Both `build-ppl` and `build-vi-package` run a `close-labview` step after their build actions finish but before any steps that rename files or upload artifacts, so it isn't the job's final step.
 
@@ -137,7 +138,7 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
    Go to **Settings → Actions → Runners** in your GitHub repository (or organization) and follow the steps to register a runner on your machine that has LabVIEW installed.
 
 3. **Label the Runner** (optional):
-   - Use labels such as `self-hosted-windows-lv` for the default jobs. The default CI matrix currently runs only on this Windows label.
+   - Use labels such as `self-hosted-windows-lv-ie` for the default jobs. The default CI matrix currently runs only on this Windows label.
    - `self-hosted-linux-lv` is included for potential future expansion but isn't used by the default jobs yet.
    - Adjust the workflow’s `runs-on` lines to match your runner labels. This helps ensure the correct environment is used for building the Icon Editor.
 
@@ -204,3 +205,4 @@ This runs Verify IE Paths, applies VIPC dependencies, runs missing-in-project ch
 - **Branding**: To highlight the **organization** or **repository** behind a particular build, simply pass `-CompanyName` and `-AuthorName` (or similar parameters) into the `Build.ps1` script. This metadata flows into the final **Display Information** of the Icon Editor’s VI Package.
 
 By adopting these workflows—**Development Mode Toggle** and **Build VI Package**—you can maintain a **streamlined, consistent** CI/CD process for the Icon Editor while customizing the VI Package with your own **unique** or **fork-specific** branding.
+

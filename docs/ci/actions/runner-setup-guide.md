@@ -116,7 +116,7 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
    - Follow GitHub’s CLI instructions.
 
 4. **Labels** (optional)
-   - The workflow uses the `self-hosted-windows-lv` label. Its `runs-on` expression also references `self-hosted-linux-lv` for potential Linux jobs, though the default matrix runs only on Windows. Label your runner accordingly, and prepare a Linux runner with `self-hosted-linux-lv` if you expand the matrix.
+   - The workflow uses the `self-hosted-windows-lv-ie` label. Its `runs-on` expression also references `self-hosted-linux-lv` for potential Linux jobs, though the default matrix runs only on Windows. Label your runner accordingly, and prepare a Linux runner with `self-hosted-linux-lv` if you expand the matrix.
 
 5. **Runner diagnostics cleanup (recommended)**
    - Some runner failures can occur before checkout if old diagnostics logs accumulate under the runner's `_diag\pages` folder.
@@ -129,6 +129,14 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
    - Restart the runner service after updating `.env`.
    - Optional: set `RUNNER_DIAG_RETENTION_DAYS=7` in `.env` if you want to keep recent logs.
    - The cleanup skips any diagnostics file that is still in use, so the job does not fail.
+
+6. **Standardize worktree root under the runner directory (recommended)**
+   - Use a short path under the runner root to avoid Windows path-length issues.
+   - Recommended path: `<runner-root>\_work\lvie\w` (for example `C:\actions-runner\_work\lvie\w`).
+   - Runner contract helper (run from repo root):
+     - `pwsh -NoProfile -File .\Tooling\Setup-Runner.ps1 -RunnerRoot C:\actions-runner -Scope Machine`
+   - This writes `<runner-root>\_work\lvie\runner-contract.json` and sets `LVIE_WORKTREE_ROOT`, `LVIE_ARTIFACT_ROOT`, `LVIE_LOCK_ROOT`, and `LVIE_LOG_ROOT`.
+   - Restart the runner service after setting Machine/User environment variables.
 
 
 <a name="running-the-actions-locally"></a>
@@ -204,5 +212,6 @@ Notes:
 - **Troubleshoot**: If manual environment edits are needed, consult `ManualSetup.md` or the original documentation for advanced configuration steps.  
 
 **Happy Building!** By integrating these workflows, you’ll maintain a **robust, automated CI/CD** pipeline for the LabVIEW Icon Editor—complete with **semantic versioning**, **build artifact uploads**, and **metadata branding** (company/repo).
+
 
 

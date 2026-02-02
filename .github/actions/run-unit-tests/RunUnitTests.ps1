@@ -10,7 +10,7 @@
       - Requires an explicit LabVIEW project path (-ProjectPath).
 
 .PARAMETER MinimumSupportedLVVersion
-    LabVIEW 2021 (21.0) only.
+    LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
 .PARAMETER SupportedBitness
     Bitness for LabVIEW (e.g., "64").
@@ -34,7 +34,9 @@
 param(
     [Parameter(Mandatory = $true, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $true, ParameterSetName = 'ReportOnly')]
-    [ValidateSet('2021')]
+    [Alias('LabVIEWVersion')]
+    [AllowNull()]
+    [AllowEmptyString()]
     [string]
     $MinimumSupportedLVVersion,
 
@@ -55,7 +57,15 @@ param(
     [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $false, ParameterSetName = 'ReportOnly')]
     [string]
-    $ReportPath
+    $ReportPath,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
+    [Parameter(Mandatory = $false, ParameterSetName = 'ReportOnly')]
+    [string]$WorktreeRoot,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
+    [Parameter(Mandatory = $false, ParameterSetName = 'ReportOnly')]
+    [switch]$SkipWorktreeRootCheck
 )
 
 # Script-level variables to track exit states and results
@@ -67,9 +77,44 @@ $Script:ReportMissing = $false
 $Script:ParseError = $null
 
 if ([string]::IsNullOrWhiteSpace($ReportPath)) {
-    $ReportPath = Join-Path -Path $PSScriptRoot -ChildPath "UnitTestReport.xml"
+    $reportRoot = if ([string]::IsNullOrWhiteSpace($env:LVIE_ARTIFACT_ROOT)) { $PSScriptRoot } else { Join-Path $env:LVIE_ARTIFACT_ROOT 'unit-tests' }
+    if (-not [string]::IsNullOrWhiteSpace($env:LVIE_ARTIFACT_ROOT) -and -not (Test-Path -Path $reportRoot)) {
+        New-Item -Path $reportRoot -ItemType Directory -Force | Out-Null
+    }
+    $ReportPath = Join-Path -Path $reportRoot -ChildPath "UnitTestReport.xml"
 } else {
     Write-Host "Using report path override: $ReportPath"
+}
+
+$repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')).Path
+$preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRoot = $preflight.RepoRoot
+}
+$versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
+$labviewYear = $MinimumSupportedLVVersion
+if (Test-Path -Path $versionHelper) {
+    . $versionHelper
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $labviewYear = $versionInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($labviewYear)) {
+    $labviewYear = '2021'
 }
 
 # --------------------------------------------------------------------
@@ -216,7 +261,7 @@ function Emit-Results {
 
         if ($env:GITHUB_STEP_SUMMARY) {
             $summary = @()
-            $summary += "### Unit Test Results (LabVIEW $MinimumSupportedLVVersion $SupportedBitness-bit)"
+            $summary += "### Unit Test Results (LabVIEW $labviewYear $SupportedBitness-bit)"
             $summary += ""
             $summary += "- Total: 0"
             $summary += "- Failed: 1"
@@ -303,7 +348,7 @@ function Emit-Results {
         $skippedCount = ($Script:Results | Where-Object { $_.Status -eq "Skipped" }).Count
         $passedResults = $Script:Results | Where-Object { $_.Status -eq "Passed" }
         $summary = @()
-        $summary += "### Unit Test Results (LabVIEW $MinimumSupportedLVVersion $SupportedBitness-bit)"
+        $summary += "### Unit Test Results (LabVIEW $labviewYear $SupportedBitness-bit)"
         $summary += ""
         $summary += "- Total: $($Script:Results.Count)"
         $summary += "- Failed: $($Script:FailedResults.Count)"
@@ -348,7 +393,7 @@ function Emit-Results {
 # ------------------------  MAIN SEQUENCE  ----------------------
 function MainSequence {
     Write-Host "`n=== MainSequence ==="
-    Write-Host "Running unit tests for LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit)"
+    Write-Host "Running unit tests for LabVIEW $labviewYear ($SupportedBitness-bit)"
     Write-Host "Project Path: $AbsoluteProjectPath"
     Write-Host "Report will be saved at: $ReportPath"
 
@@ -361,7 +406,7 @@ function MainSequence {
     $previousNativePreference = $PSNativeCommandUseErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
     try {
-        & g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness lunit -- -r "$ReportPath" "$AbsoluteProjectPath"
+        & g-cli --lv-ver $labviewYear --arch $SupportedBitness lunit -- -r "$ReportPath" "$AbsoluteProjectPath"
     }
     finally {
         $PSNativeCommandUseErrorActionPreference = $previousNativePreference

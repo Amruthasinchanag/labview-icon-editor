@@ -14,10 +14,11 @@ This repository uses LabVIEW, g-cli, and PowerShell tooling. Follow the steps be
   - `g-cli --version`
 
 ## Worktree root (short paths)
-Use a short path for worktrees to avoid Windows path-length issues. Default to `C:\dev`.
+Use a short path for worktrees to avoid Windows path-length issues. Default to `C:\dev` for local dev; for self-hosted runners, standardize under the runner directory (example: `C:\actions-runner\_work\lvie\w`).
 
 Override:
 - Set `LVIE_WORKTREE_ROOT` to change the default worktree root.
+  - Runner contract helper: `pwsh -NoProfile -File .\Tooling\Setup-Runner.ps1 -RunnerRoot C:\actions-runner -Scope Machine` (creates `<runner-root>\_work\lvie\w`, writes `<runner-root>\_work\lvie\runner-contract.json`, and sets env vars).
 
 Preflight requirement:
 - If the chosen worktree root does not exist, ask the user to create it before proceeding.
@@ -64,6 +65,14 @@ Helper used by CI:
 pwsh -NoProfile -File .\Tooling\New-CIWorktreeForJob.ps1 -Bitness 64
 ```
 
+## CI concurrency (self-hosted LabVIEW runners)
+LabVIEW workflows are serialized on the shared self-hosted runner label to avoid concurrent g-cli/LabVIEW conflicts.
+
+Notes:
+- Workflows share a concurrency group keyed by repository + runner label (e.g., `labview-<repo>-self-hosted-windows-lv-ie`).
+- Missing-in-project is inlined in `ci-composite.yml` to avoid reusable workflow skips; the standalone workflow is manual only.
+- Self-hosted LabVIEW jobs acquire a runner lock at `<lock_root>\labview-runner.lock` via `Tooling\RunnerLock.ps1`. The lock auto-expires stale entries (lease + optional GitHub run status check) and logs owner metadata. Env overrides: `LVIE_LOCK_ROOT`, `LVIE_RUNNER_LOCK_TIMEOUT_SECONDS`, `LVIE_RUNNER_LOCK_LEASE_SECONDS`, `LVIE_RUNNER_LOCK_STALE_SECONDS`, `LVIE_RUNNER_LOCK_GITHUB_CHECK`, `LVIE_RUNNER_LOCK_GITHUB_MIN_AGE_SECONDS`, `LVIE_RUNNER_LOCK_GITHUB_CHECK_INTERVAL_SECONDS`.
+
 ## Local CI Parity (recommended)
 Run the local parity script that mirrors `ci-composite.yml`:
 ```
@@ -73,11 +82,13 @@ pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 `
 ```
 
 Notes:
-- Outputs go to `TestResults\ci-local`.
+- Outputs go to `$WORKTREE_ROOT\artifacts\<runid>\ci-local` when guardrails are active (default for local runs).
+- GitHub Actions disables artifact roots by default unless `LVIE_ENABLE_ARTIFACT_ROOT=1` or an explicit `-RunId`/`-ArtifactRoot` is passed.
 - The script always runs both 64-bit and 32-bit steps for LabVIEW 2021 (21.0).
 - The script handles Verify IE Paths, VIPC, missing-in-project, unit tests, PPL builds, and VIP build.
 - If LabVIEW or g-cli is already running, the script waits for them to exit before starting.
 - You can skip steps with switches like `-SkipBuildVip` or `-SkipUnitTests`.
+- VIP builds flow through `Tooling\Invoke-VipBuild.ps1`, which emits `builds\status\vip-build.json` and respects `LVIE_VIPM_TIMEOUT_SECONDS`, `LVIE_VIPM_MAX_ATTEMPTS`, and `LVIE_VIPM_RETRY_DELAY_SECONDS`.
 
 ## Adaptive timeouts and continuous troubleshooting
 Use fixed timeouts for deterministic CI runs. Use adaptive timeouts only for local/manual runs while tuning.
@@ -194,3 +205,5 @@ Notes:
 - If `g-cli` cannot connect, increase `-ConnectTimeoutMs` and `-ProcessTimeoutMs`.
 - If a run hangs, close LabVIEW and re-run the step:
   - `.github\actions\close-labview\Close_LabVIEW.ps1`
+- Release note generation can log `git describe` errors in shallow or tagless repos; VIP builds may still complete, but fetch tags if you need accurate version strings.
+

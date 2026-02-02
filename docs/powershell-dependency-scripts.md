@@ -2,6 +2,10 @@
 
 This document lists the PowerShell scripts used to build, test, and distribute the LabVIEW Icon Editor. Each script is a dependency in the tooling chain and can be called directly or by other scripts.
 
+Local entrypoints enforce short-path worktree usage by default. If a script fails because the repo is not under the worktree root, use `Tooling\New-CIWorktree.ps1` or `Tooling\Invoke-InWorktree.ps1`. Set `LVIE_SKIP_WORKTREE_ROOT_CHECK=1` or pass `-SkipWorktreeRootCheck` only when you intentionally want to bypass the guard.
+
+Per-run artifacts are written under `$WORKTREE_ROOT\artifacts\<runid>` when guardrails are active. Use `-RunId` or `-ArtifactRoot` to override, and `-CleanRoom` to purge known output folders before and after a run. Artifact roots are disabled by default inside GitHub Actions unless `LVIE_ENABLE_ARTIFACT_ROOT=1` (or an explicit `-ArtifactRoot`/`-RunId` is provided).
+
 ## Table of Contents
 
 - [AddTokenToLabVIEW.ps1](#addtokentolabviewps1)
@@ -19,6 +23,9 @@ This document lists the PowerShell scripts used to build, test, and distribute t
 - [RevertDevelopmentMode.ps1](#revertdevelopmentmodeps1)
 - [RunUnitTests.ps1](#rununittestsps1)
 - [Run-CICompositeLocal.ps1](#run-cicompositelocalps1)
+- [Invoke-InWorktree.ps1](#invoke-inworktreeps1)
+- [WorktreeGuard.ps1](#worktreeguardps1)
+- [Invoke-Preflight.ps1](#invoke-preflightps1)
 
 ---
 
@@ -62,8 +69,17 @@ Configures the repository for development by invoking `Prepare_LabVIEW_source.ps
 Undoes development mode by invoking `RestoreSetupLVSource.ps1` for both bitnesses. Helpful when leaving development or before distributing a build. Accepts `-ConnectTimeoutMs` and `-ProcessTimeoutMs` to pass through to g-cli.
 
 ## RunUnitTests.ps1
-Runs unit tests through g-cli and outputs a table of results. Requires an explicit `.lvproj` path via `-ProjectPath`. Used in CI workflows.
+Runs unit tests through g-cli and outputs a table of results. Requires an explicit `.lvproj` path via `-ProjectPath`. Ensure the LUnit dependency is installed for the selected bitness (apply `runner_dependencies.vipc` for both 32-bit and 64-bit). Used in CI workflows.
 
 ## Run-CICompositeLocal.ps1
-Runs a local CI parity sequence based on `ci-composite.yml`. This script validates Verify IE Paths, applies VIPC dependencies, runs missing-in-project checks and unit tests for LabVIEW 2021 (21.0), 32- and 64-bit, builds packed libraries, and produces the VI package using LabVIEW 2021 (21.0) 64-bit. The script always runs both 64-bit and 32-bit steps for LabVIEW 2021 (21.0), and most steps can be skipped via switches. Outputs are stored under `TestResults/ci-local`. Use `-ConnectTimeoutMs`, `-ProcessTimeoutMs`, and `-StatusFileTimeoutMs` to tune g-cli and status-file timing for your machine.
+Runs a local CI parity sequence based on `ci-composite.yml`. This script validates Verify IE Paths, applies VIPC dependencies, runs missing-in-project checks and unit tests for the LabVIEW version declared in `.lvversion` (defaulting to 2021/21.0), 32- and 64-bit, builds packed libraries, and produces the VI package using the 64-bit install of that version. The script always runs both 64-bit and 32-bit steps for the selected LabVIEW version, and most steps can be skipped via switches. Outputs are stored under `TestResults/ci-local`. Use `-ConnectTimeoutMs`, `-ProcessTimeoutMs`, and `-StatusFileTimeoutMs` to tune g-cli and status-file timing for your machine.
+
+## Invoke-InWorktree.ps1
+Creates a short-path worktree and runs a command or script from that path. Use this when you want to keep artifacts isolated without manually creating worktrees. Accepts either `-Command` or `-ScriptPath`/`-ScriptArguments` and will reuse the configured worktree root.
+
+## WorktreeGuard.ps1
+Shared helper used by local entrypoints to enforce that `RepoRoot` is under the configured worktree root. Supports `-SkipWorktreeRootCheck` and `LVIE_SKIP_WORKTREE_ROOT_CHECK=1` for explicit bypass scenarios.
+
+## Invoke-Preflight.ps1
+Shared preflight used by local entrypoints. Enforces worktree root usage, creates per-run artifact roots, logs run context, and supports `-AutoWorktree` and `-CleanRoom` options.
 

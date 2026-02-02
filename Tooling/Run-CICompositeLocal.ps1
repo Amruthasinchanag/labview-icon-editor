@@ -5,17 +5,17 @@
 
 .DESCRIPTION
     Executes the key LabVIEW steps from ci-composite.yml locally:
-    - Verify IE Paths gate (2021 32/64)
-    - Apply VIPC dependencies (2021 32/64)
-    - Missing-in-project checks (2021 32/64)
-    - Unit tests (2021 32/64)
-    - Build PPLs (2021 32/64) + rename
-    - Build VIP (2021 64)
+    - Verify IE Paths gate (version 32/64)
+    - Apply VIPC dependencies (version 32/64)
+    - Missing-in-project checks (version 32/64)
+    - Unit tests (version 32/64)
+    - Build PPLs (version 32/64) + rename
+    - Build VIP (version 64)
 
     GitHub-only gates (issue-status, labels, artifact upload) are not included.
 
 .PARAMETER LabVIEWVersion
-    LabVIEW 2021 (21.0) only.
+    LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
 .PARAMETER SkipVerifyIEPaths
     Skip the Verify IE Paths gate.
@@ -62,6 +62,24 @@
 .PARAMETER RepoRoot
     Optional repository root override.
 
+.PARAMETER WorktreeRoot
+    Optional override for the worktree root used by guardrails.
+
+.PARAMETER SkipWorktreeRootCheck
+    Skip enforcing that RepoRoot is under the worktree root.
+
+.PARAMETER AutoWorktree
+    Auto-create a short-path worktree and re-run from there when needed.
+
+.PARAMETER RunId
+    Optional run identifier used for artifact isolation.
+
+.PARAMETER ArtifactRoot
+    Optional override for the artifact output root.
+
+.PARAMETER CleanRoom
+    If set, purge known output folders before and after the run.
+
 .PARAMETER Major
     Override major version.
 
@@ -81,8 +99,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('2021')]
-    [string]$LabVIEWVersion = '2021',
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string]$LabVIEWVersion = '',
 
     [switch]$SkipVerifyIEPaths,
     [switch]$EnsureCleanState,
@@ -127,6 +146,21 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck,
+
+    [switch]$AutoWorktree,
+
+    [Parameter(Mandatory = $false)]
+    [string]$RunId,
+
+    [Parameter(Mandatory = $false)]
+    [string]$ArtifactRoot,
+
+    [switch]$CleanRoom,
 
     [Parameter(Mandatory = $false)]
     [int]$Major,
@@ -430,10 +464,16 @@ function Get-DisplayInformationJson {
 function Copy-LatestVipToBuilds {
     param(
         [string]$RepoRoot,
-        [datetime]$Since
+        [datetime]$Since,
+        [string]$ArtifactRoot
     )
 
-    $buildsDir = Join-Path $RepoRoot 'builds'
+    $artifactRootResolved = if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) { $env:LVIE_ARTIFACT_ROOT } else { $ArtifactRoot }
+    $buildsDir = if ([string]::IsNullOrWhiteSpace($artifactRootResolved)) {
+        Join-Path $RepoRoot 'builds'
+    } else {
+        Join-Path $artifactRootResolved 'builds'
+    }
     $vipDir = Join-Path $buildsDir 'VI Package'
     New-Item -Path $vipDir -ItemType Directory -Force | Out-Null
 
@@ -463,10 +503,16 @@ function Copy-LatestVipToBuilds {
 function Write-GCliBuildLogTail {
     param(
         [string]$RepoRoot,
-        [int]$TailLines = 120
+        [int]$TailLines = 120,
+        [string]$ArtifactRoot
     )
 
-    $logFile = Join-Path $RepoRoot 'builds/logs/gcli-build.log'
+    $artifactRootResolved = if ([string]::IsNullOrWhiteSpace($ArtifactRoot)) { $env:LVIE_ARTIFACT_ROOT } else { $ArtifactRoot }
+    $logFile = if ([string]::IsNullOrWhiteSpace($artifactRootResolved)) {
+        Join-Path $RepoRoot 'builds/logs/gcli-build.log'
+    } else {
+        Join-Path $artifactRootResolved 'builds/logs/gcli-build.log'
+    }
     if (-not (Test-Path -Path $logFile)) {
         Write-Host ("g-cli build log not found at {0}" -f $logFile)
         return
@@ -478,26 +524,51 @@ function Write-GCliBuildLogTail {
 }
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
-$worktreeRoot = $env:LVIE_WORKTREE_ROOT
-if ([string]::IsNullOrWhiteSpace($worktreeRoot)) {
-    $worktreeRoot = 'C:\dev'
+$artifactRootResolved = $null
+$preflight = $null
+$preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $LabVIEWVersion `
+        -LabVIEWBitness 'both' `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$AutoWorktree `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs `
+        -RunId $RunId `
+        -ArtifactRoot $ArtifactRoot `
+        -CleanRoom:$CleanRoom `
+        -RequireGcli
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRoot = $preflight.RepoRoot
+    $artifactRootResolved = $preflight.ArtifactRoot
 }
-$worktreeRootFull = [System.IO.Path]::GetFullPath($worktreeRoot)
-if (-not $worktreeRootFull.EndsWith('\')) {
-    $worktreeRootFull += '\'
+
+$versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
+$labviewInfo = if ($preflight -and $preflight.LabVIEWInfo) { $preflight.LabVIEWInfo } else { $null }
+if (-not $labviewInfo -and (Test-Path -Path $versionHelper)) {
+    . $versionHelper
+    $labviewInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
+    $LabVIEWVersion = $labviewInfo.Year
 }
-$repoRootFull = [System.IO.Path]::GetFullPath($repoRoot)
-if (-not $repoRootFull.EndsWith('\')) {
-    $repoRootFull += '\'
+if ([string]::IsNullOrWhiteSpace($LabVIEWVersion) -and $labviewInfo) {
+    $LabVIEWVersion = $labviewInfo.Year
 }
-if (-not $repoRootFull.StartsWith($worktreeRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw ("RepoRoot '{0}' is not under worktree root '{1}'. Consider using a short path or set LVIE_WORKTREE_ROOT." -f $repoRootFull.TrimEnd('\'), $worktreeRootFull.TrimEnd('\'))
+if ([string]::IsNullOrWhiteSpace($LabVIEWVersion)) {
+    $LabVIEWVersion = '2021'
 }
 Push-Location -Path $repoRoot
 $script:RunFailed = $false
 $runStart = Get-Date
 $runTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$logRoot = Join-Path $repoRoot 'TestResults/agent-logs'
+$logRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'agent-logs' } else { Join-Path $repoRoot 'TestResults/agent-logs' }
 New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $script:RunHistoryPath = Join-Path $logRoot 'run-history.csv'
 $script:StepHistoryPath = Join-Path $logRoot 'step-history.csv'
@@ -506,7 +577,7 @@ Ensure-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration
 Ensure-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
 $env:LABVIEW_CLOSE_METRICS_PATH = $script:CloseHistoryPath
 $runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
-$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode"
+$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
 $script:TranscriptStarted = $false
 try {
     Start-Transcript -Path $runLog -Append | Out-Null
@@ -523,11 +594,11 @@ try {
 
     Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
 
-    $bitnessList = @('64', '32')
+$bitnessList = @('64', '32')
     foreach ($bitness in $bitnessList) {
         Assert-LabVIEWInstalled -Version $LabVIEWVersion -Bitness $bitness
     }
-    $vipLabVIEWMinorRevision = "0"
+    $vipLabVIEWMinorRevision = if ($labviewInfo) { [int]$labviewInfo.MinorRevision } else { 0 }
 
     $versionInfo = Get-LocalVersionInfo -RepoRoot $repoRoot -BumpType $BumpType
     if ($PSBoundParameters.ContainsKey('Major')) { $versionInfo.Major = $Major }
@@ -536,7 +607,7 @@ try {
     if ($PSBoundParameters.ContainsKey('Build')) { $versionInfo.Build = $Build }
     if ($PSBoundParameters.ContainsKey('Commit')) { $versionInfo.Commit = $Commit }
 
-    $artifactsRoot = Join-Path $repoRoot 'TestResults/ci-local'
+    $artifactsRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'ci-local' } else { Join-Path $repoRoot 'TestResults/ci-local' }
     New-Item -Path $artifactsRoot -ItemType Directory -Force | Out-Null
 
     if (-not $SkipVerifyIEPaths) {
@@ -738,7 +809,7 @@ try {
 
         try {
             Invoke-Checked -Label "Build VIP (LV$LabVIEWVersion 64-bit)" -Action {
-                & (Join-Path $repoRoot '.github/actions/build-vip/build_vip.ps1') `
+                & (Join-Path $repoRoot 'Tooling/Invoke-VipBuild.ps1') `
                     -SupportedBitness 64 `
                     -RepoRoot $repoRoot `
                     -VIPBPath $VipbPath `
@@ -755,13 +826,13 @@ try {
             }
         }
         catch {
-            Write-GCliBuildLogTail -RepoRoot $repoRoot
+            Write-GCliBuildLogTail -RepoRoot $repoRoot -ArtifactRoot $artifactRootResolved
             throw
         }
 
-        $vipOutput = Copy-LatestVipToBuilds -RepoRoot $repoRoot -Since $vipBuildStart
+        $vipOutput = Copy-LatestVipToBuilds -RepoRoot $repoRoot -Since $vipBuildStart -ArtifactRoot $artifactRootResolved
         if (-not $vipOutput) {
-            Write-GCliBuildLogTail -RepoRoot $repoRoot
+            Write-GCliBuildLogTail -RepoRoot $repoRoot -ArtifactRoot $artifactRootResolved
             throw "VIP build did not produce a .vip after $($vipBuildStart.ToString('yyyy-MM-dd HH:mm:ss'))."
         }
 
@@ -783,6 +854,9 @@ finally {
         catch {
             # ignore transcript failures
         }
+    }
+    if ($preflight -and $preflight.CleanRoomAfter) {
+        Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
     }
     if ($env:LABVIEW_CLOSE_METRICS_PATH) {
         Remove-Item Env:LABVIEW_CLOSE_METRICS_PATH -ErrorAction SilentlyContinue

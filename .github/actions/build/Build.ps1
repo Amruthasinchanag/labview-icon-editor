@@ -49,7 +49,12 @@ param(
     [string]$CompanyName,
 
     [Parameter(Mandatory = $true)]
-    [string]$AuthorName
+    [string]$AuthorName,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck
 )
 
 # Helper function to verify a file/folder path exists
@@ -110,6 +115,28 @@ try {
 
     # Validate needed folders
     Assert-PathExists $RepoRoot "RepoRoot"
+    $repoRootResolved = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $RepoRoot = $repoRootResolved
+    $preflightScript = Join-Path -Path $repoRootResolved -ChildPath 'Tooling\Invoke-Preflight.ps1'
+    if (Test-Path -Path $preflightScript) {
+        . $preflightScript
+        $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+        $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRootResolved -Path $PSCommandPath } else { $null }
+        $preflight = Invoke-Preflight `
+            -RepoRoot $repoRootResolved `
+            -WorktreeRoot $WorktreeRoot `
+            -LabVIEWVersion '2021' `
+            -LabVIEWBitness 'both' `
+            -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+            -AutoWorktree:$false `
+            -ScriptPath $relativeScript `
+            -ScriptArguments $scriptArgs
+        if ($preflight.Reinvoked) {
+            return
+        }
+        $repoRootResolved = $preflight.RepoRoot
+        $RepoRoot = $repoRootResolved
+    }
     Assert-PathExists "$RepoRoot\resource\plugins" "Plugins folder"
 
     $ActionsPath = Split-Path -Parent $PSScriptRoot

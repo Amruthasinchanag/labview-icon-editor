@@ -14,7 +14,12 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [string]$RepoRoot
+    [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck
 )
 
 # Helper function to check for file or directory existence
@@ -56,6 +61,28 @@ function Execute-Script {
 try {
     # Validate required paths
     Assert-PathExists $RepoRoot "RepoRoot"
+    $repoRootResolved = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $RepoRoot = $repoRootResolved
+    $preflightScript = Join-Path -Path $repoRootResolved -ChildPath 'Tooling\Invoke-Preflight.ps1'
+    if (Test-Path -Path $preflightScript) {
+        . $preflightScript
+        $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+        $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRootResolved -Path $PSCommandPath } else { $null }
+        $preflight = Invoke-Preflight `
+            -RepoRoot $repoRootResolved `
+            -WorktreeRoot $WorktreeRoot `
+            -LabVIEWVersion '2021' `
+            -LabVIEWBitness 'both' `
+            -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+            -AutoWorktree:$false `
+            -ScriptPath $relativeScript `
+            -ScriptArguments $scriptArgs
+        if ($preflight.Reinvoked) {
+            return
+        }
+        $repoRootResolved = $preflight.RepoRoot
+        $RepoRoot = $repoRootResolved
+    }
     if (-not (Test-Path "$RepoRoot\resource\plugins")) {
         Write-Host "Plugins folder missing; creating $RepoRoot\resource\plugins" -ForegroundColor Yellow
         New-Item -ItemType Directory -Path "$RepoRoot\resource\plugins" -Force | Out-Null

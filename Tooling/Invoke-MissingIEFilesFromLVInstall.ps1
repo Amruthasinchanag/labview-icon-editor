@@ -9,7 +9,7 @@
     the repo root to report pass/fail details.
 
 .PARAMETER MinimumSupportedLVVersion
-    LabVIEW 2021 (21.0) only.
+    LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
 .PARAMETER SupportedBitness
     LabVIEW bitness to target ("32" or "64"). Defaults to "64".
@@ -17,6 +17,24 @@
 .PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
+
+.PARAMETER WorktreeRoot
+    Optional override for the worktree root used by guardrails.
+
+.PARAMETER SkipWorktreeRootCheck
+    Skip enforcing that RepoRoot is under the worktree root.
+
+.PARAMETER AutoWorktree
+    Auto-create a short-path worktree and re-run from there when needed.
+
+.PARAMETER RunId
+    Optional run identifier used for artifact isolation.
+
+.PARAMETER ArtifactRoot
+    Optional override for the artifact output root.
+
+.PARAMETER CleanRoom
+    If set, purge known output folders before and after the run.
 
 .PARAMETER StatusFileName
     Optional status file name (relative to repo root) or absolute path.
@@ -52,8 +70,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('2021')]
-    [string]$MinimumSupportedLVVersion = '2021',
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string]$MinimumSupportedLVVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -96,7 +115,20 @@ param(
     [switch]$FailOnUnknownStatus,
 
     [Parameter(Mandatory = $false)]
-    [string]$RepoRoot
+    [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$WorktreeRoot,
+
+    [switch]$SkipWorktreeRootCheck,
+
+    [switch]$AutoWorktree,
+
+    [string]$RunId,
+
+    [string]$ArtifactRoot,
+
+    [switch]$CleanRoom
 )
 
 $ErrorActionPreference = 'Stop'
@@ -226,6 +258,45 @@ function Invoke-VerifyIEPathsStatusCleanup {
 }
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
+$artifactRootResolved = $null
+$preflight = $null
+$preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $repoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$AutoWorktree `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs `
+        -RunId $RunId `
+        -ArtifactRoot $ArtifactRoot `
+        -CleanRoom:$CleanRoom `
+        -RequireGcli
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $repoRoot = $preflight.RepoRoot
+    $artifactRootResolved = $preflight.ArtifactRoot
+}
+$versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
+$labviewYear = $MinimumSupportedLVVersion
+if (Test-Path -Path $versionHelper) {
+    . $versionHelper
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $labviewYear = $versionInfo.Year
+}
+if ([string]::IsNullOrWhiteSpace($labviewYear)) {
+    $labviewYear = '2021'
+}
+if ([string]::IsNullOrWhiteSpace($StatusFileArchiveDirectory) -and $artifactRootResolved) {
+    $StatusFileArchiveDirectory = Join-Path $artifactRootResolved 'verify-iepaths'
+}
 $gCliRunner = Join-Path -Path $PSScriptRoot -ChildPath 'support\GcliRunner.ps1'
 if (-not (Test-Path -Path $gCliRunner)) {
     throw "g-cli helper not found at $gCliRunner"
@@ -243,8 +314,8 @@ if (-not (Test-Path -Path $viPath)) {
     throw "VerifyIEPaths.vi not found at $viPath"
 }
 
-if (-not (Get-LabVIEWInstallRoot -Version $MinimumSupportedLVVersion -Bitness $SupportedBitness)) {
-    throw "LabVIEW $MinimumSupportedLVVersion ($SupportedBitness-bit) install not found."
+if (-not (Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness)) {
+    throw "LabVIEW $labviewYear ($SupportedBitness-bit) install not found."
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
@@ -254,7 +325,7 @@ if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
 $gCliPath = (Get-Command g-cli -ErrorAction SilentlyContinue).Source
 
 $gCliArgs = @(
-    '--lv-ver', $MinimumSupportedLVVersion,
+    '--lv-ver', $labviewYear,
     '--arch', $SupportedBitness
 )
 
@@ -325,9 +396,13 @@ try {
 finally {
     Pop-Location
     try {
-        & g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness QuitLabVIEW | Out-Null
+        & g-cli --lv-ver $labviewYear --arch $SupportedBitness QuitLabVIEW | Out-Null
     }
     catch {
         Write-Warning ("Failed to close LabVIEW: {0}" -f $_.Exception.Message)
     }
+}
+
+if ($preflight -and $preflight.CleanRoomAfter) {
+    Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
 }

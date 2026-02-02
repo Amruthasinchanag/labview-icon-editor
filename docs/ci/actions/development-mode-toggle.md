@@ -23,7 +23,7 @@ You do **not** need to copy/paste the entire workflow snippet here, as it’s al
    - Go to the "Actions" tab on your (or your fork's) GitHub repository.
    - Select the **"Toggle Development Mode"** workflow.
    - Click "Run workflow" and choose either `enable` or `disable` from the dropdown.
-   - LabVIEW version is fixed to **2021** (`labview_version`).
+   - LabVIEW version is provided via `labview_version` (year or numeric), defaulting to **2021** if omitted.
    - Choose a bitness (`bitness`, default `64`).
    - This will execute the PowerShell scripts ([`Set_Development_Mode.ps1`](../../../.github/actions/set-development-mode/Set_Development_Mode.ps1) or [`RevertDevelopmentMode.ps1`](../../../.github/actions/revert-development-mode/RevertDevelopmentMode.ps1)) on the **target self-hosted runner** (your personal machine or a shared machine).
 
@@ -54,7 +54,7 @@ If you have another workflow file (e.g., `my-other-workflow.yml`) in the same re
 
     jobs:
       call-dev-mode:
-        runs-on: [self-hosted-windows-lv]
+        runs-on: [self-hosted-windows-lv-ie]
         steps:
           - name: Invoke Dev Mode Toggle (enable)
             uses: ./.github/workflows/development-mode-toggle.yml
@@ -77,7 +77,7 @@ If you store “Development mode toggle” in a separate public repo, you can re
 
     jobs:
       remote-dev-mode:
-        runs-on: [self-hosted-windows-lv]
+        runs-on: [self-hosted-windows-lv-ie]
         steps:
           - name: Use remote Dev Mode Toggle
             uses: <owner>/<repo>/.github/workflows/development-mode-toggle.yml@main
@@ -101,7 +101,7 @@ If a collaborator forked your original repo, they might keep the workflow in the
 
     jobs:
       forked-workflow-call:
-        runs-on: [self-hosted-windows-lv]
+        runs-on: [self-hosted-windows-lv-ie]
         steps:
           - name: Call Dev Mode Toggle from My Fork
             uses: <your-fork>/<repo>/.github/workflows/development-mode-toggle.yml@my-feature-branch
@@ -139,17 +139,21 @@ When development mode fails, the VI error source string prints a **comma-separat
 **To change** how "dev mode" behaves, **edit those scripts** directly. 
 
 ### Integration Tests
-You can run the integration tests locally on a runner that has LabVIEW 2021 (21.0) 64-bit installed:
+You can run the integration tests locally on a runner that has LabVIEW 2021 (21.0) 32-bit or 64-bit installed:
 
 ```powershell
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021 -LabVIEWBitness 32 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
 pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -LabVIEWVersion 2021 -LabVIEWBitness 64 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
 ```
 
 To include the dev-mode integration tests (enable/disable dev mode and VerifyIEPaths checks):
 
 ```powershell
+pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -RunDevModeTests -LabVIEWVersion 2021 -LabVIEWBitness 32 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
 pwsh -NoProfile -File .\Test\Pester\Run-Pester.ps1 -RunDevModeTests -LabVIEWVersion 2021 -LabVIEWBitness 64 -ConnectTimeoutMs 180000 -ProcessTimeoutMs 300000
 ```
+
+To test both bitnesses in one run, use `-LabVIEWBitness both`.
 
 ### Pull Requests with Script Updates
 Collaborators are free to:
@@ -164,3 +168,4 @@ Collaborators are free to:
 - GitHub Docs: https://docs.github.com/en/actions/using-workflows/reusing-workflows#calling-a-reusable-workflow
 
 ---
+
