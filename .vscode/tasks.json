@@ -21,7 +21,11 @@
         "-AutoWorktree"
       ],
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "LVIE_WORKTREE_NAME_PREFIX": "w",
+          "LVIE_WORKTREE_NO_REPO_PREFIX": "1"
+        }
       },
       "presentation": {
         "reveal": "always",

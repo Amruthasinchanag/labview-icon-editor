@@ -62,13 +62,41 @@ if (-not (Test-Path -Path $newWorktreeScript)) {
 $resolvedWorktreeRoot = & $ensureScript -WorktreeRoot $WorktreeRoot
 $env:LVIE_WORKTREE_ROOT = $resolvedWorktreeRoot
 
-$suffix = if ([string]::IsNullOrWhiteSpace($WorktreeName)) {
-    "ci-guard-{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmss')
-} else {
-    $WorktreeName
+function Test-TruthyEnv {
+    param([string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    $normalized = $Value.Trim().ToLowerInvariant()
+    return ($normalized -notin @('0', 'false', 'no'))
 }
 
-$worktreePath = & $newWorktreeScript -Ref $Ref -Name $suffix -WorktreeRoot $resolvedWorktreeRoot
+$envName = $env:LVIE_WORKTREE_NAME
+$envPrefix = $env:LVIE_WORKTREE_NAME_PREFIX
+$noRepoPrefix = Test-TruthyEnv -Value $env:LVIE_WORKTREE_NO_REPO_PREFIX
+
+if ([string]::IsNullOrWhiteSpace($WorktreeName)) {
+    if (-not [string]::IsNullOrWhiteSpace($envName)) {
+        $suffix = $envName
+    } else {
+        $prefix = if ([string]::IsNullOrWhiteSpace($envPrefix)) { 'ci-guard' } else { $envPrefix.Trim() }
+        $suffix = "{0}-{1}" -f $prefix, (Get-Date -Format 'yyyyMMdd-HHmmss')
+    }
+} else {
+    $suffix = $WorktreeName
+}
+
+$worktreeArgs = @(
+    '-Ref', $Ref,
+    '-Name', $suffix,
+    '-WorktreeRoot', $resolvedWorktreeRoot
+)
+if ($noRepoPrefix) {
+    $worktreeArgs += '-NoRepoNamePrefix'
+}
+$worktreePath = & $newWorktreeScript @worktreeArgs
 Write-Host ("Using worktree: {0}" -f $worktreePath)
 
 Push-Location -Path $worktreePath

@@ -33,6 +33,9 @@ param(
     [string]$Path,
 
     [Parameter(Mandatory = $false)]
+    [switch]$NoRepoNamePrefix,
+
+    [Parameter(Mandatory = $false)]
     [string]$WorktreeRoot
 )
 
@@ -60,7 +63,11 @@ $worktreeRoot = & $ensureScript -WorktreeRoot $WorktreeRoot
 
 if ([string]::IsNullOrWhiteSpace($Path)) {
     $suffix = if ([string]::IsNullOrWhiteSpace($Name)) { "ci-parity-{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmss') } else { $Name }
-    $targetPath = Join-Path $worktreeRoot ("{0}-{1}" -f $repoName, $suffix)
+    if ($NoRepoNamePrefix) {
+        $targetPath = Join-Path $worktreeRoot $suffix
+    } else {
+        $targetPath = Join-Path $worktreeRoot ("{0}-{1}" -f $repoName, $suffix)
+    }
 } else {
     $targetPath = [System.IO.Path]::GetFullPath($Path)
 }
