@@ -295,18 +295,21 @@ if (Test-Path -Path $preflightScript) {
     . $preflightScript
     $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
-    $preflight = Invoke-Preflight `
-        -RepoRoot $repoRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
-        -LabVIEWBitness $SupportedBitness `
-        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
-        -AutoWorktree:$AutoWorktree `
-        -ScriptPath $relativeScript `
-        -ScriptArguments $scriptArgs `
-        -RunId $RunId `
-        -ArtifactRoot $ArtifactRoot `
-        -CleanRoom:$CleanRoom `
-        -RequireGcli
+    $preflightParams = @{
+        RepoRoot       = $repoRoot
+        LabVIEWVersion = $MinimumSupportedLVVersion
+        LabVIEWBitness = $SupportedBitness
+        ScriptPath     = $relativeScript
+        ScriptArguments = $scriptArgs
+        RequireGcli    = $true
+    }
+    if ($SkipWorktreeRootCheck) { $preflightParams.SkipWorktreeRootCheck = $true }
+    if ($AutoWorktree) { $preflightParams.AutoWorktree = $true }
+    if ($PSBoundParameters.ContainsKey('RunId')) { $preflightParams.RunId = $RunId }
+    if ($PSBoundParameters.ContainsKey('ArtifactRoot')) { $preflightParams.ArtifactRoot = $ArtifactRoot }
+    if ($CleanRoom) { $preflightParams.CleanRoom = $true }
+
+    $preflight = Invoke-Preflight @preflightParams
     if ($preflight.Reinvoked) {
         return
     }
