@@ -297,7 +297,6 @@ if (Test-Path -Path $preflightScript) {
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
-        -WorktreeRoot $WorktreeRoot `
         -LabVIEWVersion $MinimumSupportedLVVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
