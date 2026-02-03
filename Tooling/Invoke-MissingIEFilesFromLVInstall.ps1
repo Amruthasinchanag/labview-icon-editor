@@ -382,7 +382,18 @@ if ($AutoWorktree -and -not $skipGuard) {
             Write-Host ("Using worktree: {0}" -f $worktreePath)
 
             $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
-            $reinvokeArgs = $scriptArgs | Where-Object { $_ -ne '-AutoWorktree' }
+            $reinvokeArgs = @()
+            for ($i = 0; $i -lt $scriptArgs.Count; $i++) {
+                $arg = $scriptArgs[$i]
+                if ($arg -eq '-AutoWorktree') {
+                    continue
+                }
+                if ($arg -eq '-WorktreeRoot') {
+                    $i++
+                    continue
+                }
+                $reinvokeArgs += $arg
+            }
             $relativeScript = [System.IO.Path]::GetRelativePath($repoRoot, $PSCommandPath)
             $scriptFull = Join-Path $worktreePath $relativeScript
             & pwsh -NoProfile -File $scriptFull @reinvokeArgs
