@@ -14,6 +14,11 @@
 .PARAMETER SupportedBitness
     LabVIEW bitness to target ("32" or "64"). Defaults to "64".
 
+.PARAMETER EnableDevMode
+    Enable LabVIEW Icon Editor development mode before running VerifyIEPaths.
+    When enabled, missing paths that are expected in dev mode (LabVIEW Icon API and lv_icon.lvlibp)
+    are treated as success; other missing paths still fail the check.
+
 .PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
@@ -81,6 +86,9 @@ param(
     [Parameter(Mandatory = $false)]
     [ValidateRange(0, 600000)]
     [int]$ConnectTimeoutMs = 120000,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$EnableDevMode,
 
     [Parameter(Mandatory = $false)]
     [string]$StatusFileName = 'missing_IE_paths.txt',
@@ -185,6 +193,27 @@ function Get-LabVIEWInstallRoot {
     }
 
     return $null
+}
+
+function Test-IEDevModeEnabled {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LabVIEWInstallRoot
+    )
+
+    $installPaths = @{
+        IconApiFolder = Join-Path $LabVIEWInstallRoot 'vi.lib\LabVIEW Icon API'
+        IconApiZip    = Join-Path $LabVIEWInstallRoot 'vi.lib\LabVIEW Icon API.zip'
+        Lvlibp        = Join-Path $LabVIEWInstallRoot 'resource\plugins\lv_icon.lvlibp'
+        Ship          = Join-Path $LabVIEWInstallRoot 'resource\plugins\lv_icon.ship'
+    }
+
+    $hasLvlibp = Test-Path -Path $installPaths.Lvlibp
+    $hasShip = Test-Path -Path $installPaths.Ship
+    $hasIconFolder = Test-Path -Path $installPaths.IconApiFolder
+    $hasIconZip = Test-Path -Path $installPaths.IconApiZip
+
+    return ($hasShip -and (-not $hasLvlibp) -and (-not $hasIconFolder) -and $hasIconZip)
 }
 
 function Wait-VerifyIEPathsStatusFile {
@@ -314,7 +343,8 @@ if (-not (Test-Path -Path $viPath)) {
     throw "VerifyIEPaths.vi not found at $viPath"
 }
 
-if (-not (Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness)) {
+$installRoot = Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness
+if (-not $installRoot) {
     throw "LabVIEW $labviewYear ($SupportedBitness-bit) install not found."
 }
 
@@ -323,6 +353,29 @@ if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
 }
 
 $gCliPath = (Get-Command g-cli -ErrorAction SilentlyContinue).Source
+
+if ($EnableDevMode) {
+    $devModeScript = Join-Path $repoRoot '.github\actions\set-development-mode\Set_Development_Mode.ps1'
+    if (-not (Test-Path -Path $devModeScript)) {
+        throw "Set_Development_Mode.ps1 not found at $devModeScript"
+    }
+
+    Write-Host ("Enabling development mode before VerifyIEPaths (LV{0} {1}-bit)..." -f $labviewYear, $SupportedBitness)
+    & $devModeScript `
+        -MinimumSupportedLVVersion $labviewYear `
+        -SupportedBitness $SupportedBitness `
+        -RepoRoot $repoRoot `
+        -ConnectTimeoutMs $ConnectTimeoutMs `
+        -ProcessTimeoutMs $ProcessTimeoutMs
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Set_Development_Mode.ps1 failed with exit code $LASTEXITCODE."
+    }
+
+    if (-not (Test-IEDevModeEnabled -LabVIEWInstallRoot $installRoot)) {
+        Write-Warning ("Development mode did not appear enabled (LV{0} {1}-bit). VerifyIEPaths may not behave as expected." -f $labviewYear, $SupportedBitness)
+    }
+}
 
 $gCliArgs = @(
     '--lv-ver', $labviewYear,
@@ -370,7 +423,24 @@ try {
                 } else {
                     $statusInfo.RawStatus
                 }
-                throw "VerifyIEPaths reported missing paths: $missing"
+
+                if ($EnableDevMode) {
+                    $unexpected = @()
+                    if ($statusInfo.MissingPaths -and $statusInfo.MissingPaths.Count -gt 0) {
+                        $unexpected = $statusInfo.MissingPaths | Where-Object {
+                            $path = $_
+                            -not ($path -match '(?i)LabVIEW Icon API') -and -not ($path -match '(?i)lv_icon\.lvlibp')
+                        }
+                    }
+
+                    if ($unexpected -and $unexpected.Count -gt 0) {
+                        throw "VerifyIEPaths reported unexpected missing paths in dev mode: $missing"
+                    }
+
+                    Write-Host "VerifyIEPaths reported missing paths expected in development mode; treating as success."
+                } else {
+                    throw "VerifyIEPaths reported missing paths: $missing"
+                }
             }
 
             if ($statusInfo.IsUnknown -and $FailOnUnknownStatus) {

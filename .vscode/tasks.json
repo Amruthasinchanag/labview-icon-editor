@@ -16,7 +16,8 @@
         "-SupportedBitness",
         "${input:lvBitness}",
         "-ConnectTimeoutMs",
-        "${input:lvConnectTimeoutMs}"
+        "${input:lvConnectTimeoutMs}",
+        "-EnableDevMode"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
