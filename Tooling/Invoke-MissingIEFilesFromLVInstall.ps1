@@ -142,6 +142,48 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Convert-BoundParametersToArgs {
+    param(
+        [hashtable]$BoundParameters
+    )
+
+    $args = @()
+    if (-not $BoundParameters) {
+        return $args
+    }
+
+    foreach ($key in $BoundParameters.Keys) {
+        $value = $BoundParameters[$key]
+        if ($value -is [System.Management.Automation.SwitchParameter]) {
+            if ($value.IsPresent) {
+                $args += "-$key"
+            } else {
+                $args += "-${key}:`$false"
+            }
+            continue
+        }
+
+        if ($value -is [bool]) {
+            $args += "-$key"
+            $args += $value.ToString().ToLowerInvariant()
+            continue
+        }
+
+        if ($value -is [array]) {
+            foreach ($entry in $value) {
+                $args += "-$key"
+                $args += [string]$entry
+            }
+            continue
+        }
+
+        $args += "-$key"
+        $args += [string]$value
+    }
+
+    return $args
+}
+
 function Resolve-RepoRoot {
     param(
         [string]$PathOverride
@@ -290,6 +332,64 @@ function Invoke-VerifyIEPathsStatusCleanup {
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $artifactRootResolved = $null
 $preflight = $null
+$skipGuard = $SkipWorktreeRootCheck
+if (-not $skipGuard -and -not [string]::IsNullOrWhiteSpace($env:LVIE_SKIP_WORKTREE_ROOT_CHECK)) {
+    $normalized = $env:LVIE_SKIP_WORKTREE_ROOT_CHECK.Trim().ToLowerInvariant()
+    if ($normalized -notin @('0', 'false', 'no')) {
+        $skipGuard = $true
+    }
+}
+
+if ($AutoWorktree -and -not $skipGuard) {
+    $ensureScript = Join-Path $repoRoot 'Tooling\Ensure-WorktreeRoot.ps1'
+    $newWorktreeScript = Join-Path $repoRoot 'Tooling\New-CIWorktree.ps1'
+    if ((Test-Path -Path $ensureScript) -and (Test-Path -Path $newWorktreeScript)) {
+        $resolvedWorktreeRoot = & $ensureScript -WorktreeRoot $WorktreeRoot
+        $repoFull = [System.IO.Path]::GetFullPath($repoRoot)
+        $rootFull = [System.IO.Path]::GetFullPath($resolvedWorktreeRoot)
+        if (-not $repoFull.EndsWith('\')) { $repoFull += '\' }
+        if (-not $rootFull.EndsWith('\')) { $rootFull += '\' }
+        $underRoot = $repoFull.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)
+
+        if (-not $underRoot) {
+            $env:LVIE_WORKTREE_ROOT = $resolvedWorktreeRoot
+            $envName = $env:LVIE_WORKTREE_NAME
+            $envPrefix = $env:LVIE_WORKTREE_NAME_PREFIX
+            $noRepoPrefix = $false
+            if (-not [string]::IsNullOrWhiteSpace($env:LVIE_WORKTREE_NO_REPO_PREFIX)) {
+                $flag = $env:LVIE_WORKTREE_NO_REPO_PREFIX.Trim().ToLowerInvariant()
+                $noRepoPrefix = ($flag -notin @('0', 'false', 'no'))
+            }
+
+            $suffix = if ([string]::IsNullOrWhiteSpace($envName)) {
+                $prefix = if ([string]::IsNullOrWhiteSpace($envPrefix)) { 'ci-guard' } else { $envPrefix.Trim() }
+                "{0}-{1}" -f $prefix, (Get-Date -Format 'yyyyMMdd-HHmmss')
+            } else {
+                $envName.Trim()
+            }
+
+            $worktreeArgs = @(
+                '-Ref', 'HEAD',
+                '-Name', $suffix,
+                '-WorktreeRoot', $resolvedWorktreeRoot
+            )
+            if ($noRepoPrefix) {
+                $worktreeArgs += '-NoRepoNamePrefix'
+            }
+
+            Write-Host ("RepoRoot '{0}' is not under worktree root '{1}'. Re-invoking from worktree..." -f $repoRoot, $resolvedWorktreeRoot)
+            $worktreePath = & $newWorktreeScript @worktreeArgs
+            Write-Host ("Using worktree: {0}" -f $worktreePath)
+
+            $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+            $reinvokeArgs = $scriptArgs | Where-Object { $_ -ne '-AutoWorktree' }
+            $relativeScript = [System.IO.Path]::GetRelativePath($repoRoot, $PSCommandPath)
+            $scriptFull = Join-Path $worktreePath $relativeScript
+            & pwsh -NoProfile -File $scriptFull @reinvokeArgs
+            return
+        }
+    }
+}
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
