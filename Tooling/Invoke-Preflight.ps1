@@ -277,7 +277,8 @@ function Invoke-Preflight {
 
             $relativeScript = Get-RepoRelativePath -RepoRoot $resolvedRepoRoot -Path $ScriptPath
             Write-Host ("RepoRoot '{0}' is not under worktree root '{1}'. Re-invoking from worktree..." -f $resolvedRepoRoot, $resolvedWorktreeRoot)
-            & $invokeInWorktree -RepoRoot $resolvedRepoRoot -ScriptPath $relativeScript -ScriptArguments $ScriptArguments -WorktreeRoot $resolvedWorktreeRoot
+            $env:LVIE_WORKTREE_ROOT = $resolvedWorktreeRoot
+            & $invokeInWorktree -RepoRoot $resolvedRepoRoot -ScriptPath $relativeScript -ScriptArguments $ScriptArguments
             return [pscustomobject]@{
                 Reinvoked = $true
                 RepoRoot = $resolvedRepoRoot
