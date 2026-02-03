@@ -136,8 +136,30 @@ if (-not (Test-Path -Path $viPath)) {
     throw "PrepareIESource.vi not found at $viPath"
 }
 
-if (-not (Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness)) {
+$installRoot = Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness
+if (-not $installRoot) {
     throw "LabVIEW $labviewYear ($SupportedBitness-bit) install not found."
+}
+
+# Fast-path: avoid launching LabVIEW when the install already reflects the "dev mode enabled" state.
+$installPaths = @{
+    IconApiFolder = Join-Path $installRoot 'vi.lib\LabVIEW Icon API'
+    IconApiZip    = Join-Path $installRoot 'vi.lib\LabVIEW Icon API.zip'
+    Lvlibp        = Join-Path $installRoot 'resource\plugins\lv_icon.lvlibp'
+    Ship          = Join-Path $installRoot 'resource\plugins\lv_icon.ship'
+}
+
+$hasLvlibp = Test-Path -Path $installPaths.Lvlibp
+$hasShip = Test-Path -Path $installPaths.Ship
+$hasIconFolder = Test-Path -Path $installPaths.IconApiFolder
+$hasIconZip = Test-Path -Path $installPaths.IconApiZip
+Write-Host ("Install state (LV{0} {1}-bit): lv_icon.lvlibp={2} lv_icon.ship={3} icon_api_folder={4} icon_api_zip={5}" -f `
+        $labviewYear, $SupportedBitness, $hasLvlibp, $hasShip, $hasIconFolder, $hasIconZip)
+
+if ($hasShip -and -not $hasLvlibp -and -not $hasIconFolder -and $hasIconZip) {
+    Write-Host "Prepare_LabVIEW_source: development mode already enabled; skipping g-cli call."
+    $global:LASTEXITCODE = 0
+    return
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {

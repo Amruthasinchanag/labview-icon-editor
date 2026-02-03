@@ -820,33 +820,32 @@ try {
 
                 if ($revertResult.Error -and (Test-ConnectTimeoutError -ErrorRecord $revertResult.Error)) {
                     Write-Warning ("Revert dev mode hit g-cli connect timeout for {0}-bit; retrying quickly..." -f $bitness)
-                    $retryResult = Invoke-CheckedWithResult -Label "Revert dev mode retry ($bitness-bit, fast connect)" -Action {
-                        & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                            -MinimumSupportedLVVersion $LabVIEWVersion `
-                            -SupportedBitness $bitness `
-                            -RepoRoot $repoRoot `
-                            -ConnectTimeoutMs $shortConnectMs `
-                            -ProcessTimeoutMs $ProcessTimeoutMs
-                    }
 
-                    if ($retryResult.Error -and (Test-ConnectTimeoutError -ErrorRecord $retryResult.Error)) {
-                        Write-Warning ("Revert dev mode still hit connect timeout for {0}-bit; running VerifyIEPaths to confirm state..." -f $bitness)
-                        $verifyFast = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $shortConnectMs -StatusTimeoutMs $shortStatusMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
-                        if ($verifyFast.Error) {
-                            throw $revertResult.Error
+                    # Fast retries are only meaningful when LabVIEW is already running (otherwise a short connect
+                    # timeout is guaranteed to fail on cold start).
+                    if (Test-LabVIEWRunning -Version $LabVIEWVersion -Bitness $bitness) {
+                        $retryResult = Invoke-CheckedWithResult -Label "Revert dev mode retry ($bitness-bit, fast connect)" -Action {
+                            & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
+                                -MinimumSupportedLVVersion $LabVIEWVersion `
+                                -SupportedBitness $bitness `
+                                -RepoRoot $repoRoot `
+                                -ConnectTimeoutMs $shortConnectMs `
+                                -ProcessTimeoutMs $ProcessTimeoutMs
                         }
 
-                        # If fast verify succeeded, rerun with normal timeouts for record-keeping.
-                        $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
-                        if ($verifyResult.Error) {
-                            throw $verifyResult.Error
+                        if ($retryResult.Error -and -not (Test-ConnectTimeoutError -ErrorRecord $retryResult.Error)) {
+                            throw $retryResult.Error
                         }
-                        continue
+                    } else {
+                        Write-Warning ("No matching LabVIEW {0} ({1}-bit) process running; skipping fast revert retry." -f $LabVIEWVersion, $bitness)
                     }
 
-                    if ($retryResult.Error) {
-                        throw $retryResult.Error
+                    # Regardless of the revert outcome, VerifyIEPaths is the authoritative gate for proceeding.
+                    $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
+                    if ($verifyResult.Error) {
+                        throw $verifyResult.Error
                     }
+                    continue
                 } elseif ($revertResult.Error) {
                     throw $revertResult.Error
                 }

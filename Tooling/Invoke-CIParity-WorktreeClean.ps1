@@ -75,6 +75,6 @@ if (-not (Test-Path -Path $invokeScript)) {
 
 & $invokeScript `
     -RepoRoot $worktreePath `
-    -UseWorktree:$false `
+    -WorktreeRoot $WorktreeRoot `
     -LabVIEWBitness $LabVIEWBitness `
     -EnsureCleanState:$EnsureCleanState

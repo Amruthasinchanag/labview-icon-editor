@@ -181,6 +181,36 @@ function Get-WorktreePaths {
     return $paths
 }
 
+function Test-IsGitWorktree {
+    param([string]$RepoRoot)
+
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+        return $false
+    }
+
+    $gitPath = Join-Path $RepoRoot '.git'
+    return (Test-Path -Path $gitPath -PathType Leaf)
+}
+
+function Test-IsUnderRoot {
+    param(
+        [string]$Path,
+        [string]$Root
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Root)) {
+        return $false
+    }
+
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    $fullRoot = [System.IO.Path]::GetFullPath($Root)
+    if (-not $fullRoot.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+        $fullRoot += [System.IO.Path]::DirectorySeparatorChar
+    }
+
+    return $fullPath.StartsWith($fullRoot, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
 function Write-JsonFile {
     param(
         [string]$Path,
@@ -313,14 +343,23 @@ $worktreePath = $null
 $runRepoRoot = $repoRoot
 
 if ($UseWorktree -and -not $AutoLoop) {
-    $newWorktreeScript = Join-Path $repoRoot 'Tooling/New-CIWorktree.ps1'
-    if (-not (Test-Path -Path $newWorktreeScript)) {
-        throw "New-CIWorktree.ps1 not found at $newWorktreeScript"
-    }
+    # If we're already running from a short-path worktree under the configured root,
+    # reuse it instead of nesting worktrees.
+    if ((Test-IsGitWorktree -RepoRoot $repoRoot) -and (Test-IsUnderRoot -Path $repoRoot -Root $resolvedWorktreeRoot)) {
+        $worktreePath = $repoRoot
+        $runRepoRoot = $repoRoot
+        $resolvedWorktreeName = Split-Path -Leaf $repoRoot
+        Write-Host ("RepoRoot is already a worktree under {0}; reusing {1}" -f $resolvedWorktreeRoot, $repoRoot)
+    } else {
+        $newWorktreeScript = Join-Path $repoRoot 'Tooling/New-CIWorktree.ps1'
+        if (-not (Test-Path -Path $newWorktreeScript)) {
+            throw "New-CIWorktree.ps1 not found at $newWorktreeScript"
+        }
 
-    $worktreePath = & $newWorktreeScript -Ref $Ref -Name $resolvedWorktreeName -WorktreeRoot $resolvedWorktreeRoot
-    $runRepoRoot = $worktreePath
-    Write-Host ("Using worktree: {0}" -f $worktreePath)
+        $worktreePath = & $newWorktreeScript -Ref $Ref -Name $resolvedWorktreeName -WorktreeRoot $resolvedWorktreeRoot
+        $runRepoRoot = $worktreePath
+        Write-Host ("Using worktree: {0}" -f $worktreePath)
+    }
 }
 
 Write-ProcessSnapshot -Path $snapshotBeforePath -Label 'before'
