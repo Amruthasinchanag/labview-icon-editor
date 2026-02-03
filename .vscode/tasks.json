@@ -17,7 +17,8 @@
         "${input:lvBitness}",
         "-ConnectTimeoutMs",
         "${input:lvConnectTimeoutMs}",
-        "-EnableDevMode"
+        "-EnableDevMode",
+        "-AutoWorktree"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
