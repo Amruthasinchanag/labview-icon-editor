@@ -18,6 +18,7 @@
     Enable LabVIEW Icon Editor development mode before running VerifyIEPaths.
     When enabled, missing paths that are expected in dev mode (LabVIEW Icon API and lv_icon.lvlibp)
     are treated as success; other missing paths still fail the check.
+    Non-zero VerifyIEPaths g-cli exit codes are ignored so the status file can be evaluated.
 
 .PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
@@ -402,8 +403,10 @@ try {
         throw "VerifyIEPaths.vi timed out after $ProcessTimeoutMs ms."
     }
     if ($result.ExitCode -ne 0) {
-        if ($IgnoreGcliExitCode) {
-            Write-Warning ("VerifyIEPaths.vi returned exit code {0}; continuing because IgnoreGcliExitCode is set." -f $result.ExitCode)
+        $allowGcliExit = $IgnoreGcliExitCode -or $EnableDevMode
+        if ($allowGcliExit) {
+            $reason = if ($IgnoreGcliExitCode) { 'IgnoreGcliExitCode is set' } else { 'EnableDevMode is set' }
+            Write-Warning ("VerifyIEPaths.vi returned exit code {0}; continuing because {1}." -f $result.ExitCode, $reason)
         } else {
             throw "VerifyIEPaths.vi failed with exit code $($result.ExitCode)."
         }
