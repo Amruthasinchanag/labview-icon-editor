@@ -106,6 +106,8 @@ function Get-LabVIEWInstallRoot {
     return $null
 }
 
+$connectTimeoutPattern = 'Timed out waiting for app to connect to g-cli'
+
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
 $labviewYear = $MinimumSupportedLVVersion
@@ -170,6 +172,10 @@ try {
     $allOutput = @($result.OutputLines + $result.ErrorLines)
     $combinedOutput = $allOutput -join "`n"
     $ignoreExitCode = $false
+    if ($combinedOutput -match $connectTimeoutPattern) {
+        throw "GCLI_CONNECT_TIMEOUT: $connectTimeoutPattern"
+    }
+
     if ($combinedOutput -match '-593451') {
         $missingPaths = @()
         if (Get-Command Get-DevModeMissingPathsFromOutput -ErrorAction SilentlyContinue) {

@@ -27,6 +27,84 @@
       },
       "problemMatcher": [],
       "group": "test"
+    },
+    {
+      "label": "CI: Worktree + Parity (Clean Only)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\Tooling\\Invoke-CIParity-WorktreeClean.ps1",
+        "-LabVIEWBitness",
+        "${input:ciLabVIEWBitness}",
+        "-WorktreeRoot",
+        "C:\\dev",
+        "-EnsureCleanState"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Worktrees: List",
+      "type": "shell",
+      "command": "git",
+      "args": [
+        "worktree",
+        "list"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Worktrees: Prune",
+      "type": "shell",
+      "command": "git",
+      "args": [
+        "worktree",
+        "prune"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Worktrees: Remove (Prompt Path)",
+      "type": "shell",
+      "command": "git",
+      "args": [
+        "worktree",
+        "remove",
+        "${input:ciWorktreeRemovePath}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
     }
   ],
   "inputs": [
@@ -59,6 +137,24 @@
       "type": "promptString",
       "description": "g-cli connect timeout (ms)",
       "default": "120000"
+    },
+    {
+      "id": "ciLabVIEWBitness",
+      "type": "pickString",
+      "description": "Parity bitness mode",
+      "options": [
+        "both",
+        "installed",
+        "64",
+        "32"
+      ],
+      "default": "both"
+    },
+    {
+      "id": "ciWorktreeRemovePath",
+      "type": "promptString",
+      "description": "Worktree path to remove (must be a worktree dir)",
+      "default": "C:\\dev\\<worktree-folder>"
     }
   ]
 }

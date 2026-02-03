@@ -17,6 +17,9 @@
 .PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
+.PARAMETER LabVIEWBitness
+    Bitness to run: both, 32, 64, or installed (auto-detect).
+
 .PARAMETER SkipVerifyIEPaths
     Skip the Verify IE Paths gate.
 
@@ -102,6 +105,10 @@ param(
     [AllowNull()]
     [AllowEmptyString()]
     [string]$LabVIEWVersion = '',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('both', '32', '64', 'installed')]
+    [string]$LabVIEWBitness = 'both',
 
     [switch]$SkipVerifyIEPaths,
     [switch]$EnsureCleanState,
@@ -270,10 +277,61 @@ function Get-LabVIEWInstallRoot {
     return $null
 }
 
+function Resolve-LabVIEWBitnessList {
+    param(
+        [string]$BitnessMode,
+        [string]$Version
+    )
+
+    $mode = if ([string]::IsNullOrWhiteSpace($BitnessMode)) { 'both' } else { $BitnessMode.ToLowerInvariant() }
+
+    if ($mode -eq '32' -or $mode -eq '64') {
+        return @($mode)
+    }
+
+    if ($mode -eq 'installed') {
+        $detected = @()
+        foreach ($bitness in @('64', '32')) {
+            if (Get-LabVIEWInstallRoot -Version $Version -Bitness $bitness) {
+                $detected += $bitness
+            }
+        }
+
+        if (-not $detected -or $detected.Count -eq 0) {
+            throw "LabVIEW $Version install not found for 32-bit or 64-bit."
+        }
+
+        if ($detected.Count -eq 1) {
+            Write-Warning ("Only LabVIEW {0} ({1}-bit) detected; running installed bitness only." -f $Version, $detected[0])
+        }
+
+        return $detected
+    }
+
+    $missing = @()
+    foreach ($bitness in @('64', '32')) {
+        if (-not (Get-LabVIEWInstallRoot -Version $Version -Bitness $bitness)) {
+            $missing += $bitness
+        }
+    }
+    if ($missing.Count -gt 0) {
+        $missingLabel = ($missing | ForEach-Object { "$_-bit" }) -join ', '
+        throw "LabVIEW $Version ($missingLabel) install not found. Install the missing bitness or rerun with -LabVIEWBitness installed for local runs."
+    }
+
+    return @('64', '32')
+}
+
 function Assert-LabVIEWInstalled {
-    param([string]$Version, [string]$Bitness)
+    param(
+        [string]$Version,
+        [string]$Bitness,
+        [string]$BitnessMode
+    )
+
     if (-not (Get-LabVIEWInstallRoot -Version $Version -Bitness $Bitness)) {
-        throw "LabVIEW $Version ($Bitness-bit) install not found."
+        $hint = if ($BitnessMode -eq 'both') { ' Install the missing bitness or rerun with -LabVIEWBitness installed for local runs.' } else { '' }
+        throw ("LabVIEW {0} ({1}-bit) install not found.{2}" -f $Version, $Bitness, $hint)
     }
 }
 
@@ -361,6 +419,135 @@ function Invoke-Checked {
     if ($exitCode -ne 0 -and $exitCode -ne $null) {
         throw "$Label failed with exit code $exitCode."
     }
+}
+
+function Invoke-CheckedWithResult {
+    param(
+        [string]$Label,
+        [scriptblock]$Action
+    )
+
+    $stepStart = Get-Date
+    $exitCode = $null
+    $stepError = $null
+
+    Write-Host ""
+    Write-Host ("=== {0} ===" -f $Label)
+    try {
+        $global:LASTEXITCODE = $null
+        & $Action
+        $exitCode = $LASTEXITCODE
+    }
+    catch {
+        $stepError = $_
+    }
+
+    $duration = [Math]::Round(((Get-Date) - $stepStart).TotalSeconds, 2)
+    $status = if ($stepError) { 'error' } elseif ($exitCode -eq $null -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
+    if ($script:StepHistoryPath) {
+        "{0},{1},{2},{3}" -f $stepStart.ToString('yyyy-MM-dd HH:mm:ss'), ($Label -replace ',', ' '), $status, $duration | Add-Content -Path $script:StepHistoryPath
+    }
+    Write-Host ("=== {0} completed in {1}s ===" -f $Label, $duration)
+
+    return [pscustomobject]@{
+        ExitCode  = $exitCode
+        Error     = $stepError
+        Status    = $status
+        Duration  = $duration
+    }
+}
+
+function Test-ConnectTimeoutError {
+    param([object]$ErrorRecord)
+
+    if (-not $ErrorRecord) { return $false }
+    $message = $ErrorRecord.Exception.Message
+    if ([string]::IsNullOrWhiteSpace($message)) { return $false }
+    return $message -match 'GCLI_CONNECT_TIMEOUT' -or $message -match 'Timed out waiting for app to connect to g-cli'
+}
+
+function Invoke-VerifyIEPaths {
+    param(
+        [string]$Bitness,
+        [int]$ConnectTimeoutMs,
+        [int]$StatusTimeoutMs,
+        [int]$ProcessTimeoutMs,
+        [string]$VerifyArchive
+    )
+
+    return Invoke-CheckedWithResult -Label "Verify IE Paths gate ($Bitness-bit)" -Action {
+        & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') `
+            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -SupportedBitness $Bitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs `
+            -StatusFileTimeoutMs $StatusTimeoutMs `
+            -StatusFileArchiveDirectory $VerifyArchive `
+            -IgnoreGcliExitCode
+    }
+}
+
+function Invoke-EnableDevModeWithRecovery {
+    param(
+        [string]$Bitness,
+        [int]$ConnectTimeoutMs,
+        [int]$ProcessTimeoutMs,
+        [string]$Context
+    )
+
+    $label = if ([string]::IsNullOrWhiteSpace($Context)) {
+        "Enable dev mode ($Bitness-bit)"
+    } else {
+        "Enable dev mode ($Context, $Bitness-bit)"
+    }
+    $result = Invoke-CheckedWithResult -Label $label -Action {
+        & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
+            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -SupportedBitness $Bitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs
+    }
+
+    if (-not $result.Error) {
+        return
+    }
+
+    Write-Warning ("{0} failed; attempting revert and retry in case dev mode points at a different worktree." -f $label)
+    $contextLabel = if ([string]::IsNullOrWhiteSpace($Context)) { "$Bitness-bit" } else { "$Context, $Bitness-bit" }
+    Write-Host ("--- Dev mode recovery: revert + retry ({0}) ---" -f $contextLabel)
+    Write-Warning ("Enable dev mode error: {0}" -f $result.Error.Exception.Message)
+    $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before retry ($Bitness-bit)" -Action {
+        & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
+            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -SupportedBitness $Bitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs
+    }
+    if ($revertResult.Error) {
+        Write-Warning ("Dev mode recovery failed during revert: {0}" -f $revertResult.Error.Exception.Message)
+        Write-Host ("--- Dev mode recovery failed ({0}) ---" -f $contextLabel)
+        throw $revertResult.Error
+    }
+
+    $retry = Invoke-CheckedWithResult -Label "Enable dev mode retry ($Bitness-bit)" -Action {
+        & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
+            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -SupportedBitness $Bitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs
+    }
+    if ($retry.Error) {
+        Write-Warning ("Dev mode recovery failed on retry: {0}" -f $retry.Error.Exception.Message)
+        Write-Host ("--- Dev mode recovery failed ({0}) ---" -f $contextLabel)
+        throw $retry.Error
+    }
+
+    Write-Host ("Dev mode recovery succeeded after revert + retry ({0})." -f $contextLabel)
+    Write-Host ("--- Dev mode recovery completed ({0}) ---" -f $contextLabel)
 }
 
 function Get-LocalVersionInfo {
@@ -535,7 +722,7 @@ if (Test-Path -Path $preflightScript) {
         -RepoRoot $repoRoot `
         -WorktreeRoot $WorktreeRoot `
         -LabVIEWVersion $LabVIEWVersion `
-        -LabVIEWBitness 'both' `
+        -LabVIEWBitness $LabVIEWBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$AutoWorktree `
         -ScriptPath $relativeScript `
@@ -558,7 +745,7 @@ if (-not $labviewInfo -and (Test-Path -Path $versionHelper)) {
     $labviewInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $LabVIEWVersion = $labviewInfo.Year
 }
-if ([string]::IsNullOrWhiteSpace($LabVIEWVersion) -and $labviewInfo) {
+if ($labviewInfo -and -not [string]::IsNullOrWhiteSpace($labviewInfo.Year)) {
     $LabVIEWVersion = $labviewInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($LabVIEWVersion)) {
@@ -577,7 +764,7 @@ Ensure-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration
 Ensure-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
 $env:LABVIEW_CLOSE_METRICS_PATH = $script:CloseHistoryPath
 $runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
-$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
+$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBitness $LabVIEWBitness -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
 $script:TranscriptStarted = $false
 try {
     Start-Transcript -Path $runLog -Append | Out-Null
@@ -594,9 +781,12 @@ try {
 
     Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
 
-$bitnessList = @('64', '32')
+    $bitnessList = Resolve-LabVIEWBitnessList -BitnessMode $LabVIEWBitness -Version $LabVIEWVersion
     foreach ($bitness in $bitnessList) {
-        Assert-LabVIEWInstalled -Version $LabVIEWVersion -Bitness $bitness
+        Assert-LabVIEWInstalled -Version $LabVIEWVersion -Bitness $bitness -BitnessMode $LabVIEWBitness
+    }
+    if (-not $SkipBuildVip -and ($bitnessList -notcontains '64')) {
+        throw "VIP build requires LabVIEW $LabVIEWVersion (64-bit). Install 64-bit LabVIEW or rerun with -SkipBuildVip."
     }
     $vipLabVIEWMinorRevision = if ($labviewInfo) { [int]$labviewInfo.MinorRevision } else { 0 }
 
@@ -615,8 +805,11 @@ $bitnessList = @('64', '32')
         New-Item -Path $verifyArchive -ItemType Directory -Force | Out-Null
 
         foreach ($bitness in $bitnessList) {
+            $shortConnectMs = 10000
+            $shortStatusMs = 10000
+
             if ($EnsureCleanState) {
-                Invoke-Checked -Label "Revert dev mode before VerifyIEPaths ($bitness-bit)" -Action {
+                $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before VerifyIEPaths ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                         -MinimumSupportedLVVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
@@ -624,17 +817,44 @@ $bitnessList = @('64', '32')
                         -ConnectTimeoutMs $ConnectTimeoutMs `
                         -ProcessTimeoutMs $ProcessTimeoutMs
                 }
+
+                if ($revertResult.Error -and (Test-ConnectTimeoutError -ErrorRecord $revertResult.Error)) {
+                    Write-Warning ("Revert dev mode hit g-cli connect timeout for {0}-bit; retrying quickly..." -f $bitness)
+                    $retryResult = Invoke-CheckedWithResult -Label "Revert dev mode retry ($bitness-bit, fast connect)" -Action {
+                        & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
+                            -MinimumSupportedLVVersion $LabVIEWVersion `
+                            -SupportedBitness $bitness `
+                            -RepoRoot $repoRoot `
+                            -ConnectTimeoutMs $shortConnectMs `
+                            -ProcessTimeoutMs $ProcessTimeoutMs
+                    }
+
+                    if ($retryResult.Error -and (Test-ConnectTimeoutError -ErrorRecord $retryResult.Error)) {
+                        Write-Warning ("Revert dev mode still hit connect timeout for {0}-bit; running VerifyIEPaths to confirm state..." -f $bitness)
+                        $verifyFast = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $shortConnectMs -StatusTimeoutMs $shortStatusMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
+                        if ($verifyFast.Error) {
+                            throw $revertResult.Error
+                        }
+
+                        # If fast verify succeeded, rerun with normal timeouts for record-keeping.
+                        $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
+                        if ($verifyResult.Error) {
+                            throw $verifyResult.Error
+                        }
+                        continue
+                    }
+
+                    if ($retryResult.Error) {
+                        throw $retryResult.Error
+                    }
+                } elseif ($revertResult.Error) {
+                    throw $revertResult.Error
+                }
             }
 
-            Invoke-Checked -Label "Verify IE Paths gate ($bitness-bit)" -Action {
-                & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness `
-                    -RepoRoot $repoRoot `
-                    -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs `
-                    -StatusFileTimeoutMs $StatusFileTimeoutMs `
-                    -StatusFileArchiveDirectory $verifyArchive
+            $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
+            if ($verifyResult.Error) {
+                throw $verifyResult.Error
             }
         }
     }
@@ -664,14 +884,7 @@ $bitnessList = @('64', '32')
 
         foreach ($bitness in $bitnessList) {
             try {
-                Invoke-Checked -Label "Enable dev mode (missing-in-project, $bitness-bit)" -Action {
-                    & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
-                        -MinimumSupportedLVVersion $LabVIEWVersion `
-                        -SupportedBitness $bitness `
-                        -RepoRoot $repoRoot `
-                        -ConnectTimeoutMs $ConnectTimeoutMs `
-                        -ProcessTimeoutMs $ProcessTimeoutMs
-                }
+                Invoke-EnableDevModeWithRecovery -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -Context 'missing-in-project'
 
                 Invoke-Checked -Label "Missing-in-project ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/missing-in-project/Invoke-MissingInProjectCLI.ps1') `
@@ -700,14 +913,7 @@ $bitnessList = @('64', '32')
     if (-not $SkipUnitTests) {
         foreach ($bitness in $bitnessList) {
             try {
-                Invoke-Checked -Label "Enable dev mode (unit tests, $bitness-bit)" -Action {
-                    & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
-                        -MinimumSupportedLVVersion $LabVIEWVersion `
-                        -SupportedBitness $bitness `
-                        -RepoRoot $repoRoot `
-                        -ConnectTimeoutMs $ConnectTimeoutMs `
-                        -ProcessTimeoutMs $ProcessTimeoutMs
-                }
+                Invoke-EnableDevModeWithRecovery -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -Context 'unit tests'
 
                 Invoke-Checked -Label "Run unit tests ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/run-unit-tests/RunUnitTests.ps1') `
@@ -731,14 +937,7 @@ $bitnessList = @('64', '32')
     if (-not $SkipBuildPpl) {
         foreach ($bitness in $bitnessList) {
             try {
-                Invoke-Checked -Label "Enable dev mode (build PPL, $bitness-bit)" -Action {
-                    & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
-                        -MinimumSupportedLVVersion $LabVIEWVersion `
-                        -SupportedBitness $bitness `
-                        -RepoRoot $repoRoot `
-                        -ConnectTimeoutMs $ConnectTimeoutMs `
-                        -ProcessTimeoutMs $ProcessTimeoutMs
-                }
+                Invoke-EnableDevModeWithRecovery -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -Context 'build PPL'
 
                 Invoke-Checked -Label "Build PPL ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/build-lvlibp/Build_lvlibp.ps1') `

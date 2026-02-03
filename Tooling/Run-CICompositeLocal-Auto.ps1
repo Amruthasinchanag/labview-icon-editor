@@ -10,6 +10,9 @@
 .PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
+.PARAMETER LabVIEWBitness
+    Bitness to run: both, 32, 64, or installed (auto-detect).
+
 .PARAMETER MaxAttempts
     Maximum number of attempts.
 
@@ -65,6 +68,10 @@ param(
     [AllowNull()]
     [AllowEmptyString()]
     [string]$LabVIEWVersion = '',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('both', '32', '64', 'installed')]
+    [string]$LabVIEWBitness = 'both',
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 100)]
@@ -216,7 +223,7 @@ if (Get-Command Invoke-Preflight -ErrorAction SilentlyContinue) {
         -RepoRoot $runRepoRoot `
         -WorktreeRoot $resolvedWorktreeRoot `
         -LabVIEWVersion $LabVIEWVersion `
-        -LabVIEWBitness 'both' `
+        -LabVIEWBitness $LabVIEWBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$false `
         -ScriptPath $relativeScript `
@@ -252,6 +259,7 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         $attemptRunId = if ($preflight -and $preflight.RunId) { \"{0}-{1}\" -f $preflight.RunId, $attemptLabel } else { $null }
         & $runScript `
             -LabVIEWVersion $LabVIEWVersion `
+            -LabVIEWBitness $LabVIEWBitness `
             -EnsureCleanState:$EnsureCleanState `
             -ConnectTimeoutMs $attemptConnectTimeout `
             -ProcessTimeoutMs $attemptProcessTimeout `

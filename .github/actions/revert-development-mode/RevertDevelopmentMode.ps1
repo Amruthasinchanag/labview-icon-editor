@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     Restores the packaged LabVIEW sources for both 32-bit and 64-bit
-    environments using RestoreSetupLVSource.vi. LabVIEW is closed after
-    each run so downstream steps load the changes.
+    environments using RestoreSetupLVSource.vi. LabVIEW is closed by the
+    helper after each run so downstream steps load the changes.
 
 .PARAMETER MinimumSupportedLVVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
@@ -87,21 +87,75 @@ if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
 }
 
+function Write-CloseMetricsHint {
+    param(
+        [string]$Bitness,
+        [string]$Context,
+        [string]$ExpectedVersion
+    )
+
+    $metricsPath = $env:LABVIEW_CLOSE_METRICS_PATH
+    if ([string]::IsNullOrWhiteSpace($metricsPath)) {
+        return
+    }
+
+    if (Test-Path -Path $metricsPath) {
+        $lines = @()
+        try {
+            $lines = Get-Content -Path $metricsPath -Tail 50 | Where-Object { $_ -and $_ -notmatch '^timestamp,' }
+        } catch {
+            Write-Warning ("Failed to read close metrics at {0}: {1}" -f $metricsPath, $_.Exception.Message)
+            return
+        }
+
+        if (-not $lines -or $lines.Count -eq 0) {
+            Write-Host ("Close metrics file is empty: {0}" -f $metricsPath)
+            return
+        }
+
+        $entries = foreach ($line in $lines) {
+            $parts = $line -split ',', 6
+            if ($parts.Length -ge 6) {
+                [pscustomobject]@{
+                    Line      = $line
+                    Timestamp = $parts[0]
+                    Version   = $parts[1]
+                    Bitness   = $parts[2]
+                    HadProc   = $parts[3]
+                    Outcome   = $parts[4]
+                    Duration  = $parts[5]
+                }
+            }
+        }
+
+        $match = $entries | Where-Object { $_.Version -eq $ExpectedVersion -and $_.Bitness -eq $Bitness } | Select-Object -Last 1
+        if ($match) {
+            Write-Host ("Close metrics ({0}) {1}-bit: version={2} outcome={3} duration_s={4} had_process={5} timestamp={6}" -f `
+                    $Context, $Bitness, $match.Version, $match.Outcome, $match.Duration, $match.HadProc, $match.Timestamp)
+            return
+        }
+
+        $lastEntry = $entries | Select-Object -Last 1
+        if ($lastEntry) {
+            Write-Warning ("Close metrics ({0}) {1}-bit: no matching entry for version {2}; last entry: {3}" -f `
+                    $Context, $Bitness, $ExpectedVersion, $lastEntry.Line)
+        } else {
+            Write-Warning ("Close metrics ({0}) {1}-bit: no parsable entries found in {2}" -f $Context, $Bitness, $metricsPath)
+        }
+
+        return
+    }
+
+    Write-Host ("Close metrics path set but file not found: {0}" -f $metricsPath)
+}
+
 function Invoke-RestoreLabviewSource {
     param(
         [string]$Bitness
     )
 
-    if (-not (Test-Path -Path $CloseScript)) {
-        throw "Close_LabVIEW.ps1 not found at $CloseScript"
-    }
-
-    & $CloseScript -MinimumSupportedLVVersion $labviewYear -SupportedBitness $Bitness
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-        throw "Close_LabVIEW.ps1 failed for $Bitness-bit with exit code $LASTEXITCODE."
-    }
-
     Write-Host "Restoring LabVIEW sources for $Bitness-bit."
+    # RestoreSetupLVSource.ps1 closes LabVIEW after the VI runs.
     $scriptArgs = @{
         MinimumSupportedLVVersion = $labviewYear
         SupportedBitness          = $Bitness
@@ -118,6 +172,8 @@ function Invoke-RestoreLabviewSource {
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         throw "RestoreSetupLVSource.ps1 failed for $Bitness-bit with exit code $LASTEXITCODE."
     }
+
+    Write-CloseMetricsHint -Bitness $Bitness -Context 'revert' -ExpectedVersion $labviewYear
 }
 
 try {
