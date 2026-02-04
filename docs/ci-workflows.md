@@ -155,6 +155,26 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
    - `Tooling/Setup-Runner.ps1` configures a scoped safe.directory for the work root.
    - This prevents Git “dubious ownership” errors when the runner service account differs from the checkout owner.
 
+#### Runner Bootstrap (Recommended)
+
+Use the bootstrap script to configure paths, labels, and the runner contract in one step.
+
+**One-command bootstrap (preferred)**
+```
+pwsh -NoProfile -File .\Tooling\Bootstrap-Runner.ps1 `
+  -RunnerRoot C:\actions-runner `
+  -RunnerLabels @('self-hosted-windows-lv','self-hosted-windows-lv-ie') `
+  -Repo <owner>/<repo> `
+  -RegisterRunner `
+  -RestartRunnerService
+```
+
+Notes:
+- If `gh` is installed and authenticated, the script will fetch registration/remove tokens automatically.
+- Otherwise, pass `-RunnerRegistrationToken` and `-RunnerRemoveToken`.
+- Run the bootstrap when the runner is **idle** (no active jobs).
+- The script writes `C:\actions-runner\_work\lvie\runner-bootstrap.json` and updates the runner contract.
+
 ---
 
 ### 3.4 Running the Actions Locally
