@@ -1,9 +1,11 @@
 name: CI Pipeline (Composite)
+run-name: "CI ${{ github.sha }} (#${{ github.run_id }}.${{ github.run_attempt }})"
 
 permissions:
   actions: read
 
 env:
+  LVIE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
   LVIE_EXPECTED_RUNNER_LABEL: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   LVIE_CANONICAL_RUNNER_LABEL: self-hosted-windows-lv
 
@@ -41,10 +43,76 @@ on:
         description: "Allow PSScriptAnalyzer baseline updates (manual runs only)"
         required: false
         type: boolean
+      expected_sha:
+        description: "Expected commit SHA for this run (optional, for dispatched builds)"
+        required: false
+        type: string
+      strict_sha:
+        description: "Require expected_sha to be provided and matched"
+        required: false
+        type: boolean
 
 jobs:
+  run-metadata:
+    name: Run Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      run_uid: ${{ steps.meta.outputs.run_uid }}
+      sha: ${{ steps.meta.outputs.sha }}
+    steps:
+      - id: meta
+        name: Generate run manifest
+        shell: pwsh
+        run: |
+          $runId = '${{ github.run_id }}'
+          $runAttempt = '${{ github.run_attempt }}'
+          $sha = '${{ github.sha }}'
+          $ref = '${{ github.ref }}'
+          $headRef = '${{ github.head_ref }}'
+          $eventName = '${{ github.event_name }}'
+          $actor = '${{ github.actor }}'
+          $repo = '${{ github.repository }}'
+          $workflow = '${{ github.workflow }}'
+          $expectedSha = '${{ github.event.inputs.expected_sha }}'
+          $strictSha = '${{ github.event.inputs.strict_sha }}'
+          $runUid = "{0}-{1}-{2}" -f $runId, $runAttempt, $sha
+
+          if ($strictSha -eq 'true' -and [string]::IsNullOrWhiteSpace($expectedSha)) {
+            throw "expected_sha is required when strict_sha=true."
+          }
+          if (-not [string]::IsNullOrWhiteSpace($expectedSha) -and $expectedSha -ne $sha) {
+            throw ("expected_sha '{0}' does not match github.sha '{1}'." -f $expectedSha, $sha)
+          }
+
+          $manifest = [pscustomobject]@{
+            run_id        = $runId
+            run_attempt   = $runAttempt
+            run_uid       = $runUid
+            sha           = $sha
+            ref           = $ref
+            head_ref      = $headRef
+            event         = $eventName
+            actor         = $actor
+            repository    = $repo
+            workflow      = $workflow
+            timestamp_utc = (Get-Date).ToUniversalTime().ToString('o')
+          }
+
+          $path = Join-Path $env:RUNNER_TEMP 'run-manifest.json'
+          $manifest | ConvertTo-Json -Depth 6 | Out-File -FilePath $path -Encoding ascii
+          "run_uid=$runUid" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "sha=$sha" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "manifest_path=$path" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
+      - name: Upload run manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-manifest
+          path: ${{ steps.meta.outputs.manifest_path }}
+
   version-gate:
     name: LabVIEW Version Gate
+    needs: run-metadata
     runs-on: ubuntu-latest
     outputs:
       raw: ${{ steps.lv.outputs.raw }}
@@ -67,6 +135,7 @@ jobs:
 
   powershell-lint:
     name: PowerShell Lint
+    needs: run-metadata
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -115,7 +184,7 @@ jobs:
 
   dev-mode-gate:
     name: Verify IE Paths Gate (LV ${{ matrix.bitness }}-bit)
-    needs: version-gate
+    needs: [run-metadata, version-gate]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -164,7 +233,7 @@ jobs:
 
   changes:
     name: Detect VIPC changes
-    needs: [version-gate, dev-mode-gate]
+    needs: [run-metadata, version-gate, dev-mode-gate]
     runs-on: ubuntu-latest
     env:
       LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
@@ -189,7 +258,7 @@ jobs:
 
   apply-deps-2021-x64:
     name: Apply VIPC (LV x64)
-    needs: [version-gate, changes]
+    needs: [run-metadata, version-gate, changes]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -225,7 +294,7 @@ jobs:
 
   apply-deps-2021-x86:
     name: Apply VIPC (LV x86)
-    needs: [version-gate, apply-deps-2021-x64, changes]
+    needs: [run-metadata, version-gate, apply-deps-2021-x64, changes]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -261,7 +330,7 @@ jobs:
 
   version:
     name: Compute Version
-    needs: [version-gate, dev-mode-gate]
+    needs: [run-metadata, version-gate, dev-mode-gate]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -297,7 +366,7 @@ jobs:
 
   missing-in-project:
     name: Missing-In-Project (LV ${{ matrix.bitness }}-bit)
-    needs: [version-gate, apply-deps-2021-x86]
+    needs: [run-metadata, version-gate, apply-deps-2021-x86]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -383,7 +452,7 @@ jobs:
 
   test-2021:
     name: Run Unit Tests (LV ${{ matrix.bitness }}-bit)
-    needs: [version-gate, missing-in-project]
+    needs: [run-metadata, version-gate, missing-in-project]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -439,7 +508,7 @@ jobs:
 
   build-ppl-x86:
     name: Build 32-bit Packed Library
-    needs: [version-gate, build-ppl-x64, version]
+    needs: [run-metadata, version-gate, build-ppl-x64, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -499,7 +568,7 @@ jobs:
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
-    needs: [version-gate, test-2021, version]
+    needs: [run-metadata, version-gate, test-2021, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -560,7 +629,7 @@ jobs:
   build-vip:
     name: Build VI Package
     # Chain after 32-bit PPL build (which depends on 64-bit PPL build).
-    needs: [version-gate, build-ppl-x86, version]
+    needs: [run-metadata, version-gate, build-ppl-x86, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -797,6 +866,7 @@ jobs:
     name: Pipeline Contract
     if: always()
     needs:
+      - run-metadata
       - version-gate
       - powershell-lint
       - dev-mode-gate
@@ -822,6 +892,7 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
+            'run-metadata',
             'version-gate',
             'powershell-lint',
             'dev-mode-gate',

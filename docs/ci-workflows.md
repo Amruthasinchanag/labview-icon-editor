@@ -126,6 +126,11 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
 
 *(The **Run Unit Tests** workflow has been consolidated into the main CI process.)*
 
+**Run traceability**
+- The workflow run name includes the commit SHA and run ID.
+- Each run uploads a `run-manifest` artifact with `run_id`, `run_attempt`, `sha`, and related metadata.
+- Manual dispatch can specify `expected_sha` (and `strict_sha`) to hard-gate the run to a specific commit.
+
 ---
 
 ### 3.3 Setting Up a Self-Hosted Runner
