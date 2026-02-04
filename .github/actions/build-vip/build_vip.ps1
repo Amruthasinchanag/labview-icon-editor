@@ -120,6 +120,29 @@ $vipOutputDir = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
 }
 New-Item -ItemType Directory -Path $vipOutputDir -Force | Out-Null
 
+# 1c) Resolve VIPB output folder + package name to pre-clean existing VIP
+$vipbOutputDir = $null
+$packageFileName = $null
+try {
+    $vipbXml = [xml](Get-Content -Raw -Path $ResolvedVIPBPath)
+    $general = $vipbXml.VI_Package_Builder_Settings.Library_General_Settings
+    if ($general) {
+        $packageFileName = $general.Package_File_Name
+        $outputFolder = $general.Library_Output_Folder
+        if (-not [string]::IsNullOrWhiteSpace($outputFolder)) {
+            $vipbRoot = Split-Path -Path $ResolvedVIPBPath -Parent
+            $vipbOutputDir = if ([System.IO.Path]::IsPathRooted($outputFolder)) {
+                $outputFolder
+            } else {
+                Join-Path -Path $vipbRoot -ChildPath $outputFolder
+            }
+            $vipbOutputDir = [System.IO.Path]::GetFullPath($vipbOutputDir)
+        }
+    }
+} catch {
+    Write-Warning ("Failed to parse VIPB output folder: {0}" -f $_.Exception.Message)
+}
+
 # 2) Create release notes if needed and resolve the paths
 if (-not (Test-Path $ReleaseNotesFile)) {
     Write-Host "Release notes file '$ReleaseNotesFile' does not exist. Creating it..."
@@ -214,7 +237,25 @@ else {
 # Re-convert to a JSON string with a comfortable nesting depth
 $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
 
-# 5) Construct reusable g-cli arguments
+# 5a) Pre-clean existing VIP in the configured output folder to avoid VIPM error 10
+$vipBaseName = if (-not [string]::IsNullOrWhiteSpace($packageFileName)) {
+    $packageFileName
+} else {
+    [System.IO.Path]::GetFileNameWithoutExtension($ResolvedVIPBPath)
+}
+$vipVersion = "$Major.$Minor.$Patch.$Build"
+$vipName = "{0}-{1}.vip" -f $vipBaseName, $vipVersion
+$outputDirToClean = if (-not [string]::IsNullOrWhiteSpace($vipbOutputDir)) { $vipbOutputDir } else { $vipOutputDir }
+if (-not (Test-Path -Path $outputDirToClean)) {
+    New-Item -ItemType Directory -Path $outputDirToClean -Force | Out-Null
+}
+$vipFullPath = Join-Path -Path $outputDirToClean -ChildPath $vipName
+if (Test-Path -Path $vipFullPath) {
+    Write-Host ("Removing existing VIP to avoid overwrite error: {0}" -f $vipFullPath)
+    Remove-Item -Path $vipFullPath -Force -ErrorAction SilentlyContinue
+}
+
+# 6) Construct reusable g-cli arguments
 $gcliArgs = @(
     "--lv-ver", $LabVIEWVersion.ToString(),
     "--arch", $SupportedBitness,
@@ -233,7 +274,7 @@ $prettyCommand = "g-cli " + ($gcliArgs -join ' ')
 Write-Output "Base build command:"
 Write-Output $prettyCommand
 
-# 6) Execute the command once with log capture
+# 7) Execute the command once with log capture
 $logFile = Join-Path -Path $LogDirectory -ChildPath "gcli-build.log"
 Write-Host "Starting g-cli build. Logs: $logFile"
 
