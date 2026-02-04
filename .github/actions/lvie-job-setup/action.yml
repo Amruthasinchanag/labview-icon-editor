@@ -63,17 +63,17 @@ runs:
         if ([string]::IsNullOrWhiteSpace($bitness)) {
           throw "bitness input is required when create_worktree is true."
         }
-        $args = @('-Bitness', $bitness)
+        $worktreeArgs = @('-Bitness', $bitness)
         $variant = '${{ inputs.variant }}'
         if (-not [string]::IsNullOrWhiteSpace($variant)) {
-          $args += @('-Variant', $variant)
+          $worktreeArgs += @('-Variant', $variant)
         }
         $worktreeRoot = '${{ inputs.worktree_root }}'
         if (-not [string]::IsNullOrWhiteSpace($worktreeRoot)) {
-          $args += @('-WorktreeRoot', $worktreeRoot)
+          $worktreeArgs += @('-WorktreeRoot', $worktreeRoot)
         }
         $repoRoot = '${{ inputs.repo_root }}'
         if (-not [string]::IsNullOrWhiteSpace($repoRoot)) {
-          $args += @('-RepoRoot', $repoRoot)
+          $worktreeArgs += @('-RepoRoot', $repoRoot)
         }
-        & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" @args
+        & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" @worktreeArgs
