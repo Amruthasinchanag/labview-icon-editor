@@ -336,15 +336,18 @@ function Invoke-LabVIEWStage {
 
         [switch]$DevModeNoLabVIEW,
 
-        [switch]$CloseBetweenStages = $true,
+        [switch]$CloseBetweenStages,
 
-        [switch]$SkipOnBaselineFailure = $true,
+        [switch]$SkipOnBaselineFailure,
 
         [string]$LogRoot,
 
         [Parameter(Mandatory = $true)]
         [scriptblock]$Action
     )
+
+    $closeBetweenStagesEnabled = $CloseBetweenStages.IsPresent -or -not $PSBoundParameters.ContainsKey('CloseBetweenStages')
+    $skipOnBaselineFailureEnabled = $SkipOnBaselineFailure.IsPresent -or -not $PSBoundParameters.ContainsKey('SkipOnBaselineFailure')
 
     $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
     $resolvedVersion = Resolve-LabVIEWVersion -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
@@ -384,7 +387,7 @@ function Invoke-LabVIEWStage {
                 EndUtc          = $bitnessEnd.ToUniversalTime().ToString('o')
                 DurationMs      = [int]([Math]::Round(($bitnessEnd - $bitnessStart).TotalMilliseconds))
                 DevModeNoLabVIEW = [bool]$DevModeNoLabVIEW
-                CloseBetweenStages = [bool]$CloseBetweenStages
+                CloseBetweenStages = [bool]$closeBetweenStagesEnabled
                 Result          = $resultEntry
                 Steps           = [pscustomobject]@{
                     CloseBefore   = $closeBeforeInfo
@@ -400,7 +403,7 @@ function Invoke-LabVIEWStage {
             continue
         }
 
-        if ($CloseBetweenStages) {
+        if ($closeBetweenStagesEnabled) {
             $closeStart = Get-Date
             $closeResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
             $closeEnd = Get-Date
@@ -413,7 +416,7 @@ function Invoke-LabVIEWStage {
             $baselineEnd = Get-Date
             $baselineInfo = New-LabVIEWStageStepLog -Name 'baseline-revert' -StartTime $baselineStart -EndTime $baselineEnd -ExitCode $baseline.ExitCode -ErrorMessage $null -OutputLines $baseline.OutputLines
             if ($baseline.ExitCode -ne 0) {
-                if ($SkipOnBaselineFailure) {
+                if ($skipOnBaselineFailureEnabled) {
                     $resultEntry = [pscustomobject]@{
                         StageName  = $StageName
                         Bitness    = $bitness
@@ -423,7 +426,7 @@ function Invoke-LabVIEWStage {
                         ExitCode   = $baseline.ExitCode
                         Error      = $null
                     }
-                    if ($CloseBetweenStages) {
+                    if ($closeBetweenStagesEnabled) {
                         $closeAfterStart = Get-Date
                         $closeAfterResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
                         $closeAfterEnd = Get-Date
@@ -440,7 +443,7 @@ function Invoke-LabVIEWStage {
                         EndUtc          = $bitnessEnd.ToUniversalTime().ToString('o')
                         DurationMs      = [int]([Math]::Round(($bitnessEnd - $bitnessStart).TotalMilliseconds))
                         DevModeNoLabVIEW = [bool]$DevModeNoLabVIEW
-                        CloseBetweenStages = [bool]$CloseBetweenStages
+                        CloseBetweenStages = [bool]$closeBetweenStagesEnabled
                         Result          = $resultEntry
                         Steps           = [pscustomobject]@{
                             CloseBefore    = $closeBeforeInfo
@@ -534,7 +537,7 @@ function Invoke-LabVIEWStage {
                 $revertEnd = Get-Date
                 $revertInfo = New-LabVIEWStageStepLog -Name 'revert-devmode' -StartTime $revertStart -EndTime $revertEnd -ExitCode $revertResult.ExitCode -ErrorMessage $null -OutputLines $revertResult.OutputLines
             }
-            if ($CloseBetweenStages) {
+            if ($closeBetweenStagesEnabled) {
                 $closeAfterStart = Get-Date
                 $closeAfterResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
                 $closeAfterEnd = Get-Date
@@ -553,7 +556,7 @@ function Invoke-LabVIEWStage {
             EndUtc          = $bitnessEnd.ToUniversalTime().ToString('o')
             DurationMs      = [int]([Math]::Round(($bitnessEnd - $bitnessStart).TotalMilliseconds))
             DevModeNoLabVIEW = [bool]$DevModeNoLabVIEW
-            CloseBetweenStages = [bool]$CloseBetweenStages
+            CloseBetweenStages = [bool]$closeBetweenStagesEnabled
             Result          = $resultEntry
             Steps           = [pscustomobject]@{
                 CloseBefore    = $closeBeforeInfo

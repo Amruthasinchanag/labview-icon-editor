@@ -12,10 +12,11 @@
 [CmdletBinding()]
 param(
     [string]$ContractPath,
-    [switch]$FailOnMissingSafeDirectory = $true
+    [switch]$FailOnMissingSafeDirectory
 )
 
 $ErrorActionPreference = 'Stop'
+$failOnMissingSafeDirectoryEnabled = $FailOnMissingSafeDirectory.IsPresent -or -not $PSBoundParameters.ContainsKey('FailOnMissingSafeDirectory')
 
 function Resolve-ContractPath {
     param([string]$Path)
@@ -69,7 +70,7 @@ if ($safeEntries) {
 
 if (-not $safeOk) {
     $message = "Git safe.directory missing for work root pattern: $workRootPattern"
-    if ($FailOnMissingSafeDirectory) {
+    if ($failOnMissingSafeDirectoryEnabled) {
         throw $message
     } else {
         Write-Warning $message

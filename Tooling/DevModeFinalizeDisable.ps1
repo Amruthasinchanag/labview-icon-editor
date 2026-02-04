@@ -87,7 +87,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Write-Log {
+function Write-DevModeLog {
     param(
         [string]$Message
     )
@@ -157,7 +157,7 @@ $scriptArgs = @{
     RepoRoot              = $repoRoot
 }
 
-Write-Log ("start version={0} bitness={1} log={2}" -f $labviewYear, $SupportedBitness, $logPathResolved)
+Write-DevModeLog ("start version={0} bitness={1} log={2}" -f $labviewYear, $SupportedBitness, $logPathResolved)
 
 try {
     & $revertScript @scriptArgs
@@ -165,13 +165,14 @@ try {
         throw "Dev mode disable failed with exit code $LASTEXITCODE."
     }
     $exitCodeValue = if ($LASTEXITCODE -eq $null) { 'null' } else { [string]$LASTEXITCODE }
-    Write-Log ("finish exit_code={0}" -f $exitCodeValue)
+    Write-DevModeLog ("finish exit_code={0}" -f $exitCodeValue)
 } catch {
-    Write-Log ("error message={0}" -f $($_.Exception.Message))
+    Write-DevModeLog ("error message={0}" -f $($_.Exception.Message))
     throw
 } finally {
     if ($preflight -and $preflight.CleanRoomAfter) {
         Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
     }
 }
+
 

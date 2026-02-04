@@ -26,12 +26,13 @@ param(
     [string]$WorkRoot,
     [string]$WorktreeRoot,
     [string]$RepoRoot,
-    [switch]$FixSafeDirectory = $true,
+    [switch]$FixSafeDirectory,
     [ValidateSet('System', 'Global')]
     [string]$SafeDirectoryScope = 'System'
 )
 
 $ErrorActionPreference = 'Stop'
+$fixSafeDirectoryEnabled = $FixSafeDirectory.IsPresent -or -not $PSBoundParameters.ContainsKey('FixSafeDirectory')
 
 function Resolve-NormalizedPath {
     param([string]$Path)
@@ -142,7 +143,7 @@ if ($resolvedWorkRoot) {
 
     if (-not $hasSafe) {
         Write-Warning ("Git safe.directory missing for {0} (scope: {1})" -f $safePattern, $SafeDirectoryScope)
-        if ($FixSafeDirectory) {
+        if ($fixSafeDirectoryEnabled) {
             try {
                 Add-GitSafeDirectory -Scope $SafeDirectoryScope -PathPattern $safePattern
                 Write-Host ("Added git safe.directory: {0} ({1})" -f $safePattern, $SafeDirectoryScope)
