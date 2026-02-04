@@ -129,30 +129,31 @@ if (-not $SkipToggle) {
     if (-not (Test-Path -Path $toggleScript)) {
         throw "Toggle-DevMode.ps1 not found at $toggleScript"
     }
-    $toggleArgs = @(
-        '-Mode', 'disable',
-        '-MinimumSupportedLVVersion', $labviewYear,
-        '-SupportedBitness'
-    ) + $SupportedBitness + @(
-        '-RepoRoot', $resolvedRepoRoot,
-        '-ConnectTimeoutMs', $ConnectTimeoutMs,
-        '-ProcessTimeoutMs', $ProcessTimeoutMs,
-        '-RestoreOnFailure', $RestoreOnFailure
-    )
+
+    $toggleParams = @{
+        Mode                    = 'disable'
+        MinimumSupportedLVVersion = $labviewYear
+        SupportedBitness        = $SupportedBitness
+        RepoRoot                = $resolvedRepoRoot
+        ConnectTimeoutMs        = $ConnectTimeoutMs
+        ProcessTimeoutMs        = $ProcessTimeoutMs
+        RestoreOnFailure        = $RestoreOnFailure
+    }
     if ($UseLabVIEW) {
-        $toggleArgs += '-UseLabVIEW'
+        $toggleParams.UseLabVIEW = $true
     }
     if ($SkipSnapshot) {
-        $toggleArgs += '-SkipSnapshot'
+        $toggleParams.SkipSnapshot = $true
     }
     if (-not [string]::IsNullOrWhiteSpace($SnapshotRoot)) {
-        $toggleArgs += @('-SnapshotRoot', $SnapshotRoot)
+        $toggleParams.SnapshotRoot = $SnapshotRoot
     }
     if (-not [string]::IsNullOrWhiteSpace($SnapshotName)) {
-        $toggleArgs += @('-SnapshotName', $SnapshotName)
+        $toggleParams.SnapshotName = $SnapshotName
     }
+
     try {
-        & $toggleScript @toggleArgs
+        & $toggleScript @toggleParams
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             throw "Toggle-DevMode.ps1 failed with exit code $LASTEXITCODE."
         }
