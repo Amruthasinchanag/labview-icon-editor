@@ -508,7 +508,7 @@ if ($devModeRequested) {
             -ProcessTimeoutMs $ProcessTimeoutMs
     }
 
-    if ($LASTEXITCODE -ne 0) {
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         throw "Development mode enable failed with exit code $LASTEXITCODE."
     }
 
