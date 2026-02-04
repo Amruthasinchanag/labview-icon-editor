@@ -46,7 +46,9 @@ param(
     [Int32]$Minor,
     [Int32]$Patch,
     [Int32]$Build,
-    [string]$Commit
+    [string]$Commit,
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 
 Write-Output "PPL Version: $Major.$Minor.$Patch.$Build"
@@ -91,19 +93,52 @@ if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
 }
 
-# Construct the command
-$script = @"
-g-cli --lv-ver $labviewYear --arch $SupportedBitness lvbuildspec -- -v "$Major.$Minor.$Patch.$Build" -p "$RepoRoot\lv_icon_editor.lvproj" -b "Editor Packed Library"
-"@
-Write-Output "Executing the following command:"
-Write-Output $script
+function Invoke-CloseLabVIEWSafely {
+    param(
+        [string]$Version,
+        [string]$Bitness
+    )
 
-# Execute the command
-Invoke-Expression $script
+    $closeScript = Join-Path -Path $RepoRoot -ChildPath '.github\actions\close-labview\Close_LabVIEW.ps1'
+    if (Test-Path -Path $closeScript) {
+        try {
+            & $closeScript -MinimumSupportedLVVersion $Version -SupportedBitness $Bitness | Out-Null
+        } catch {
+            Write-Warning ("Close_LabVIEW.ps1 failed: {0}" -f $_.Exception.Message)
+        }
+        return
+    }
+
+    try {
+        & g-cli --lv-ver $Version --arch $Bitness QuitLabVIEW | Out-Null
+    } catch {
+        Write-Warning ("Failed to close LabVIEW: {0}" -f $_.Exception.Message)
+    }
+}
+
+$gcliArgs = @(
+    '--lv-ver', $labviewYear,
+    '--arch', $SupportedBitness
+)
+if ($ConnectTimeoutMs -gt 0) {
+    $gcliArgs += @('--connect-timeout', $ConnectTimeoutMs)
+}
+$gcliArgs += @(
+    'lvbuildspec',
+    '--',
+    '-v', "$Major.$Minor.$Patch.$Build",
+    '-p', "$RepoRoot\lv_icon_editor.lvproj",
+    '-b', 'Editor Packed Library'
+)
+
+Write-Output "Executing the following command:"
+Write-Output ("g-cli {0}" -f ($gcliArgs -join ' '))
+
+& g-cli @gcliArgs
 
 # Check the exit code
 if ($LASTEXITCODE -ne 0) {
-    g-cli --lv-ver $labviewYear --arch $SupportedBitness QuitLabVIEW
+    Invoke-CloseLabVIEWSafely -Version $labviewYear -Bitness $SupportedBitness
     Write-Host "Build failed with exit code $LASTEXITCODE."
     exit 1
 } else {
