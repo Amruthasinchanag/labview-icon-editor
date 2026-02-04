@@ -19,6 +19,12 @@
 
 .PARAMETER RepoRoot
     Optional path to the repository root.
+
+.PARAMETER ContractPath
+    Optional path to the dev-mode contract JSON file.
+
+.PARAMETER SkipProcessCheck
+    Skip checking for running LabVIEW or g-cli processes.
 #>
 
 [CmdletBinding()]
@@ -34,7 +40,13 @@ param(
     [string[]]$SupportedBitness = @('32', '64'),
 
     [Parameter(Mandatory = $false)]
-    [string]$RepoRoot
+    [string]$RepoRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$ContractPath,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipProcessCheck
 )
 
 $ErrorActionPreference = 'Stop'
@@ -263,9 +275,27 @@ function Disable-DevModeNoLabVIEW {
         [string]$LabVIEWYear
     )
 
+    $entry = [ordered]@{
+        key          = ("{0}-{1}" -f $LabVIEWYear, $Bitness)
+        labviewYear  = $LabVIEWYear
+        bitness      = $Bitness
+        desiredState = 'disabled'
+        actualState  = 'unknown'
+        status       = 'unknown'
+        repoRoot     = $RepoRoot
+        startUtc     = (Get-Date).ToUniversalTime().ToString('o')
+        endUtc       = $null
+        changes      = @()
+        notes        = @()
+        error        = $null
+    }
+
     $installRoot = Get-LabVIEWInstallRoot -Version $LabVIEWYear -Bitness $Bitness
     if (-not $installRoot) {
-        throw "LabVIEW $LabVIEWYear ($Bitness-bit) install not found."
+        $entry.status = 'failed'
+        $entry.error = "LabVIEW $LabVIEWYear ($Bitness-bit) install not found."
+        $entry.endUtc = (Get-Date).ToUniversalTime().ToString('o')
+        return $entry
     }
 
     $iconApiDir = Join-Path $installRoot 'vi.lib\LabVIEW Icon API'
@@ -273,64 +303,121 @@ function Disable-DevModeNoLabVIEW {
     $lvlibpPath = Join-Path $installRoot 'resource\plugins\lv_icon.lvlibp'
     $shipPath = Join-Path $installRoot 'resource\plugins\lv_icon.ship'
     $iniPath = Join-Path $installRoot 'LabVIEW.ini'
+    $entry.installRoot = $installRoot
+    $entry.iniPath = $iniPath
 
     Write-Host ("Revert dev mode (no LabVIEW): LV{0} {1}-bit" -f $LabVIEWYear, $Bitness)
     Write-Host ("Install root: {0}" -f $installRoot)
 
-    if (Test-Path -Path $iconApiZip) {
-        if (Test-Path -Path $iconApiDir) {
-            Remove-Item -Path $iconApiDir -Recurse -Force
+    try {
+        $preDisabled = Test-IEDevModeDisabled -LabVIEWInstallRoot $installRoot
+        $preHasRepo = Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $RepoRoot
+        if ($preDisabled -and -not $preHasRepo) {
+            $entry.actualState = 'disabled'
+            $entry.status = 'skipped'
+            $entry.notes += 'Dev mode already disabled.'
+            return $entry
         }
-        $parent = Split-Path -Path $iconApiDir -Parent
-        Expand-Archive -Path $iconApiZip -DestinationPath $parent -Force
-        Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
-    } elseif (-not (Test-Path -Path $iconApiDir)) {
-        Write-Warning ("Icon API folder and zip not found under {0}." -f (Join-Path $installRoot 'vi.lib'))
-    }
 
-    if (Test-Path -Path $shipPath) {
-        Write-Host "Renaming lv_icon.ship to lv_icon.lvlibp."
-        if (Test-Path -Path $lvlibpPath) {
-            Remove-Item -Path $lvlibpPath -Force -ErrorAction SilentlyContinue
+        if (Test-Path -Path $iconApiZip) {
+            if (Test-Path -Path $iconApiDir) {
+                Remove-Item -Path $iconApiDir -Recurse -Force
+                $entry.changes += [ordered]@{ operation = 'remove-icon-api-dir'; status = 'changed'; path = $iconApiDir }
+            }
+            $parent = Split-Path -Path $iconApiDir -Parent
+            Expand-Archive -Path $iconApiZip -DestinationPath $parent -Force
+            Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
+            $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'changed'; source = $iconApiZip; destination = $iconApiDir }
+        } elseif (-not (Test-Path -Path $iconApiDir)) {
+            Write-Warning ("Icon API folder and zip not found under {0}." -f (Join-Path $installRoot 'vi.lib'))
+            $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'missing'; path = $iconApiDir }
+        } else {
+            $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'skipped'; path = $iconApiDir }
         }
-        Move-Item -Path $shipPath -Destination $lvlibpPath -Force
-    } elseif (-not (Test-Path -Path $lvlibpPath)) {
-        Write-Warning ("lv_icon.ship and lv_icon.lvlibp not found under {0}." -f (Split-Path $lvlibpPath -Parent))
+
+        if (Test-Path -Path $shipPath) {
+            Write-Host "Renaming lv_icon.ship to lv_icon.lvlibp."
+            if (Test-Path -Path $lvlibpPath) {
+                Remove-Item -Path $lvlibpPath -Force -ErrorAction SilentlyContinue
+                $entry.changes += [ordered]@{ operation = 'remove-lv_icon.lvlibp'; status = 'changed'; path = $lvlibpPath }
+            }
+            Move-Item -Path $shipPath -Destination $lvlibpPath -Force
+            $entry.changes += [ordered]@{ operation = 'rename-lv_icon.ship'; status = 'changed'; source = $shipPath; destination = $lvlibpPath }
+        } elseif (-not (Test-Path -Path $lvlibpPath)) {
+            Write-Warning ("lv_icon.ship and lv_icon.lvlibp not found under {0}." -f (Split-Path $lvlibpPath -Parent))
+            $entry.changes += [ordered]@{ operation = 'rename-lv_icon.ship'; status = 'missing'; path = $shipPath }
+        } else {
+            $entry.changes += [ordered]@{ operation = 'rename-lv_icon.ship'; status = 'skipped'; path = $lvlibpPath }
+        }
+
+        Write-Host ("Updating Localhost.LibraryPaths in {0}" -f $iniPath)
+        Remove-IniLibraryPath -IniPath $iniPath -RepoRoot $RepoRoot
+        $entry.changes += [ordered]@{ operation = 'remove-library-paths'; status = 'changed'; path = $iniPath }
+
+        $issues = @()
+        $postDisabled = Test-IEDevModeDisabled -LabVIEWInstallRoot $installRoot
+        $postHasRepo = Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $RepoRoot
+        if (-not $postDisabled) {
+            $issues += 'Install files did not reflect reverted state.'
+        }
+        if ($postHasRepo) {
+            $issues += 'Localhost.LibraryPaths still includes repo root.'
+        }
+
+        $entry.actualState = if ($postDisabled -and -not $postHasRepo) { 'disabled' } else { 'partial' }
+        if ($issues.Count -gt 0) {
+            $entry.status = 'failed'
+            $entry.error = ("Dev mode revert (no LabVIEW) failed: {0}" -f ($issues -join ' '))
+        } else {
+            $entry.status = 'success'
+        }
+    } catch {
+        if (-not $entry.error) {
+            $entry.error = $_.Exception.Message
+        }
+        $entry.status = 'failed'
+    } finally {
+        if (-not $entry.actualState -or $entry.actualState -eq 'unknown') {
+            $entry.actualState = if (Test-IEDevModeDisabled -LabVIEWInstallRoot $installRoot) { 'disabled' } else { 'enabled' }
+        }
+        $entry.endUtc = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    Write-Host ("Updating Localhost.LibraryPaths in {0}" -f $iniPath)
-    Remove-IniLibraryPath -IniPath $iniPath -RepoRoot $RepoRoot
-
-    $issues = @()
-    if (-not (Test-IEDevModeDisabled -LabVIEWInstallRoot $installRoot)) {
-        $issues += 'Install files did not reflect reverted state.'
-    }
-    if (Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $RepoRoot) {
-        $issues += 'Localhost.LibraryPaths still includes repo root.'
-    }
-
-    if ($issues.Count -gt 0) {
-        throw ("Dev mode revert (no LabVIEW) failed: {0}" -f ($issues -join ' '))
-    }
+    return $entry
 }
 
 function Invoke-RevertDevModeNoLabVIEWMain {
     $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
     $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $LabVIEWVersion
-if (Test-Path -Path $versionHelper) {
-    . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
-    $labviewYear = $versionInfo.Year
-}
+    $contractHelper = Join-Path $resolvedRepoRoot 'Tooling\support\DevModeContract.ps1'
+    $labviewYear = $LabVIEWVersion
+    if (Test-Path -Path $versionHelper) {
+        . $versionHelper
+        $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
+        $labviewYear = $versionInfo.Year
+    }
+    if (-not (Test-Path -Path $contractHelper)) {
+        throw "Dev mode contract helper not found at $contractHelper"
+    }
+    . $contractHelper
     if ([string]::IsNullOrWhiteSpace($labviewYear)) {
         $labviewYear = '2021'
     }
 
     try {
+        if (-not $SkipProcessCheck) {
+            Assert-DevModeNoProcesses
+        }
+        $contractPath = Resolve-DevModeContractPath -RepoRoot $resolvedRepoRoot -ContractPath $ContractPath
+        $contract = Read-DevModeContract -ContractPath $contractPath -RepoRoot $resolvedRepoRoot
         $bitnesses = $SupportedBitness | Select-Object -Unique
         foreach ($bitness in $bitnesses) {
-            Disable-DevModeNoLabVIEW -Bitness $bitness -RepoRoot $resolvedRepoRoot -LabVIEWYear $labviewYear
+            $entry = Disable-DevModeNoLabVIEW -Bitness $bitness -RepoRoot $resolvedRepoRoot -LabVIEWYear $labviewYear
+            $contract = Update-DevModeContractEntry -Contract $contract -Entry $entry
+            Write-DevModeContract -Contract $contract -ContractPath $contractPath
+            if ($entry.status -eq 'failed') {
+                throw $entry.error
+            }
         }
     }
     catch {
