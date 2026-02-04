@@ -130,30 +130,34 @@ if (-not $SkipToggle) {
         throw "Toggle-DevMode.ps1 not found at $toggleScript"
     }
 
-    $toggleParams = @{
-        Mode                    = 'disable'
-        MinimumSupportedLVVersion = $labviewYear
-        SupportedBitness        = $SupportedBitness
-        RepoRoot                = $resolvedRepoRoot
-        ConnectTimeoutMs        = $ConnectTimeoutMs
-        ProcessTimeoutMs        = $ProcessTimeoutMs
-        RestoreOnFailure        = $RestoreOnFailure
-    }
-    if ($UseLabVIEW) {
-        $toggleParams.UseLabVIEW = $true
-    }
-    if ($SkipSnapshot) {
-        $toggleParams.SkipSnapshot = $true
-    }
-    if (-not [string]::IsNullOrWhiteSpace($SnapshotRoot)) {
-        $toggleParams.SnapshotRoot = $SnapshotRoot
-    }
-    if (-not [string]::IsNullOrWhiteSpace($SnapshotName)) {
-        $toggleParams.SnapshotName = $SnapshotName
-    }
-
     try {
-        & $toggleScript @toggleParams
+        $bitnessList = @($SupportedBitness | Where-Object { $_ })
+        $toggleArgs = @(
+            '-NoProfile',
+            '-File', $toggleScript,
+            '-Mode', 'disable',
+            '-MinimumSupportedLVVersion', $labviewYear,
+            '-SupportedBitness'
+        ) + $bitnessList + @(
+            '-RepoRoot', $resolvedRepoRoot,
+            '-ConnectTimeoutMs', $ConnectTimeoutMs,
+            '-ProcessTimeoutMs', $ProcessTimeoutMs,
+            '-RestoreOnFailure', $RestoreOnFailure
+        )
+        if ($UseLabVIEW) {
+            $toggleArgs += '-UseLabVIEW'
+        }
+        if ($SkipSnapshot) {
+            $toggleArgs += '-SkipSnapshot'
+        }
+        if (-not [string]::IsNullOrWhiteSpace($SnapshotRoot)) {
+            $toggleArgs += @('-SnapshotRoot', $SnapshotRoot)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($SnapshotName)) {
+            $toggleArgs += @('-SnapshotName', $SnapshotName)
+        }
+
+        & pwsh @toggleArgs
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             throw "Toggle-DevMode.ps1 failed with exit code $LASTEXITCODE."
         }
