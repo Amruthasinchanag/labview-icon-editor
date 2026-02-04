@@ -45,7 +45,8 @@ jobs:
           & ".github\\actions\\set-development-mode\\Set_Development_Mode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT"
+            -RepoRoot "$env:REPO_ROOT" `
+            -UseLabVIEW
 
       - name: Resolve LabVIEW project path
         id: proj
@@ -126,7 +127,8 @@ jobs:
           & ".github\\actions\\revert-development-mode\\RevertDevelopmentMode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT"
+            -RepoRoot "$env:REPO_ROOT" `
+            -UseLabVIEW
       - name: Close LabVIEW (LV ${{ matrix.bitness }}-bit)
         if: always()
         shell: pwsh
