@@ -113,7 +113,7 @@ function Get-RegisteredWorktreePaths {
         }
     }
     catch {
-        # If git fails, leave the set empty and allow cleanup to be conservative.
+        Write-Verbose ("Failed to enumerate git worktrees. {0}" -f $_.Exception.Message)
     }
 
     return $paths
@@ -291,14 +291,14 @@ if (Test-Path -Path $targetPath) {
         git -C $repoRoot worktree remove --force $targetPath 2>$null | Out-Null
     }
     catch {
-        # Ignore; directory may not be registered as a worktree.
+        Write-Verbose ("Worktree removal failed for {0}. {1}" -f $targetPath, $_.Exception.Message)
     }
 
     try {
         git -C $repoRoot worktree prune 2>$null | Out-Null
     }
     catch {
-        # Ignore; prune can fail if the main worktree is busy.
+        Write-Verbose ("Worktree prune failed for {0}. {1}" -f $repoRoot, $_.Exception.Message)
     }
 
     if (Test-Path -Path $targetPath) {

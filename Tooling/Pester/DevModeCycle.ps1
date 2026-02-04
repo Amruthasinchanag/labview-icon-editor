@@ -29,7 +29,7 @@ function Start-DevModeRun {
         [string]$SequenceId
     )
 
-    $args = @(
+    $ghArgs = @(
         'workflow', 'run', 'Toggle Development Mode',
         '--repo', $Repo,
         '--ref', $Ref,
@@ -39,7 +39,7 @@ function Start-DevModeRun {
     )
 
     Write-Host ("Starting workflow: mode={0}" -f $Mode)
-    & gh @args | Out-Null
+    & gh @ghArgs | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to dispatch workflow for mode=$Mode."
     }

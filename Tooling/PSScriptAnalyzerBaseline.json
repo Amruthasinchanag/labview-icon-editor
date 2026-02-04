@@ -160,84 +160,12 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 115,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 116,
-    "Column": 32
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 117,
-    "Column": 32
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 118,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 128,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 129,
-    "Column": 32
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 130,
-    "Column": 32
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 131,
-    "Column": 5
-  },
-  {
     "RuleName": "PSAvoidOverwritingBuiltInCmdlets",
     "Severity": "Warning",
     "Message": "'Write-Log' is a cmdlet that is included with PowerShell (version core-6.1.0-windows) whose definition should not be overridden",
     "Path": "Tooling\\DevModeFinalizeDisable.ps1",
     "Line": 90,
     "Column": 1
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\DevModeIterate.ps1",
-    "Line": 311,
-    "Column": 51
   },
   {
     "RuleName": "PSUseApprovedVerbs",
@@ -288,156 +216,12 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 165,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 174,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 176,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 182,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 183,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 189,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 190,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 195,
-    "Column": 9
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
-    "Line": 196,
-    "Column": 9
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Convert-BoundParametersToArgs' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Invoke-Preflight.ps1",
     "Line": 11,
     "Column": 10
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 16,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 25,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 27,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 33,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 34,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 40,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 41,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 46,
-    "Column": 9
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Invoke-Preflight.ps1",
-    "Line": 47,
-    "Column": 9
   },
   {
     "RuleName": "PSUseSingularNouns",
@@ -488,30 +272,6 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
-    "Line": 115,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
-    "Line": 293,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
-    "Line": 300,
-    "Column": 5
-  },
-  {
     "RuleName": "PSReviewUnusedParameter",
     "Severity": "Warning",
     "Message": "The parameter 'Repo' has been declared but not used.",
@@ -558,14 +318,6 @@
     "Path": "Tooling\\Pester\\DevModeCycle.ps1",
     "Line": 10,
     "Column": 10
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 32,
-    "Column": 5
   },
   {
     "RuleName": "PSReviewUnusedParameter",
@@ -616,44 +368,12 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 121,
-    "Column": 15
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 124,
-    "Column": 7
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Get-IniLibraryPaths' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 135,
+    "Line": 136,
     "Column": 10
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 192,
-    "Column": 9
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'Args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Run-CICompositeForCommit.ps1",
-    "Line": 53,
-    "Column": 21
   },
   {
     "RuleName": "PSUseApprovedVerbs",
@@ -678,38 +398,6 @@
     "Path": "Tooling\\Run-CICompositeLocal.ps1",
     "Line": 200,
     "Column": 10
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Warning",
-    "Message": "The Variable 'matches' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 370,
-    "Column": 5
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 420,
-    "Column": 51
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 429,
-    "Column": 30
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 456,
-    "Column": 51
   },
   {
     "RuleName": "PSUseSingularNouns",
@@ -792,14 +480,6 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 1084,
-    "Column": 9
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Get-LockMetadata' uses a plural noun. A singular noun should be used instead.",
@@ -856,44 +536,12 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 121,
-    "Column": 15
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 124,
-    "Column": 7
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Get-IniLibraryPaths' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 135,
+    "Line": 136,
     "Column": 10
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 193,
-    "Column": 9
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 223,
-    "Column": 9
   },
   {
     "RuleName": "PSUseApprovedVerbs",
@@ -928,22 +576,6 @@
     "Column": 10
   },
   {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\support\\GcliRunner.ps1",
-    "Line": 45,
-    "Column": 15
-  },
-  {
-    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
-    "Severity": "Error",
-    "Message": "The Variable 'Error' cannot be assigned since it is a readonly automatic variable that is built into PowerShell, please use a different name.",
-    "Path": "Tooling\\support\\LabVIEWStage.ps1",
-    "Line": 33,
-    "Column": 17
-  },
-  {
     "RuleName": "PSAvoidDefaultValueSwitchParameter",
     "Severity": "Warning",
     "Message": "File 'LabVIEWStage.ps1' has a switch parameter default to true.",
@@ -958,46 +590,6 @@
     "Path": "Tooling\\support\\LabVIEWStage.ps1",
     "Line": 341,
     "Column": 9
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\support\\LabVIEWStage.ps1",
-    "Line": 399,
-    "Column": 94
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\support\\LabVIEWStage.ps1",
-    "Line": 455,
-    "Column": 102
-  },
-  {
-    "RuleName": "PSPossibleIncorrectComparisonWithNull",
-    "Severity": "Warning",
-    "Message": "$null should be on the left side of equality comparisons.",
-    "Path": "Tooling\\support\\LabVIEWStage.ps1",
-    "Line": 491,
-    "Column": 42
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\support\\LabVIEWStage.ps1",
-    "Line": 568,
-    "Column": 90
-  },
-  {
-    "RuleName": "PSAvoidUsingEmptyCatchBlock",
-    "Severity": "Warning",
-    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
-    "Path": "Tooling\\support\\LabVIEWStage.ps1",
-    "Line": 571,
-    "Column": 148
   },
   {
     "RuleName": "PSUseApprovedVerbs",

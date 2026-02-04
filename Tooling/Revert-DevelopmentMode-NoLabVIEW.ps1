@@ -119,10 +119,11 @@ function Normalize-PathValue {
             try {
                 return (Resolve-Path -LiteralPath $PathValue).Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
             } catch {
+                Write-Verbose ("Normalize-PathValue: resolve path failed. {0}" -f $_.Exception.Message)
             }
         }
     } catch {
-        # Access denied or other IO errors should not break dev-mode toggling.
+        Write-Verbose ("Normalize-PathValue: access denied or IO failure. {0}" -f $_.Exception.Message)
     }
 
     try {
@@ -189,7 +190,7 @@ function Remove-IniLibraryPath {
         }
     }
 
-    if ($lineIndex -eq $null) {
+    if ($null -eq $lineIndex) {
         return
     }
 

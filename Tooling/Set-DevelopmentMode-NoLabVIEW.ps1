@@ -119,10 +119,11 @@ function Normalize-PathValue {
             try {
                 return (Resolve-Path -LiteralPath $PathValue).Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
             } catch {
+                Write-Verbose ("Normalize-PathValue: resolve path failed. {0}" -f $_.Exception.Message)
             }
         }
     } catch {
-        # Access denied or other IO errors should not break dev-mode toggling.
+        Write-Verbose ("Normalize-PathValue: access denied or IO failure. {0}" -f $_.Exception.Message)
     }
 
     try {
@@ -190,7 +191,7 @@ function Set-IniLibraryPath {
     }
 
     $paths = @()
-    if ($lineIndex -ne $null) {
+    if ($null -ne $lineIndex) {
         $raw = $lines[$lineIndex] -replace '(?i)^\s*localhost\.librarypaths\s*=\s*', ''
         if (-not [string]::IsNullOrWhiteSpace($raw)) {
             $paths = @($raw -split ';' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -220,7 +221,7 @@ function Set-IniLibraryPath {
         "Localhost.LibraryPaths=$RepoRoot"
     }
 
-    if ($lineIndex -ne $null) {
+    if ($null -ne $lineIndex) {
         $lines[$lineIndex] = $newLine
     } else {
         $lines += $newLine

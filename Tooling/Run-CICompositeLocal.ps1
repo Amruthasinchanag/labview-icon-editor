@@ -367,11 +367,11 @@ function Test-LabVIEWRunning {
         return $false
     }
 
-    $matches = $processes | Where-Object {
+    $matchingProcesses = $processes | Where-Object {
         $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)
     }
 
-    return ($matches -and $matches.Count -gt 0)
+    return ($matchingProcesses -and $matchingProcesses.Count -gt 0)
 }
 
 function Invoke-CloseLabVIEW {
@@ -417,7 +417,7 @@ function Invoke-Checked {
     }
 
     $duration = [Math]::Round(((Get-Date) - $stepStart).TotalSeconds, 2)
-    $status = if ($stepError) { 'error' } elseif ($exitCode -eq $null -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
+    $status = if ($stepError) { 'error' } elseif ($null -eq $exitCode -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
     if ($script:StepHistoryPath) {
         "{0},{1},{2},{3}" -f $stepStart.ToString('yyyy-MM-dd HH:mm:ss'), ($Label -replace ',', ' '), $status, $duration | Add-Content -Path $script:StepHistoryPath
     }
@@ -426,7 +426,7 @@ function Invoke-Checked {
     if ($stepError) {
         throw $stepError
     }
-    if ($exitCode -ne 0 -and $exitCode -ne $null) {
+    if ($exitCode -ne 0 -and $null -ne $exitCode) {
         throw "$Label failed with exit code $exitCode."
     }
 }
@@ -453,7 +453,7 @@ function Invoke-CheckedWithResult {
     }
 
     $duration = [Math]::Round(((Get-Date) - $stepStart).TotalSeconds, 2)
-    $status = if ($stepError) { 'error' } elseif ($exitCode -eq $null -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
+    $status = if ($stepError) { 'error' } elseif ($null -eq $exitCode -or $exitCode -eq 0) { 'success' } else { "exit:$exitCode" }
     if ($script:StepHistoryPath) {
         "{0},{1},{2},{3}" -f $stepStart.ToString('yyyy-MM-dd HH:mm:ss'), ($Label -replace ',', ' '), $status, $duration | Add-Content -Path $script:StepHistoryPath
     }
@@ -1082,7 +1082,7 @@ finally {
             Stop-Transcript | Out-Null
         }
         catch {
-            # ignore transcript failures
+            Write-Verbose ("Stop-Transcript failed. {0}" -f $_.Exception.Message)
         }
     }
     if ($preflight -and $preflight.CleanRoomAfter) {
@@ -1094,7 +1094,7 @@ finally {
     $runDuration = [Math]::Round(((Get-Date) - $runStart).TotalSeconds, 2)
     $runStatus = if ($script:RunFailed) {
         'error'
-    } elseif ($LASTEXITCODE -eq $null -or $LASTEXITCODE -eq 0) {
+    } elseif ($null -eq $LASTEXITCODE -or $LASTEXITCODE -eq 0) {
         'success'
     } else {
         "exit:$LASTEXITCODE"
@@ -1102,3 +1102,4 @@ finally {
     "{0},{1},{2},{3}" -f $runTimestamp, $runStatus, $runDuration, ($commandLine -replace ',', ' ') | Add-Content -Path $script:RunHistoryPath
     Pop-Location
 }
+

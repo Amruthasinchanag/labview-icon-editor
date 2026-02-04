@@ -308,7 +308,7 @@ try {
             if (-not [string]::IsNullOrWhiteSpace($result.ExceptionMessage)) {
                 $hasFailure = $true
                 $failureMessage = $result.ExceptionMessage
-            } elseif ($result.ExitCode -ne 0 -and $result.ExitCode -ne $null) {
+            } elseif ($result.ExitCode -ne 0 -and $null -ne $result.ExitCode) {
                 $hasFailure = $true
                 $failureMessage = "Dev mode $mode failed with exit code $exitCodeValue."
             }

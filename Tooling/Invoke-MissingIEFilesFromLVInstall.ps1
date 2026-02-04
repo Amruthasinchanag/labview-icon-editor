@@ -162,41 +162,41 @@ function Convert-BoundParametersToArgs {
         [hashtable]$BoundParameters
     )
 
-    $args = @()
+    $argList = @()
     if (-not $BoundParameters) {
-        return $args
+        return $argList
     }
 
     foreach ($key in $BoundParameters.Keys) {
         $value = $BoundParameters[$key]
         if ($value -is [System.Management.Automation.SwitchParameter]) {
             if ($value.IsPresent) {
-                $args += "-$key"
+                $argList += "-$key"
             } else {
-                $args += "-${key}:`$false"
+                $argList += "-${key}:`$false"
             }
             continue
         }
 
         if ($value -is [bool]) {
-            $args += "-$key"
-            $args += $value.ToString().ToLowerInvariant()
+            $argList += "-$key"
+            $argList += $value.ToString().ToLowerInvariant()
             continue
         }
 
         if ($value -is [array]) {
             foreach ($entry in $value) {
-                $args += "-$key"
-                $args += [string]$entry
+                $argList += "-$key"
+                $argList += [string]$entry
             }
             continue
         }
 
-        $args += "-$key"
-        $args += [string]$value
+        $argList += "-$key"
+        $argList += [string]$value
     }
 
-    return $args
+    return $argList
 }
 
 function Resolve-RepoRoot {

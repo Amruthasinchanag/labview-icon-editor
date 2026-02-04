@@ -30,7 +30,7 @@ function New-LabVIEWStageStepLog {
         [datetime]$StartTime,
         [datetime]$EndTime,
         [int]$ExitCode,
-        [string]$Error,
+        [string]$ErrorMessage,
         [string[]]$OutputLines
     )
 
@@ -41,7 +41,7 @@ function New-LabVIEWStageStepLog {
         EndUtc     = $EndTime.ToUniversalTime().ToString('o')
         DurationMs = $durationMs
         ExitCode   = $ExitCode
-        Error      = $Error
+        Error      = $ErrorMessage
         OutputTail = Get-OutputTail -Lines $OutputLines -MaxLines 20
     }
 }
@@ -396,7 +396,7 @@ function Invoke-LabVIEWStage {
                 }
             }
             $logEntries += $logEntry
-            try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { }
+            try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { Write-Verbose ("LabVIEWStage: failed to write stage log entry. {0}" -f $_.Exception.Message) }
             continue
         }
 
@@ -404,14 +404,14 @@ function Invoke-LabVIEWStage {
             $closeStart = Get-Date
             $closeResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
             $closeEnd = Get-Date
-            $closeBeforeInfo = New-LabVIEWStageStepLog -Name 'close-before' -StartTime $closeStart -EndTime $closeEnd -ExitCode $closeResult.ExitCode -Error $null -OutputLines $closeResult.OutputLines
+            $closeBeforeInfo = New-LabVIEWStageStepLog -Name 'close-before' -StartTime $closeStart -EndTime $closeEnd -ExitCode $closeResult.ExitCode -ErrorMessage $null -OutputLines $closeResult.OutputLines
         }
 
         if ($DevModeNoLabVIEW) {
             $baselineStart = Get-Date
             $baseline = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'disable'
             $baselineEnd = Get-Date
-            $baselineInfo = New-LabVIEWStageStepLog -Name 'baseline-revert' -StartTime $baselineStart -EndTime $baselineEnd -ExitCode $baseline.ExitCode -Error $null -OutputLines $baseline.OutputLines
+            $baselineInfo = New-LabVIEWStageStepLog -Name 'baseline-revert' -StartTime $baselineStart -EndTime $baselineEnd -ExitCode $baseline.ExitCode -ErrorMessage $null -OutputLines $baseline.OutputLines
             if ($baseline.ExitCode -ne 0) {
                 if ($SkipOnBaselineFailure) {
                     $resultEntry = [pscustomobject]@{
@@ -427,7 +427,7 @@ function Invoke-LabVIEWStage {
                         $closeAfterStart = Get-Date
                         $closeAfterResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
                         $closeAfterEnd = Get-Date
-                        $closeAfterInfo = New-LabVIEWStageStepLog -Name 'close-after' -StartTime $closeAfterStart -EndTime $closeAfterEnd -ExitCode $closeAfterResult.ExitCode -Error $null -OutputLines $closeAfterResult.OutputLines
+                        $closeAfterInfo = New-LabVIEWStageStepLog -Name 'close-after' -StartTime $closeAfterStart -EndTime $closeAfterEnd -ExitCode $closeAfterResult.ExitCode -ErrorMessage $null -OutputLines $closeAfterResult.OutputLines
                     }
                     $results += $resultEntry
                     $bitnessEnd = Get-Date
@@ -452,7 +452,7 @@ function Invoke-LabVIEWStage {
                         }
                     }
                     $logEntries += $logEntry
-                    try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { }
+                    try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { Write-Verbose ("LabVIEWStage: failed to write baseline log entry. {0}" -f $_.Exception.Message) }
                     continue
                 }
                 throw "Baseline dev mode revert failed with exit code $($baseline.ExitCode)."
@@ -467,7 +467,7 @@ function Invoke-LabVIEWStage {
                 $enableStart = Get-Date
                 $enable = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'enable'
                 $enableEnd = Get-Date
-                $enableInfo = New-LabVIEWStageStepLog -Name 'enable-devmode' -StartTime $enableStart -EndTime $enableEnd -ExitCode $enable.ExitCode -Error $null -OutputLines $enable.OutputLines
+                $enableInfo = New-LabVIEWStageStepLog -Name 'enable-devmode' -StartTime $enableStart -EndTime $enableEnd -ExitCode $enable.ExitCode -ErrorMessage $null -OutputLines $enable.OutputLines
                 if ($enable.ExitCode -ne 0) {
                     $exitCode = $enable.ExitCode
                     throw "Dev mode enable failed with exit code $($enable.ExitCode)."
@@ -488,16 +488,16 @@ function Invoke-LabVIEWStage {
 
             if ($actionResult -is [int]) {
                 $exitCode = $actionResult
-            } elseif ($actionResult -and $actionResult.ExitCode -ne $null) {
+            } elseif ($actionResult -and $null -ne $actionResult.ExitCode) {
                 $exitCode = $actionResult.ExitCode
-            } elseif ($LASTEXITCODE -ne $null) {
+            } elseif ($null -ne $LASTEXITCODE) {
                 $exitCode = $LASTEXITCODE
             } else {
                 $exitCode = 0
             }
 
             $actionOutput = if ($actionResult -and $actionResult.OutputLines) { $actionResult.OutputLines } else { $null }
-            $actionInfo = New-LabVIEWStageStepLog -Name 'action' -StartTime $actionStart -EndTime $actionEnd -ExitCode $exitCode -Error $actionError -OutputLines $actionOutput
+            $actionInfo = New-LabVIEWStageStepLog -Name 'action' -StartTime $actionStart -EndTime $actionEnd -ExitCode $exitCode -ErrorMessage $actionError -OutputLines $actionOutput
 
             if ($actionError) {
                 throw $actionError
@@ -532,13 +532,13 @@ function Invoke-LabVIEWStage {
                 $revertStart = Get-Date
                 $revertResult = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'disable'
                 $revertEnd = Get-Date
-                $revertInfo = New-LabVIEWStageStepLog -Name 'revert-devmode' -StartTime $revertStart -EndTime $revertEnd -ExitCode $revertResult.ExitCode -Error $null -OutputLines $revertResult.OutputLines
+                $revertInfo = New-LabVIEWStageStepLog -Name 'revert-devmode' -StartTime $revertStart -EndTime $revertEnd -ExitCode $revertResult.ExitCode -ErrorMessage $null -OutputLines $revertResult.OutputLines
             }
             if ($CloseBetweenStages) {
                 $closeAfterStart = Get-Date
                 $closeAfterResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
                 $closeAfterEnd = Get-Date
-                $closeAfterInfo = New-LabVIEWStageStepLog -Name 'close-after' -StartTime $closeAfterStart -EndTime $closeAfterEnd -ExitCode $closeAfterResult.ExitCode -Error $null -OutputLines $closeAfterResult.OutputLines
+                $closeAfterInfo = New-LabVIEWStageStepLog -Name 'close-after' -StartTime $closeAfterStart -EndTime $closeAfterEnd -ExitCode $closeAfterResult.ExitCode -ErrorMessage $null -OutputLines $closeAfterResult.OutputLines
             }
         }
 
@@ -565,9 +565,9 @@ function Invoke-LabVIEWStage {
             }
         }
         $logEntries += $logEntry
-        try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { }
+        try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { Write-Verbose ("LabVIEWStage: failed to write stage log entry. {0}" -f $_.Exception.Message) }
     }
 
-    try { Write-LabVIEWStageSummary -SummaryFile $logContext.SummaryFile -Entries $logEntries -StageName $StageName -LogFile $logContext.LogFile } catch { }
+    try { Write-LabVIEWStageSummary -SummaryFile $logContext.SummaryFile -Entries $logEntries -StageName $StageName -LogFile $logContext.LogFile } catch { Write-Verbose ("LabVIEWStage: failed to write summary. {0}" -f $_.Exception.Message) }
     return $results
 }

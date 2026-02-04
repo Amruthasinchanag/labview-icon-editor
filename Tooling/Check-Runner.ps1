@@ -112,12 +112,12 @@ if ($resolvedWorktreeRoot -and -not (Test-Path -Path $resolvedWorktreeRoot)) {
 
 function Get-GitSafeDirectories {
     param([string]$Scope)
-    $args = @('config')
-    if ($Scope -eq 'System') { $args += '--system' }
-    if ($Scope -eq 'Global') { $args += '--global' }
-    $args += @('--get-all', 'safe.directory')
+    $gitArgs = @('config')
+    if ($Scope -eq 'System') { $gitArgs += '--system' }
+    if ($Scope -eq 'Global') { $gitArgs += '--global' }
+    $gitArgs += @('--get-all', 'safe.directory')
     try {
-        & git @args 2>$null | Where-Object { $_ -and $_.Trim().Length -gt 0 }
+        & git @gitArgs 2>$null | Where-Object { $_ -and $_.Trim().Length -gt 0 }
     } catch {
         @()
     }
@@ -125,11 +125,11 @@ function Get-GitSafeDirectories {
 
 function Add-GitSafeDirectory {
     param([string]$Scope, [string]$PathPattern)
-    $args = @('config')
-    if ($Scope -eq 'System') { $args += '--system' }
-    if ($Scope -eq 'Global') { $args += '--global' }
-    $args += @('--add', 'safe.directory', $PathPattern)
-    & git @args
+    $gitArgs = @('config')
+    if ($Scope -eq 'System') { $gitArgs += '--system' }
+    if ($Scope -eq 'Global') { $gitArgs += '--global' }
+    $gitArgs += @('--add', 'safe.directory', $PathPattern)
+    & git @gitArgs
 }
 
 if ($resolvedWorkRoot) {
