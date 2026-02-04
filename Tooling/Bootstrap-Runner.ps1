@@ -204,7 +204,7 @@ function Resolve-RunnerName {
     return 'runner'
 }
 
-function Resolve-RunnerLabels {
+function Resolve-RunnerLabelSet {
     param(
         [string]$PrimaryLabel,
         [string[]]$ExtraLabels,
@@ -278,7 +278,7 @@ $runnerNameResolved = Resolve-RunnerName -RunnerRootValue $runnerRootResolved -R
 
 $canonicalLabelResolved = if ([string]::IsNullOrWhiteSpace($CanonicalRunnerLabel)) { 'self-hosted-windows-lv' } else { $CanonicalRunnerLabel.Trim() }
 $primaryLabelResolved = if (-not [string]::IsNullOrWhiteSpace($RunnerLabel)) { $RunnerLabel.Trim() } elseif (-not [string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_LABEL)) { $env:LVIE_RUNNER_LABEL.Trim() } else { $canonicalLabelResolved }
-$labelsResolved = Resolve-RunnerLabels -PrimaryLabel $primaryLabelResolved -ExtraLabels $RunnerLabels -CanonicalLabel $canonicalLabelResolved
+$labelsResolved = Resolve-RunnerLabelSet -PrimaryLabel $primaryLabelResolved -ExtraLabels $RunnerLabels -CanonicalLabel $canonicalLabelResolved
 
 $setupArgs = @{}
 if ($runnerRootResolved) { $setupArgs.RunnerRoot = $runnerRootResolved }
