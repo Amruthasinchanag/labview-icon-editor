@@ -102,8 +102,8 @@ Describe 'Verify IE Paths (dev mode) integration' {
         }
 
         $script:repoRoot = Get-RepoRoot
-        $script:setScript = Join-Path $script:repoRoot '.github\actions\set-development-mode\Set_Development_Mode.ps1'
-        $script:revertScript = Join-Path $script:repoRoot '.github\actions\revert-development-mode\RevertDevelopmentMode.ps1'
+        $script:setScript = Join-Path $script:repoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
+        $script:revertScript = Join-Path $script:repoRoot 'Tooling\Revert-DevelopmentMode-NoLabVIEW.ps1'
         $script:verifyScript = Join-Path $script:repoRoot 'Tooling\Invoke-MissingIEFilesFromLVInstall.ps1'
         $script:statusHelper = Join-Path $script:repoRoot 'Tooling\support\VerifyIEPathsStatus.ps1'
         $script:versionHelper = Join-Path $script:repoRoot 'Tooling\support\LabVIEWVersion.ps1'
@@ -127,13 +127,13 @@ Describe 'Verify IE Paths (dev mode) integration' {
 
         if (-not (Test-Path -Path $script:setScript)) {
             $script:skipAll = $true
-            $script:skipReason = "Set_Development_Mode.ps1 not found at $script:setScript"
+            $script:skipReason = "Set-DevelopmentMode-NoLabVIEW.ps1 not found at $script:setScript"
             return
         }
 
         if (-not (Test-Path -Path $script:revertScript)) {
             $script:skipAll = $true
-            $script:skipReason = "RevertDevelopmentMode.ps1 not found at $script:revertScript"
+            $script:skipReason = "Revert-DevelopmentMode-NoLabVIEW.ps1 not found at $script:revertScript"
             return
         }
 
@@ -164,8 +164,6 @@ Describe 'Verify IE Paths (dev mode) integration' {
             $revertArgs = @(
                 '-MinimumSupportedLVVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
-                '-ConnectTimeoutMs', $script:connectTimeoutMs,
-                '-ProcessTimeoutMs', $script:processTimeoutMs,
                 '-RepoRoot', $script:repoRoot
             )
 
@@ -197,8 +195,6 @@ Describe 'Verify IE Paths (dev mode) integration' {
             $setArgs = @(
                 '-MinimumSupportedLVVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
-                '-ConnectTimeoutMs', $script:connectTimeoutMs,
-                '-ProcessTimeoutMs', $script:processTimeoutMs,
                 '-RepoRoot', $script:repoRoot
             )
 
@@ -221,8 +217,6 @@ Describe 'Verify IE Paths (dev mode) integration' {
             $revertArgs = @(
                 '-MinimumSupportedLVVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
-                '-ConnectTimeoutMs', $script:connectTimeoutMs,
-                '-ProcessTimeoutMs', $script:processTimeoutMs,
                 '-RepoRoot', $script:repoRoot
             )
 
