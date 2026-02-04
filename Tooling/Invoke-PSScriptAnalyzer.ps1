@@ -155,13 +155,32 @@ function Write-Baseline {
 }
 
 function Resolve-SummaryPath {
-    param([string]$OverridePath)
+    param(
+        [string]$OverridePath,
+        [string]$RepoRoot
+    )
 
     if (-not [string]::IsNullOrWhiteSpace($OverridePath)) {
         return $OverridePath
     }
 
-    return $env:GITHUB_STEP_SUMMARY
+    if (-not [string]::IsNullOrWhiteSpace($env:LVIE_PSSCRIPTANALYZER_SUMMARY_PATH)) {
+        return $env:LVIE_PSSCRIPTANALYZER_SUMMARY_PATH
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+        return $env:GITHUB_STEP_SUMMARY
+    }
+
+    if ($env:GITHUB_ACTIONS -eq 'true') {
+        return $null
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        return (Join-Path $RepoRoot 'TestResults\psscriptanalyzer-summary.md')
+    }
+
+    return $null
 }
 
 function Write-Summary {
@@ -244,10 +263,18 @@ foreach ($issue in $normalized) {
 }
 
 if ($WriteSummary) {
-    $summaryPath = Resolve-SummaryPath -OverridePath $SummaryPath
+    $summaryPath = Resolve-SummaryPath -OverridePath $SummaryPath -RepoRoot $repoRoot
     if ([string]::IsNullOrWhiteSpace($summaryPath)) {
-        Write-Warning "WriteSummary requested, but no summary path was provided and GITHUB_STEP_SUMMARY is not set."
+        if ($env:GITHUB_ACTIONS -eq 'true') {
+            Write-Warning "WriteSummary requested, but no summary path was provided and GITHUB_STEP_SUMMARY is not set."
+        } else {
+            Write-Host "WriteSummary skipped: no summary path provided."
+        }
     } else {
+        $summaryDir = Split-Path -Parent $summaryPath
+        if ($summaryDir -and -not (Test-Path -Path $summaryDir)) {
+            New-Item -Path $summaryDir -ItemType Directory -Force | Out-Null
+        }
         Write-Summary -Path $summaryPath -FileCount $files.Count -TotalIssues $normalized.Count -NewIssues $newIssues
     }
 }
