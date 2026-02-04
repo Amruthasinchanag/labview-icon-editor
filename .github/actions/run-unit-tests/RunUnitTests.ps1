@@ -65,7 +65,11 @@ param(
 
     [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $false, ParameterSetName = 'ReportOnly')]
-    [switch]$SkipWorktreeRootCheck
+    [switch]$SkipWorktreeRootCheck,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 
 # Script-level variables to track exit states and results
@@ -406,9 +410,16 @@ function MainSequence {
     $previousNativePreference = $PSNativeCommandUseErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
     try {
-        & g-cli --lv-ver $labviewYear --arch $SupportedBitness lunit -- -r "$ReportPath" "$AbsoluteProjectPath"
-    }
-    finally {
+        $gcliArgs = @(
+            '--lv-ver', $labviewYear,
+            '--arch', $SupportedBitness
+        )
+        if ($ConnectTimeoutMs -gt 0) {
+            $gcliArgs += @('--connect-timeout', $ConnectTimeoutMs)
+        }
+        $gcliArgs += @('lunit', '--', '-r', "$ReportPath", "$AbsoluteProjectPath")
+        & g-cli @gcliArgs
+    } finally {
         $PSNativeCommandUseErrorActionPreference = $previousNativePreference
     }
 
