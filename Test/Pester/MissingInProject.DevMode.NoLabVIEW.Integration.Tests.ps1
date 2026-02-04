@@ -6,6 +6,7 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
         $script:skipReason = ''
         $script:labviewVersion = $null
         $script:labviewBitness = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_BITNESS)) { '64' } else { $env:LABVIEW_BITNESS }
+        $script:connectTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_CONNECT_TIMEOUT_MS)) { '120000' } else { $env:LABVIEW_CONNECT_TIMEOUT_MS }
         $script:bitnessesToTest = @()
         $script:projectFile = $null
         $script:runDevModeTests = $false
@@ -204,7 +205,8 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
             $missingArgs = @(
                 '-LVVersion', $script:labviewVersion,
                 '-Arch', $bitness,
-                '-ProjectFile', $script:projectFile
+                '-ProjectFile', $script:projectFile,
+                '-ConnectTimeoutMs', $script:connectTimeoutMs
             )
 
             try {

@@ -5,7 +5,9 @@ param(
     [Parameter(Mandatory)][ValidateSet('32','64')][string]$Arch,
     [Parameter(Mandatory)][string]$ProjectFile,
     [string]$WorktreeRoot,
-    [switch]$SkipWorktreeRootCheck
+    [switch]$SkipWorktreeRootCheck,
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,7 +77,7 @@ function MainSequence {
     Write-Host "Invoking missing‑file check via helper script …`n"
 
     # call helper & capture any stdout (not strictly needed now)
-    & $HelperPath -LVVersion $labviewYear -Arch $Arch -ProjectFile $ProjectFile
+    & $HelperPath -LVVersion $labviewYear -Arch $Arch -ProjectFile $ProjectFile -ConnectTimeoutMs $ConnectTimeoutMs
     $Script:HelperExitCode = $LASTEXITCODE
 
     if ($Script:HelperExitCode -ne 0) {

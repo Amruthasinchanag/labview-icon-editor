@@ -20,7 +20,9 @@
 param(
     [Parameter(Mandatory)][string]$LVVersion,
     [Parameter(Mandatory)][ValidateSet('32','64')][string]$Arch,
-    [Parameter(Mandatory)][string]$ProjectFile
+    [Parameter(Mandatory)][string]$ProjectFile,
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 $ErrorActionPreference = 'Stop'
 Write-Host "ℹ️  [GCLI] Starting Missing‑in‑Project check ..."
@@ -57,6 +59,10 @@ $gcliArgs = @(
     '--',
     $ProjectFile
 )
+
+if ($ConnectTimeoutMs -gt 0) {
+    $gcliArgs = @('--connect-timeout', $ConnectTimeoutMs) + $gcliArgs
+}
 
 $gcliOutput = & g-cli @gcliArgs 2>&1 | Tee-Object -Variable _outLines
 $exitCode   = $LASTEXITCODE
