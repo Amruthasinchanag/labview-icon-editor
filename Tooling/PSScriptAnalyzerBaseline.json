@@ -1,0 +1,1026 @@
+[
+  {
+    "RuleName": "PSUseBOMForUnicodeEncodedFile",
+    "Severity": "Warning",
+    "Message": "Missing BOM encoding for non-ASCII encoded file 'ModifyVIPBDisplayInfo.Tests.ps1'",
+    "Path": "Test\\ModifyVIPBDisplayInfo.Tests.ps1",
+    "Line": null,
+    "Column": null
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'script:Get-LabVIEWPaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Test\\Pester\\DevMode.Integration.Tests.ps1",
+    "Line": 94,
+    "Column": 18
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'script:Get-ScriptArguments' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Test\\Pester\\DevMode.Integration.Tests.ps1",
+    "Line": 130,
+    "Column": 18
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode.Integration.Tests.ps1",
+    "Line": 201,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode.Integration.Tests.ps1",
+    "Line": 232,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode.Integration.Tests.ps1",
+    "Line": 248,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode.Integration.Tests.ps1",
+    "Line": 277,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'script:Get-LabVIEWPaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Test\\Pester\\DevMode2021.Integration.Tests.ps1",
+    "Line": 64,
+    "Column": 18
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'script:Get-ScriptArguments' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Test\\Pester\\DevMode2021.Integration.Tests.ps1",
+    "Line": 100,
+    "Column": 18
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode2021.Integration.Tests.ps1",
+    "Line": 167,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode2021.Integration.Tests.ps1",
+    "Line": 198,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode2021.Integration.Tests.ps1",
+    "Line": 214,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\DevMode2021.Integration.Tests.ps1",
+    "Line": 243,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\GcliRunner.Tests.ps1",
+    "Line": 16,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\GcliRunner.Tests.ps1",
+    "Line": 31,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Test\\Pester\\MissingIEFilesFromLVInstall.Integration.Tests.ps1",
+    "Line": 197,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-VersionInput' uses an unapproved verb.",
+    "Path": "Tooling\\Assert-LabVIEWVersion.ps1",
+    "Line": 62,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidDefaultValueSwitchParameter",
+    "Severity": "Warning",
+    "Message": "File 'Check-Runner.ps1' has a switch parameter default to true.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 29,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-Path' uses an unapproved verb.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 36,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-GitSafeDirectories' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 113,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 115,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 116,
+    "Column": 32
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 117,
+    "Column": 32
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 118,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 128,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 129,
+    "Column": 32
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 130,
+    "Column": 32
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Check-Runner.ps1",
+    "Line": 131,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidOverwritingBuiltInCmdlets",
+    "Severity": "Warning",
+    "Message": "'Write-Log' is a cmdlet that is included with PowerShell (version core-6.1.0-windows) whose definition should not be overridden",
+    "Path": "Tooling\\DevModeFinalizeDisable.ps1",
+    "Line": 90,
+    "Column": 1
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\DevModeIterate.ps1",
+    "Line": 311,
+    "Column": 51
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Ensure-Directory' uses an unapproved verb.",
+    "Path": "Tooling\\DevModeRestore.ps1",
+    "Line": 22,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Ensure-Directory' uses an unapproved verb.",
+    "Path": "Tooling\\DevModeSnapshot.ps1",
+    "Line": 134,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'WriteSummary' has been declared but not used.",
+    "Path": "Tooling\\Inspect-VipPackage.ps1",
+    "Line": 55,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-GitStatusLines' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-CIParity-PromoteWorktree.ps1",
+    "Line": 43,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-WorktreePaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-CIParity.ps1",
+    "Line": 165,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Convert-BoundParametersToArgs' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 160,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 165,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 174,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 176,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 182,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 183,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 189,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 190,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 195,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
+    "Line": 196,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Convert-BoundParametersToArgs' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 11,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 16,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 25,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 27,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 33,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 34,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 40,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 41,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 46,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 47,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-CleanRoomTargets' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-Preflight.ps1",
+    "Line": 124,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-AnalyzerFiles' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-PSScriptAnalyzer.ps1",
+    "Line": 77,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-Issue' uses an unapproved verb.",
+    "Path": "Tooling\\Invoke-PSScriptAnalyzer.ps1",
+    "Line": 108,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Copy-VipmLogs' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Invoke-VipBuild.ps1",
+    "Line": 139,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-PathString' uses an unapproved verb.",
+    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
+    "Line": 85,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-RegisteredWorktreePaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
+    "Line": 100,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
+    "Line": 115,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
+    "Line": 293,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
+    "Line": 300,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'Repo' has been declared but not used.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 2,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'Ref' has been declared but not used.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 3,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'LabVIEWVersion' has been declared but not used.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 7,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'PollSeconds' has been declared but not used.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 8,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'TimeoutMinutes' has been declared but not used.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 9,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'RunTimeoutMinutes' has been declared but not used.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 10,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
+    "Line": 32,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'LabVIEWVersion' has been declared but not used.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 36,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'SupportedBitness' has been declared but not used.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 40,
+    "Column": 15
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'RepoRoot' has been declared but not used.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 43,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'ContractPath' has been declared but not used.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 46,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'SkipProcessCheck' has been declared but not used.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 49,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-PathValue' uses an unapproved verb.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 108,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 121,
+    "Column": 15
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 124,
+    "Column": 7
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-IniLibraryPaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 135,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 192,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'Args' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Run-CICompositeForCommit.ps1",
+    "Line": 53,
+    "Column": 21
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Ensure-Gh' uses an unapproved verb.",
+    "Path": "Tooling\\Run-CICompositeForCommit.ps1",
+    "Line": 61,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Ensure-CsvHeader' uses an unapproved verb.",
+    "Path": "Tooling\\Run-CICompositeLocal-Auto.ps1",
+    "Line": 155,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Ensure-CsvHeader' uses an unapproved verb.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 200,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Warning",
+    "Message": "The Variable 'matches' is an automatic variable that is built into PowerShell, assigning to it might have undesired side effects. If assignment is not by design, please use a different name.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 370,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 420,
+    "Column": 51
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 429,
+    "Column": 30
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 456,
+    "Column": 51
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Invoke-VerifyIEPaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 479,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'ConnectTimeoutMs' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 482,
+    "Column": 14
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'StatusTimeoutMs' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 483,
+    "Column": 14
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'ProcessTimeoutMs' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 484,
+    "Column": 14
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'VerifyArchive' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 485,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'ConnectTimeoutMs' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 505,
+    "Column": 14
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'ProcessTimeoutMs' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 506,
+    "Column": 14
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'RepoRoot' has been declared but not used.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 567,
+    "Column": 19
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-RepoMetadata' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 625,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Copy-LatestVipToBuilds' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 683,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\Run-CICompositeLocal.ps1",
+    "Line": 1084,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-LockMetadata' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\RunnerLock.ps1",
+    "Line": 105,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'LabVIEWVersion' has been declared but not used.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 36,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'SupportedBitness' has been declared but not used.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 40,
+    "Column": 15
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'RepoRoot' has been declared but not used.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 43,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'ContractPath' has been declared but not used.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 46,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSReviewUnusedParameter",
+    "Severity": "Warning",
+    "Message": "The parameter 'SkipProcessCheck' has been declared but not used.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 49,
+    "Column": 13
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-PathValue' uses an unapproved verb.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 108,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 121,
+    "Column": 15
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 124,
+    "Column": 7
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-IniLibraryPaths' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 135,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 193,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
+    "Line": 223,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-Path' uses an unapproved verb.",
+    "Path": "Tooling\\Setup-Runner.ps1",
+    "Line": 23,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Normalize-Path' uses an unapproved verb.",
+    "Path": "Tooling\\Setup-RunnerWorktreeRoot.ps1",
+    "Line": 35,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Ensure-DevModeContractDirectory' uses an unapproved verb.",
+    "Path": "Tooling\\support\\DevModeContract.ps1",
+    "Line": 22,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Assert-DevModeNoProcesses' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\support\\DevModeContract.ps1",
+    "Line": 134,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\support\\GcliRunner.ps1",
+    "Line": 45,
+    "Column": 15
+  },
+  {
+    "RuleName": "PSAvoidAssignmentToAutomaticVariable",
+    "Severity": "Error",
+    "Message": "The Variable 'Error' cannot be assigned since it is a readonly automatic variable that is built into PowerShell, please use a different name.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 33,
+    "Column": 17
+  },
+  {
+    "RuleName": "PSAvoidDefaultValueSwitchParameter",
+    "Severity": "Warning",
+    "Message": "File 'LabVIEWStage.ps1' has a switch parameter default to true.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 339,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidDefaultValueSwitchParameter",
+    "Severity": "Warning",
+    "Message": "File 'LabVIEWStage.ps1' has a switch parameter default to true.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 341,
+    "Column": 9
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 399,
+    "Column": 94
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 455,
+    "Column": 102
+  },
+  {
+    "RuleName": "PSPossibleIncorrectComparisonWithNull",
+    "Severity": "Warning",
+    "Message": "$null should be on the left side of equality comparisons.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 491,
+    "Column": 42
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 568,
+    "Column": 90
+  },
+  {
+    "RuleName": "PSAvoidUsingEmptyCatchBlock",
+    "Severity": "Warning",
+    "Message": "Empty catch block is used. Please use Write-Error or throw statements in catch blocks.",
+    "Path": "Tooling\\support\\LabVIEWStage.ps1",
+    "Line": 571,
+    "Column": 148
+  },
+  {
+    "RuleName": "PSUseApprovedVerbs",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Apply-RunnerContract' uses an unapproved verb.",
+    "Path": "Tooling\\support\\RunnerContract.ps1",
+    "Line": 96,
+    "Column": 10
+  },
+  {
+    "RuleName": "PSAvoidDefaultValueSwitchParameter",
+    "Severity": "Warning",
+    "Message": "File 'Validate-RunnerContract.ps1' has a switch parameter default to true.",
+    "Path": "Tooling\\Validate-RunnerContract.ps1",
+    "Line": 15,
+    "Column": 5
+  },
+  {
+    "RuleName": "PSUseSingularNouns",
+    "Severity": "Warning",
+    "Message": "The cmdlet 'Get-GitSafeDirectories' uses a plural noun. A singular noun should be used instead.",
+    "Path": "Tooling\\Validate-RunnerContract.ps1",
+    "Line": 37,
+    "Column": 10
+  }
+]
