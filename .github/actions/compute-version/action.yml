@@ -66,7 +66,7 @@ runs:
         BUMP_TYPE:    ${{ steps.bump_type.outputs.bump_type }}
         BUILD_NUMBER: ${{ steps.inc_build.outputs.new_build_number }}
       run: |
-        $semverPattern = '^v?\d+(\.\d+){0,2}($|-)'
+        $semverPattern = '^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'
         $latestRaw = ''
         $tags = git tag --list --sort=-creatordate 2>$null
         foreach ($tag in $tags) {
@@ -76,11 +76,11 @@ runs:
           }
         }
         if ([string]::IsNullOrWhiteSpace($latestRaw)) {
-          Write-Host "No semver-like tags found; defaulting to 0.0.0."
+          Write-Host "No semver tags found; defaulting to 0.0.0."
           $maj=0; $min=1; $pat=0
         }
         else {
-          $latest = $latestRaw.Trim().TrimStart('v') -replace '-build.*'
+          $latest = $latestRaw.Trim().TrimStart('v') -replace '\+.*$' -replace '-.*$'
           $parts = $latest.Split('.')
           $maj = [int]$parts[0]
           $min = if ($parts.Length -gt 1) { [int]$parts[1] } else { 0 }
