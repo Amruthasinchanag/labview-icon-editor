@@ -497,6 +497,8 @@ function Invoke-EnableDevModeWithRecovery {
         [string]$Context
     )
 
+    Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
+
     $label = if ([string]::IsNullOrWhiteSpace($Context)) {
         "Enable dev mode ($Bitness-bit)"
     } else {
@@ -865,13 +867,18 @@ try {
                 }
             }
             finally {
+                try {
+                    Invoke-CloseLabVIEW -Bitness $bitness -Context 'after missing-in-project'
+                } catch {
+                    Write-Warning ("Failed to close LabVIEW after missing-in-project: {0}" -f $_.Exception.Message)
+                }
+                Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                     -LabVIEWVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
-                Invoke-CloseLabVIEW -Bitness $bitness -Context 'after missing-in-project'
             }
 
             $missingPath = Join-Path $repoRoot '.github/actions/missing-in-project/missing_files.txt'
@@ -894,13 +901,18 @@ try {
                 }
             }
             finally {
+                try {
+                    Invoke-CloseLabVIEW -Bitness $bitness -Context 'after unit tests'
+                } catch {
+                    Write-Warning ("Failed to close LabVIEW after unit tests: {0}" -f $_.Exception.Message)
+                }
+                Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                     -LabVIEWVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
-                Invoke-CloseLabVIEW -Bitness $bitness -Context 'after unit tests'
             }
         }
     }
@@ -923,13 +935,18 @@ try {
                 }
             }
             finally {
+                try {
+                    Invoke-CloseLabVIEW -Bitness $bitness -Context 'after PPL build'
+                } catch {
+                    Write-Warning ("Failed to close LabVIEW after PPL build: {0}" -f $_.Exception.Message)
+                }
+                Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
                     -LabVIEWVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
                     -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
-                Invoke-CloseLabVIEW -Bitness $bitness -Context 'after PPL build'
             }
 
             $currentFile = Join-Path $repoRoot 'resource/plugins/lv_icon.lvlibp'
