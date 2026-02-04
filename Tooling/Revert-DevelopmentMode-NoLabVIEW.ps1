@@ -1,14 +1,14 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-    Enables LabVIEW Icon Editor development mode without launching LabVIEW.
+    Reverts LabVIEW Icon Editor development mode without launching LabVIEW.
 
 .DESCRIPTION
-    Performs file-system and INI edits to mirror the dev-mode state:
-    - zips vi.lib\LabVIEW Icon API to LabVIEW Icon API.zip
-    - renames resource\plugins\lv_icon.lvlibp to lv_icon.ship
-    - adds RepoRoot to Localhost.LibraryPaths in LabVIEW.ini
-    This is intended for local testing; revert should use the LabVIEW-based workflow.
+    Performs file-system and INI edits to mirror the packaged state:
+    - unzips vi.lib\LabVIEW Icon API.zip back to vi.lib\LabVIEW Icon API
+    - renames resource\plugins\lv_icon.ship to lv_icon.lvlibp
+    - removes RepoRoot from Localhost.LibraryPaths in LabVIEW.ini
+    This is intended for local testing; official revert can use the LabVIEW-based workflow.
 
 .PARAMETER MinimumSupportedLVVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
@@ -153,17 +153,17 @@ function Format-IniPath {
     return $PathValue
 }
 
-function Set-IniLibraryPath {
+function Remove-IniLibraryPath {
     param(
         [string]$IniPath,
         [string]$RepoRoot
     )
 
-    $lines = @()
-    if (Test-Path -Path $IniPath) {
-        $lines = Get-Content -Path $IniPath
+    if (-not (Test-Path -Path $IniPath)) {
+        return
     }
 
+    $lines = @((Get-Content -Path $IniPath))
     $lineIndex = $null
     for ($i = 0; $i -lt $lines.Count; $i++) {
         if ($lines[$i] -match '(?i)^\s*localhost\.librarypaths\s*=') {
@@ -172,46 +172,41 @@ function Set-IniLibraryPath {
         }
     }
 
+    if ($lineIndex -eq $null) {
+        return
+    }
+
+    $raw = $lines[$lineIndex] -replace '(?i)^\s*localhost\.librarypaths\s*=\s*', ''
     $paths = @()
-    if ($lineIndex -ne $null) {
-        $raw = $lines[$lineIndex] -replace '(?i)^\s*localhost\.librarypaths\s*=\s*', ''
-        if (-not [string]::IsNullOrWhiteSpace($raw)) {
-            $paths = @($raw -split ';' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-        }
+    if (-not [string]::IsNullOrWhiteSpace($raw)) {
+        $paths = @($raw -split ';' | ForEach-Object { $_.Trim().Trim('"') } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     }
 
     $repoRootNormalized = Normalize-PathValue -PathValue $RepoRoot
-    $existingNormalized = @{}
+    if (-not $repoRootNormalized) {
+        return
+    }
+
+    $remaining = @()
     foreach ($pathValue in $paths) {
         $normalized = Normalize-PathValue -PathValue $pathValue
-        if ($normalized) {
-            $existingNormalized[$normalized.ToLowerInvariant()] = $pathValue
+        if (-not $normalized) { continue }
+        if ($normalized.ToLowerInvariant() -ne $repoRootNormalized.ToLowerInvariant()) {
+            $remaining += $pathValue
         }
     }
 
-    if ($repoRootNormalized) {
-        $key = $repoRootNormalized.ToLowerInvariant()
-        if (-not $existingNormalized.ContainsKey($key)) {
-            $paths += $repoRootNormalized
+    if ($remaining.Count -gt 0) {
+        $formatted = $remaining | ForEach-Object { Format-IniPath -PathValue $_ } | Where-Object { $_ }
+        $lines[$lineIndex] = "Localhost.LibraryPaths={0}" -f ($formatted -join ';')
+    } else {
+        if ($lineIndex -eq 0) {
+            $lines = $lines | Select-Object -Skip 1
+        } elseif ($lineIndex -eq ($lines.Count - 1)) {
+            $lines = $lines | Select-Object -First ($lines.Count - 1)
+        } else {
+            $lines = $lines[0..($lineIndex - 1)] + $lines[($lineIndex + 1)..($lines.Count - 1)]
         }
-    }
-
-    $formatted = $paths | ForEach-Object { Format-IniPath -PathValue $_ } | Where-Object { $_ }
-    $newLine = if ($formatted.Count -gt 0) {
-        "Localhost.LibraryPaths={0}" -f ($formatted -join ';')
-    } else {
-        "Localhost.LibraryPaths=$RepoRoot"
-    }
-
-    if ($lineIndex -ne $null) {
-        $lines[$lineIndex] = $newLine
-    } else {
-        $lines += $newLine
-    }
-
-    $targetDir = Split-Path -Path $IniPath -Parent
-    if (-not (Test-Path -Path $targetDir)) {
-        throw "LabVIEW install root not found for INI path: $IniPath"
     }
 
     Set-Content -Path $IniPath -Value $lines -Encoding ascii
@@ -239,7 +234,7 @@ function Test-LibraryPathContainsRepoRoot {
     return $false
 }
 
-function Test-IEDevModeEnabled {
+function Test-IEDevModeDisabled {
     param(
         [Parameter(Mandatory = $true)]
         [string]$LabVIEWInstallRoot
@@ -257,10 +252,10 @@ function Test-IEDevModeEnabled {
     $hasIconFolder = Test-Path -Path $installPaths.IconApiFolder
     $hasIconZip = Test-Path -Path $installPaths.IconApiZip
 
-    return ($hasShip -and (-not $hasLvlibp) -and (-not $hasIconFolder) -and $hasIconZip)
+    return ($hasLvlibp -and (-not $hasShip) -and $hasIconFolder -and (-not $hasIconZip))
 }
 
-function Enable-DevModeNoLabVIEW {
+function Disable-DevModeNoLabVIEW {
     param(
         [string]$Bitness,
         [string]$RepoRoot,
@@ -278,47 +273,47 @@ function Enable-DevModeNoLabVIEW {
     $shipPath = Join-Path $installRoot 'resource\plugins\lv_icon.ship'
     $iniPath = Join-Path $installRoot 'LabVIEW.ini'
 
-    Write-Host ("Enable dev mode (no LabVIEW): LV{0} {1}-bit" -f $LabVIEWYear, $Bitness)
+    Write-Host ("Revert dev mode (no LabVIEW): LV{0} {1}-bit" -f $LabVIEWYear, $Bitness)
     Write-Host ("Install root: {0}" -f $installRoot)
 
-    if (Test-Path -Path $iconApiDir) {
-        Write-Host "Zipping LabVIEW Icon API folder."
-        if (Test-Path -Path $iconApiZip) {
-            Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
+    if (Test-Path -Path $iconApiZip) {
+        if (Test-Path -Path $iconApiDir) {
+            Remove-Item -Path $iconApiDir -Recurse -Force
         }
-        Compress-Archive -Path $iconApiDir -DestinationPath $iconApiZip -Force
-        Remove-Item -Path $iconApiDir -Recurse -Force
-    } elseif (-not (Test-Path -Path $iconApiZip)) {
+        $parent = Split-Path -Path $iconApiDir -Parent
+        Expand-Archive -Path $iconApiZip -DestinationPath $parent -Force
+        Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
+    } elseif (-not (Test-Path -Path $iconApiDir)) {
         Write-Warning ("Icon API folder and zip not found under {0}." -f (Join-Path $installRoot 'vi.lib'))
     }
 
-    if (Test-Path -Path $lvlibpPath) {
-        Write-Host "Renaming lv_icon.lvlibp to lv_icon.ship."
-        if (Test-Path -Path $shipPath) {
-            Remove-Item -Path $shipPath -Force -ErrorAction SilentlyContinue
+    if (Test-Path -Path $shipPath) {
+        Write-Host "Renaming lv_icon.ship to lv_icon.lvlibp."
+        if (Test-Path -Path $lvlibpPath) {
+            Remove-Item -Path $lvlibpPath -Force -ErrorAction SilentlyContinue
         }
-        Move-Item -Path $lvlibpPath -Destination $shipPath -Force
-    } elseif (-not (Test-Path -Path $shipPath)) {
-        Write-Warning ("lv_icon.lvlibp and lv_icon.ship not found under {0}." -f (Split-Path $lvlibpPath -Parent))
+        Move-Item -Path $shipPath -Destination $lvlibpPath -Force
+    } elseif (-not (Test-Path -Path $lvlibpPath)) {
+        Write-Warning ("lv_icon.ship and lv_icon.lvlibp not found under {0}." -f (Split-Path $lvlibpPath -Parent))
     }
 
     Write-Host ("Updating Localhost.LibraryPaths in {0}" -f $iniPath)
-    Set-IniLibraryPath -IniPath $iniPath -RepoRoot $RepoRoot
+    Remove-IniLibraryPath -IniPath $iniPath -RepoRoot $RepoRoot
 
     $issues = @()
-    if (-not (Test-IEDevModeEnabled -LabVIEWInstallRoot $installRoot)) {
-        $issues += 'Install files did not reflect dev-mode state.'
+    if (-not (Test-IEDevModeDisabled -LabVIEWInstallRoot $installRoot)) {
+        $issues += 'Install files did not reflect reverted state.'
     }
-    if (-not (Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $RepoRoot)) {
-        $issues += 'Localhost.LibraryPaths does not include repo root.'
+    if (Test-LibraryPathContainsRepoRoot -IniPath $iniPath -RepoRoot $RepoRoot) {
+        $issues += 'Localhost.LibraryPaths still includes repo root.'
     }
 
     if ($issues.Count -gt 0) {
-        throw ("Dev mode enable (no LabVIEW) failed: {0}" -f ($issues -join ' '))
+        throw ("Dev mode revert (no LabVIEW) failed: {0}" -f ($issues -join ' '))
     }
 }
 
-function Invoke-DevModeNoLabVIEWMain {
+function Invoke-RevertDevModeNoLabVIEWMain {
     $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
     $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
     $labviewYear = $MinimumSupportedLVVersion
@@ -334,7 +329,7 @@ function Invoke-DevModeNoLabVIEWMain {
     try {
         $bitnesses = $SupportedBitness | Select-Object -Unique
         foreach ($bitness in $bitnesses) {
-            Enable-DevModeNoLabVIEW -Bitness $bitness -RepoRoot $resolvedRepoRoot -LabVIEWYear $labviewYear
+            Disable-DevModeNoLabVIEW -Bitness $bitness -RepoRoot $resolvedRepoRoot -LabVIEWYear $labviewYear
         }
     }
     catch {
@@ -344,5 +339,5 @@ function Invoke-DevModeNoLabVIEWMain {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    Invoke-DevModeNoLabVIEWMain
+    Invoke-RevertDevModeNoLabVIEWMain
 }
