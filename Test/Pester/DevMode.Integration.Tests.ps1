@@ -91,7 +91,7 @@ Describe 'Development Mode integration' {
             return @($bitnesses)
         }
 
-        function script:Get-LabVIEWPaths {
+        function script:Get-LabVIEWPathMap {
             param(
                 [string]$InstallRoot
             )
@@ -127,7 +127,7 @@ Describe 'Development Mode integration' {
             }
         }
 
-        function script:Get-ScriptArguments {
+        function script:Get-ScriptArgumentList {
             param(
                 [string]$LabVIEWVersion,
                 [string]$RepoRoot,
@@ -198,8 +198,8 @@ Describe 'Development Mode integration' {
 
         $filteredBitnesses = New-Object System.Collections.Generic.List[string]
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+            $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $scriptArgs
             if ($result.ExitCode -eq 0) {
                 $filteredBitnesses.Add($bitness)
                 continue
@@ -229,8 +229,8 @@ Describe 'Development Mode integration' {
     AfterAll {
         if (-not $script:skipAll) {
             foreach ($bitness in $script:bitnessesToTest) {
-                $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-                $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+                $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+                $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $scriptArgs
                 if ($result.ExitCode -ne 0) {
                     throw "Failed to restore LabVIEW setup for $bitness-bit; exit code $($result.ExitCode)."
                 }
@@ -245,8 +245,8 @@ Describe 'Development Mode integration' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-            $result = Invoke-LabVIEWScript -ScriptPath $script:setScript -Arguments $args
+            $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $result = Invoke-LabVIEWScript -ScriptPath $script:setScript -Arguments $scriptArgs
             $result.ExitCode | Should -Be 0
             (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
         }
@@ -259,7 +259,7 @@ Describe 'Development Mode integration' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $paths = Get-LabVIEWPaths -InstallRoot $script:installRoots[$bitness]
+            $paths = Get-LabVIEWPathMap -InstallRoot $script:installRoots[$bitness]
             (Test-Path -Path $paths.Ship) | Should -BeTrue
             (Test-Path -Path $paths.Lvlibp) | Should -BeFalse
             (Test-Path -Path $paths.IconApiFolder) | Should -BeFalse
@@ -274,8 +274,8 @@ Describe 'Development Mode integration' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+            $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $scriptArgs
             $result.ExitCode | Should -Be 0
             (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
         }
@@ -288,7 +288,7 @@ Describe 'Development Mode integration' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $paths = Get-LabVIEWPaths -InstallRoot $script:installRoots[$bitness]
+            $paths = Get-LabVIEWPathMap -InstallRoot $script:installRoots[$bitness]
             (Test-Path -Path $paths.Lvlibp) | Should -BeTrue
             (Test-Path -Path $paths.Ship) | Should -BeFalse
             (Test-Path -Path $paths.IconApiFolder) | Should -BeTrue
@@ -297,3 +297,5 @@ Describe 'Development Mode integration' {
     }
 
 }
+
+

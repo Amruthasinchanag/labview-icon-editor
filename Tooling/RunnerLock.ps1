@@ -102,7 +102,7 @@ function Resolve-LockRoot {
     return 'C:\dev'
 }
 
-function Get-LockMetadata {
+function Get-LockMetadataRecord {
     param([string]$MetadataPath)
 
     if (-not (Test-Path -Path $MetadataPath)) {
@@ -311,7 +311,7 @@ if ($Mode -eq 'Acquire') {
             Write-Host "Acquired LabVIEW runner lock: $lockPath"
             break
         } catch {
-            $metadata = Get-LockMetadata -MetadataPath $metadataPath
+            $metadata = Get-LockMetadataRecord -MetadataPath $metadataPath
             $owner = Format-LockOwner -Metadata $metadata
             $acquiredAtUtc = Resolve-AcquiredAtUtc -Metadata $metadata -LockPath $lockPath
             $leaseExpiresAtUtc = Resolve-LeaseExpiresAtUtc -Metadata $metadata -AcquiredAtUtc $acquiredAtUtc -LeaseSecondsValue $leaseSecondsValue
@@ -389,3 +389,4 @@ if ($Mode -eq 'Acquire') {
         Write-Host "LabVIEW runner lock not present: $lockPath"
     }
 }
+

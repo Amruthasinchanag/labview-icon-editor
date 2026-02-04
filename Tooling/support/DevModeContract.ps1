@@ -131,7 +131,7 @@ function Write-DevModeContract {
     $Contract | ConvertTo-Json -Depth 8 | Set-Content -Path $ContractPath -Encoding utf8
 }
 
-function Assert-DevModeNoProcesses {
+function Assert-DevModeNoProcess {
     param(
         [Parameter(Mandatory = $false)]
         [string[]]$ProcessNames = @('LabVIEW', 'g-cli')
@@ -143,4 +143,5 @@ function Assert-DevModeNoProcesses {
         throw ("Refusing to toggle dev mode while running: {0}. Close these processes or pass -SkipProcessCheck." -f ($names -join ', '))
     }
 }
+
 

@@ -476,7 +476,7 @@ function Test-ConnectTimeoutError {
     return $message -match 'GCLI_CONNECT_TIMEOUT' -or $message -match 'Timed out waiting for app to connect to g-cli'
 }
 
-function Invoke-VerifyIEPaths {
+function Invoke-VerifyIEPath {
     param(
         [string]$Bitness,
         [int]$ConnectTimeoutMs,
@@ -630,7 +630,7 @@ function Get-LocalVersionInfo {
     }
 }
 
-function Get-RepoMetadata {
+function Get-RepoInfo {
     param([string]$RepoRoot)
 
     $repoName = Split-Path -Path $RepoRoot -Leaf
@@ -663,7 +663,7 @@ function Get-DisplayInformationJson {
         [int]$Build
     )
 
-    $meta = Get-RepoMetadata -RepoRoot $RepoRoot
+    $meta = Get-RepoInfo -RepoRoot $RepoRoot
     $releaseNotes = if (Test-Path $ReleaseNotesPath) { Get-Content -Raw -Path $ReleaseNotesPath } else { 'Release notes file not generated.' }
     $productName = $meta.RepoName
     $description = "$($meta.RepoName) VI Package build for $($meta.FullName)."
@@ -688,7 +688,7 @@ function Get-DisplayInformationJson {
     return ($info | ConvertTo-Json -Depth 5 -Compress)
 }
 
-function Copy-LatestVipToBuilds {
+function Copy-LatestVipToBuild {
     param(
         [string]$RepoRoot,
         [datetime]$Since,
@@ -756,7 +756,7 @@ $preflight = $null
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
@@ -876,7 +876,7 @@ try {
                 }
             }
 
-            $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $verifyConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
+            $verifyResult = Invoke-VerifyIEPath -Bitness $bitness -ConnectTimeoutMs $verifyConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
             if ($verifyResult.Error) {
                 throw $verifyResult.Error
             }
@@ -1068,7 +1068,7 @@ try {
             throw
         }
 
-        $vipOutput = Copy-LatestVipToBuilds -RepoRoot $repoRoot -Since $vipBuildStart -ArtifactRoot $artifactRootResolved
+        $vipOutput = Copy-LatestVipToBuild -RepoRoot $repoRoot -Since $vipBuildStart -ArtifactRoot $artifactRootResolved
         if (-not $vipOutput) {
             Write-GCliBuildLogTail -RepoRoot $repoRoot -ArtifactRoot $artifactRootResolved
             throw "VIP build did not produce a .vip after $($vipBuildStart.ToString('yyyy-MM-dd HH:mm:ss'))."
@@ -1110,5 +1110,7 @@ finally {
     "{0},{1},{2},{3}" -f $runTimestamp, $runStatus, $runDuration, ($commandLine -replace ',', ' ') | Add-Content -Path $script:RunHistoryPath
     Pop-Location
 }
+
+
 
 

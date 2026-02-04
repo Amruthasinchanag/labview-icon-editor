@@ -157,7 +157,7 @@ if ($EnableDevMode -and $EnableDevModeNoLabVIEW) {
     Write-Warning "EnableDevModeNoLabVIEW is set; ignoring EnableDevMode."
 }
 
-function Convert-BoundParametersToArgs {
+function Convert-BoundParametersToArgumentList {
     param(
         [hashtable]$BoundParameters
     )
@@ -396,7 +396,7 @@ if ($AutoWorktree -and -not $skipGuard) {
             $worktreePath = & $newWorktreeScript @worktreeArgs
             Write-Host ("Using worktree: {0}" -f $worktreePath)
 
-            $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+            $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
             $reinvokeArgs = @()
             for ($i = 0; $i -lt $scriptArgs.Count; $i++) {
                 $arg = $scriptArgs[$i]
@@ -419,7 +419,7 @@ if ($AutoWorktree -and -not $skipGuard) {
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflightParams = @{
         RepoRoot       = $repoRoot
@@ -624,3 +624,4 @@ finally {
 if ($preflight -and $preflight.CleanRoomAfter) {
     Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
 }
+

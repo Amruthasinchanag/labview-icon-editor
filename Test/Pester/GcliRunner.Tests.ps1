@@ -13,13 +13,13 @@ Describe 'G-CLI runner helper' {
     }
 
     It 'captures stdout and stderr separately' {
-        $args = @(
+        $scriptArgs = @(
             '-NoProfile',
             '-Command',
             "[Console]::Out.WriteLine('stdout line'); [Console]::Error.WriteLine('stderr line'); exit 7"
         )
 
-        $result = Invoke-GCliCommand -ExecutablePath $script:pwshPath -Arguments $args
+        $result = Invoke-GCliCommand -ExecutablePath $script:pwshPath -Arguments $scriptArgs
 
         $result.OutputLines | Should -Contain 'stdout line'
         $result.ErrorLines | Should -Contain 'stderr line'
@@ -28,14 +28,15 @@ Describe 'G-CLI runner helper' {
     }
 
     It 'marks the process as timed out when it exceeds the timeout' {
-        $args = @(
+        $scriptArgs = @(
             '-NoProfile',
             '-Command',
             'Start-Sleep -Seconds 5'
         )
 
-        $result = Invoke-GCliCommand -ExecutablePath $script:pwshPath -Arguments $args -TimeoutMs 200
+        $result = Invoke-GCliCommand -ExecutablePath $script:pwshPath -Arguments $scriptArgs -TimeoutMs 200
 
         $result.TimedOut | Should -BeTrue
     }
 }
+

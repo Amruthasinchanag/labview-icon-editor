@@ -8,7 +8,7 @@
     and optionally cleans known output folders before/after a run.
 #>
 
-function Convert-BoundParametersToArgs {
+function Convert-BoundParametersToArgumentList {
     param(
         [hashtable]$BoundParameters
     )
@@ -121,7 +121,7 @@ function Resolve-ArtifactRoot {
     return (Join-Path -Path $base -ChildPath $RunId)
 }
 
-function Get-CleanRoomTargets {
+function Get-CleanRoomTargetList {
     param(
         [string]$RepoRoot
     )
@@ -151,7 +151,7 @@ function Invoke-PreflightCleanup {
 
     Write-Host ("Clean-room ({0}): removing known output folders." -f $Phase)
 
-    foreach ($target in (Get-CleanRoomTargets -RepoRoot $RepoRoot)) {
+    foreach ($target in (Get-CleanRoomTargetList -RepoRoot $RepoRoot)) {
         if ([string]::IsNullOrWhiteSpace($target)) { continue }
         if (Test-Path -Path $target) {
             try {
@@ -415,4 +415,6 @@ function Invoke-Preflight {
         CleanRoomAfter      = $CleanRoom
     }
 }
+
+
 

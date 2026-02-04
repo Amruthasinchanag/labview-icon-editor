@@ -162,7 +162,7 @@ function Resolve-WorktreeName {
     }
 }
 
-function Get-WorktreePaths {
+function Get-WorktreePathList {
     param([string]$RepoRoot)
 
     $paths = @()
@@ -338,7 +338,7 @@ if ($UseWorktree) {
     Write-Warning 'UseWorktree is disabled; skipping worktree root guard.'
 }
 
-$worktreesBefore = if ($UseWorktree) { Get-WorktreePaths -RepoRoot $repoRoot } else { @() }
+$worktreesBefore = if ($UseWorktree) { Get-WorktreePathList -RepoRoot $repoRoot } else { @() }
 $worktreePath = $null
 $runRepoRoot = $repoRoot
 
@@ -463,7 +463,7 @@ try {
 } finally {
     $runEnd = Get-Date
     Write-ProcessSnapshot -Path $snapshotAfterPath -Label 'after'
-    $worktreesAfter = if ($UseWorktree) { Get-WorktreePaths -RepoRoot $repoRoot } else { @() }
+    $worktreesAfter = if ($UseWorktree) { Get-WorktreePathList -RepoRoot $repoRoot } else { @() }
     $newWorktrees = if ($UseWorktree) { $worktreesAfter | Where-Object { $worktreesBefore -notcontains $_ } } else { @() }
     if (-not $worktreePath -and $newWorktrees.Count -gt 0) {
         $worktreePath = $newWorktrees[0]
@@ -491,3 +491,4 @@ try {
             -LabVIEWBitness $LabVIEWBitness)
     Copy-Item -Path $statusPath -Destination $statusLatestPath -Force
 }
+

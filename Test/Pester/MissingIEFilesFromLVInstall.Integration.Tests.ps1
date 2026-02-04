@@ -194,15 +194,16 @@ Describe 'Verify IE Paths integration' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = @(
+            $scriptArgs = @(
                 '-LabVIEWVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
                 '-ConnectTimeoutMs', $script:connectTimeoutMs,
                 '-ProcessTimeoutMs', $script:processTimeoutMs
             )
 
-            $result = Invoke-Runner -ScriptPath $script:scriptPath -Arguments $args
+            $result = Invoke-Runner -ScriptPath $script:scriptPath -Arguments $scriptArgs
             $result.ExitCode | Should -Be 0
         }
     }
 }
+

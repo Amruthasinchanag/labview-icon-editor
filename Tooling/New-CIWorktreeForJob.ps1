@@ -97,7 +97,7 @@ function Resolve-NormalizedPath {
     return $full
 }
 
-function Get-RegisteredWorktreePaths {
+function Get-RegisteredWorktreePathList {
     param([string]$RepoRoot)
 
     $paths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -136,7 +136,7 @@ function Invoke-WorktreeRetentionCleanup {
     }
 
     $cutoff = (Get-Date).AddDays(-$RetentionDays)
-    $registered = Get-RegisteredWorktreePaths -RepoRoot $RepoRoot
+    $registered = Get-RegisteredWorktreePathList -RepoRoot $RepoRoot
 
     Get-ChildItem -Path $Root -Directory -Force | Where-Object {
         $_.Name -like 'ci-*' -and
@@ -335,4 +335,5 @@ if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_ENV)) {
 Write-Host ("Worktree created: {0}" -f $worktree)
 Write-Host ("LabVIEW version: {0} (year {1}, minor {2})" -f $lvInfo.Raw, $lvInfo.Year, $lvInfo.MinorRevision)
 Write-Output $worktree
+
 

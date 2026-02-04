@@ -133,7 +133,7 @@ function Resolve-PathValue {
     }
 }
 
-function Get-IniLibraryPaths {
+function Get-IniLibraryPathList {
     param(
         [string]$IniPath
     )
@@ -242,7 +242,7 @@ function Test-LibraryPathContainsRepoRoot {
     }
     $repoKey = $repoRootNormalized.ToLowerInvariant()
 
-    foreach ($pathValue in (Get-IniLibraryPaths -IniPath $IniPath)) {
+    foreach ($pathValue in (Get-IniLibraryPathList -IniPath $IniPath)) {
         $candidate = Resolve-PathValue -PathValue $pathValue
         if ($candidate -and $candidate.ToLowerInvariant() -eq $repoKey) {
             return $true
@@ -419,7 +419,7 @@ function Invoke-RevertDevModeNoLabVIEWMain {
 
     try {
         if (-not $SkipProcessCheck) {
-            Assert-DevModeNoProcesses
+            Assert-DevModeNoProcess
         }
         $contractPath = Resolve-DevModeContractPath -RepoRoot $resolvedRepoRoot -ContractPath $ContractPath
         $contract = Read-DevModeContract -ContractPath $contractPath -RepoRoot $resolvedRepoRoot
@@ -447,4 +447,6 @@ if ($MyInvocation.InvocationName -ne '.') {
         -ContractPath $ContractPath `
         -SkipProcessCheck:$SkipProcessCheck
 }
+
+
 

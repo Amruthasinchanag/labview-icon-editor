@@ -136,7 +136,7 @@ function Write-Status {
     $Payload | ConvertTo-Json -Depth 6 | Set-Content -Path $Path -Encoding ascii
 }
 
-function Copy-VipmLogs {
+function Copy-VipmLog {
     param([string]$LogDirectory)
 
     $candidates = @()
@@ -282,7 +282,7 @@ if (-not $success -and (Test-Path -Path $gcliLog)) {
 
 $vipmLogsCopied = $false
 if (-not $success) {
-    $vipmLogsCopied = Copy-VipmLogs -LogDirectory $logDirectory
+    $vipmLogsCopied = Copy-VipmLog -LogDirectory $logDirectory
 }
 
 $status = @{
@@ -309,3 +309,4 @@ if (-not $success) {
         Write-Error ("VIP build failed with exit code {0}." -f $lastExitCode)
     }
 }
+

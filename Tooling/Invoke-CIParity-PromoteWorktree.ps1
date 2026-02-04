@@ -40,7 +40,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Get-GitStatusLines {
+function Get-GitStatusLine {
     param([string]$RepoRoot)
 
     $lines = & git -C $RepoRoot status --porcelain
@@ -52,7 +52,7 @@ function Get-GitStatusLines {
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 
-$statusLines = Get-GitStatusLines -RepoRoot $repoRoot
+$statusLines = Get-GitStatusLine -RepoRoot $repoRoot
 $hasChanges = $statusLines -and $statusLines.Count -gt 0
 
 if ($hasChanges) {
@@ -94,3 +94,4 @@ if (-not (Test-Path -Path $invokeScript)) {
     -UseWorktree:$false `
     -LabVIEWBitness $LabVIEWBitness `
     -EnsureCleanState:$EnsureCleanState
+

@@ -74,7 +74,7 @@ function Resolve-DefaultPath {
     return (Join-Path $Root $RelativePath)
 }
 
-function Get-AnalyzerFiles {
+function Get-AnalyzerFileList {
     param([string]$Root)
 
     $excludeTokens = @(
@@ -204,7 +204,7 @@ if (-not (Test-Path -Path $settingsPath)) {
     throw "PSScriptAnalyzer settings file not found at $settingsPath"
 }
 
-$files = Get-AnalyzerFiles -Root $repoRoot
+$files = Get-AnalyzerFileList -Root $repoRoot
 if (-not $files -or $files.Count -eq 0) {
     Write-Host "No PowerShell files found to analyze."
     return
@@ -263,4 +263,5 @@ if ($newIssues.Count -gt 0) {
 } else {
     Write-Host ("No new PSScriptAnalyzer issues detected. Total issues: {0}" -f $normalized.Count)
 }
+
 

@@ -233,7 +233,7 @@ if (Test-Path -Path $assertScript) {
 $preflight = $null
 $artifactRootResolved = $null
 if (Get-Command Invoke-Preflight -ErrorAction SilentlyContinue) {
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $runRepoRoot `
@@ -324,4 +324,5 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
 if ($preflight -and $preflight.CleanRoomAfter) {
     Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
 }
+
 

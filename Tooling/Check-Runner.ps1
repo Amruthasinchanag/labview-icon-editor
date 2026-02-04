@@ -110,7 +110,7 @@ if ($resolvedWorktreeRoot -and -not (Test-Path -Path $resolvedWorktreeRoot)) {
     Write-Warning ("Worktree root does not exist: {0}" -f $resolvedWorktreeRoot)
 }
 
-function Get-GitSafeDirectories {
+function Get-GitSafeDirectory {
     param([string]$Scope)
     $gitArgs = @('config')
     if ($Scope -eq 'System') { $gitArgs += '--system' }
@@ -134,7 +134,7 @@ function Add-GitSafeDirectory {
 
 if ($resolvedWorkRoot) {
     $safePattern = ($resolvedWorkRoot -replace '\\', '/') + '/*'
-    $safeList = Get-GitSafeDirectories -Scope $SafeDirectoryScope
+    $safeList = Get-GitSafeDirectory -Scope $SafeDirectoryScope
     $hasSafe = $false
     if ($safeList) {
         $hasSafe = $safeList | Where-Object { $_ -eq '*' -or $_ -eq $safePattern }
@@ -181,4 +181,5 @@ if ($resolvedRepoRoot) {
 } else {
     Write-Warning "Runner check: repo_root not resolved; skipping LabVIEW version checks."
 }
+
 
