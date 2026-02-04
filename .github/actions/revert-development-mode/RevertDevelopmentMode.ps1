@@ -144,7 +144,7 @@ if (-not $SkipToggle) {
             '-ProcessTimeoutMs', $ProcessTimeoutMs
         )
         if ($RestoreOnFailure) {
-            $toggleArgs += '-RestoreOnFailure'
+            $toggleArgs += '-RestoreOnFailure:$true'
         } else {
             $toggleArgs += '-RestoreOnFailure:$false'
         }
