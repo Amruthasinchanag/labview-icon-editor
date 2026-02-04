@@ -4,7 +4,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: labview-${{ github.repository }}-self-hosted-windows-lv-ie
+  group: labview-${{ github.repository }}-${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   cancel-in-progress: false
 
 on:
@@ -13,7 +13,7 @@ on:
 
 jobs:
   missing-in-project-check:
-    runs-on: self-hosted-windows-lv-ie
+    runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     strategy:
@@ -45,8 +45,7 @@ jobs:
           & ".github\\actions\\set-development-mode\\Set_Development_Mode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT" `
-            -UseLabVIEW
+            -RepoRoot "$env:REPO_ROOT"
 
       - name: Resolve LabVIEW project path
         id: proj
@@ -127,8 +126,7 @@ jobs:
           & ".github\\actions\\revert-development-mode\\RevertDevelopmentMode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT" `
-            -UseLabVIEW
+            -RepoRoot "$env:REPO_ROOT"
       - name: Close LabVIEW (LV ${{ matrix.bitness }}-bit)
         if: always()
         shell: pwsh
@@ -164,6 +162,7 @@ jobs:
         shell: pwsh
         run: |
           pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+
 
 
 

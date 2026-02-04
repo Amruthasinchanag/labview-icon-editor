@@ -4,7 +4,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: labview-${{ github.repository }}-self-hosted-windows-lv-ie
+  group: labview-${{ github.repository }}-${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   cancel-in-progress: false
 
 on:
@@ -93,7 +93,7 @@ jobs:
           inputs.bitness || '64',
           inputs.labview_version || '2021') }}
 
-    runs-on: [self-hosted-windows-lv-ie]
+    runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
       selected_bitness: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bitness || inputs.bitness }}
@@ -149,8 +149,6 @@ jobs:
 
           $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
 
-          $scriptArgs.UseLabVIEW = $true
-
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
           } else {
@@ -194,8 +192,6 @@ jobs:
 
           $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
 
-          $scriptArgs.UseLabVIEW = $true
-
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
           } else {
@@ -205,4 +201,5 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             exit $LASTEXITCODE
           }
+
 
