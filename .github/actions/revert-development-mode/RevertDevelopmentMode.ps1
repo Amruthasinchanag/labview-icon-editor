@@ -22,6 +22,10 @@
 .PARAMETER ProcessTimeoutMs
     Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
 
+.PARAMETER UseLabVIEW
+    Use LabVIEW + g-cli to revert development mode. Defaults to using the
+    no-LabVIEW path when omitted.
+
 .EXAMPLE
     .\RevertDevelopmentMode.ps1 -MinimumSupportedLVVersion 2021
 #>
@@ -46,7 +50,10 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(0, 1200000)]
-    [int]$ProcessTimeoutMs = 300000
+    [int]$ProcessTimeoutMs = 300000,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$UseLabVIEW
 )
 
 # Determine the directory where this script is located
@@ -85,6 +92,25 @@ if (Test-Path -Path $versionHelper) {
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
+}
+
+if (-not $UseLabVIEW) {
+    $noLabviewScript = Join-Path $resolvedRepoRoot 'Tooling\Revert-DevelopmentMode-NoLabVIEW.ps1'
+    if (-not (Test-Path -Path $noLabviewScript)) {
+        throw "Revert-DevelopmentMode-NoLabVIEW.ps1 not found at $noLabviewScript"
+    }
+
+    Write-Host ("Using no-LabVIEW dev mode revert path (LV{0})..." -f $labviewYear)
+    & $noLabviewScript `
+        -MinimumSupportedLVVersion $labviewYear `
+        -SupportedBitness $SupportedBitness `
+        -RepoRoot $resolvedRepoRoot
+
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw "Revert-DevelopmentMode-NoLabVIEW.ps1 failed with exit code $LASTEXITCODE."
+    }
+
+    return
 }
 
 function Write-CloseMetricsHint {
