@@ -25,6 +25,9 @@
 .PARAMETER SkipGcli
     Skip running g-cli and only parse an existing report (useful for local testing).
 
+.PARAMETER ConnectTimeoutMs
+    g-cli connect timeout in milliseconds (0 disables the timeout).
+
 .NOTES
     PowerShell 7.5+ assumed for cross-platform support.
     This script *requires* that g-cli and LabVIEW be compatible with the OS.
