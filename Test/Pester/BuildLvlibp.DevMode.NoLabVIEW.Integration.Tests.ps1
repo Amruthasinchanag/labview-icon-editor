@@ -162,7 +162,7 @@ Describe 'Build lvlibp (dev mode, no LabVIEW) integration' {
 
                 $run = Invoke-LabVIEWScript -ScriptPath $script:buildScript -Arguments $buildArgs
                 if ($run.ExitCode -ne 0) {
-                    return $run.ExitCode
+                    return $run
                 }
 
                 if (-not (Test-Path -Path $currentFile)) {
@@ -175,7 +175,10 @@ Describe 'Build lvlibp (dev mode, no LabVIEW) integration' {
                     throw "lvlibp output not moved to $targetFile"
                 }
 
-                return 0
+                return [pscustomobject]@{
+                    ExitCode    = 0
+                    OutputLines = $run.OutputLines
+                }
             }
 
         if (-not $results -or $results.Count -eq 0) {

@@ -104,7 +104,7 @@ Describe 'LUnit (dev mode, no LabVIEW) integration' {
                     '-ConnectTimeoutMs', $context.ConnectTimeoutMs
                 )
                 $run = Invoke-LabVIEWScript -ScriptPath $script:lunitScript -Arguments $unitArgs
-                return $run.ExitCode
+                return $run
             }
 
         if (-not $results -or $results.Count -eq 0) {

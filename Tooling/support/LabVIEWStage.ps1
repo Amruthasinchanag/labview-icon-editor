@@ -6,6 +6,117 @@
 
 $ErrorActionPreference = 'Stop'
 
+function Get-OutputTail {
+    param(
+        [string[]]$Lines,
+        [int]$MaxLines = 20
+    )
+
+    if (-not $Lines -or $Lines.Count -eq 0) {
+        return @()
+    }
+
+    if ($Lines.Count -le $MaxLines) {
+        return @($Lines)
+    }
+
+    $start = $Lines.Count - $MaxLines
+    return @($Lines[$start..($Lines.Count - 1)])
+}
+
+function New-LabVIEWStageStepLog {
+    param(
+        [string]$Name,
+        [datetime]$StartTime,
+        [datetime]$EndTime,
+        [int]$ExitCode,
+        [string]$Error,
+        [string[]]$OutputLines
+    )
+
+    $durationMs = [int]([Math]::Round(($EndTime - $StartTime).TotalMilliseconds))
+    return [pscustomobject]@{
+        Name       = $Name
+        StartUtc   = $StartTime.ToUniversalTime().ToString('o')
+        EndUtc     = $EndTime.ToUniversalTime().ToString('o')
+        DurationMs = $durationMs
+        ExitCode   = $ExitCode
+        Error      = $Error
+        OutputTail = Get-OutputTail -Lines $OutputLines -MaxLines 20
+    }
+}
+
+function New-LabVIEWStageLogContext {
+    param(
+        [string]$StageName,
+        [string]$RepoRoot,
+        [string]$LogRootOverride
+    )
+
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $safeStage = ($StageName -replace '[^a-zA-Z0-9_.-]', '_')
+    $logRoot = if ([string]::IsNullOrWhiteSpace($LogRootOverride)) {
+        if (-not [string]::IsNullOrWhiteSpace($env:LVIE_STAGE_LOG_ROOT)) {
+            $env:LVIE_STAGE_LOG_ROOT
+        } else {
+            Join-Path $RepoRoot 'TestResults\agent-logs'
+        }
+    } else {
+        $LogRootOverride
+    }
+
+    New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
+    $logFile = Join-Path $logRoot ("labview-stage-{0}-{1}.jsonl" -f $safeStage, $timestamp)
+    $summaryFile = Join-Path $logRoot ("labview-stage-{0}-{1}-summary.json" -f $safeStage, $timestamp)
+
+    return [pscustomobject]@{
+        LogRoot     = $logRoot
+        LogFile     = $logFile
+        SummaryFile = $summaryFile
+        Timestamp   = $timestamp
+    }
+}
+
+function Write-LabVIEWStageLogEntry {
+    param(
+        [string]$LogFile,
+        [psobject]$Entry
+    )
+
+    $json = $Entry | ConvertTo-Json -Depth 10 -Compress
+    Add-Content -Path $LogFile -Value $json
+}
+
+function Write-LabVIEWStageSummary {
+    param(
+        [string]$SummaryFile,
+        [psobject[]]$Entries,
+        [string]$StageName,
+        [string]$LogFile
+    )
+
+    $total = if ($Entries) { $Entries.Count } else { 0 }
+    $skipped = if ($Entries) { ($Entries | Where-Object { $_.Result.Skipped }).Count } else { 0 }
+    $succeeded = if ($Entries) { ($Entries | Where-Object { $_.Result.Succeeded }).Count } else { 0 }
+    $failed = $total - $skipped - $succeeded
+
+    $summary = [pscustomobject]@{
+        StageName  = $StageName
+        Timestamp = (Get-Date).ToUniversalTime().ToString('o')
+        Total      = $total
+        Succeeded  = $succeeded
+        Failed     = $failed
+        Skipped    = $skipped
+        LogFile    = $LogFile
+    }
+
+    $summary | ConvertTo-Json -Depth 6 | Set-Content -Path $SummaryFile
+
+    Write-Host ("LabVIEWStage summary: {0} total={1} ok={2} failed={3} skipped={4}" -f $StageName, $total, $succeeded, $failed, $skipped)
+    Write-Host ("LabVIEWStage log: {0}" -f $LogFile)
+    Write-Host ("LabVIEWStage summary: {0}" -f $SummaryFile)
+}
+
 function Resolve-RepoRoot {
     param(
         [string]$PathOverride
@@ -229,6 +340,8 @@ function Invoke-LabVIEWStage {
 
         [switch]$SkipOnBaselineFailure = $true,
 
+        [string]$LogRoot,
+
         [Parameter(Mandatory = $true)]
         [scriptblock]$Action
     )
@@ -237,10 +350,21 @@ function Invoke-LabVIEWStage {
     $resolvedVersion = Resolve-LabVIEWVersion -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
     $bitnessList = Resolve-BitnessList -Bitnesses $Bitnesses -FallbackInput $env:LABVIEW_BITNESS
 
+    $logContext = New-LabVIEWStageLogContext -StageName $StageName -RepoRoot $resolvedRepoRoot -LogRootOverride $LogRoot
     $results = @()
+    $logEntries = @()
     foreach ($bitness in $bitnessList) {
+        $bitnessStart = Get-Date
+        $closeBeforeInfo = $null
+        $baselineInfo = $null
+        $enableInfo = $null
+        $actionInfo = $null
+        $revertInfo = $null
+        $closeAfterInfo = $null
+        $resultEntry = $null
+
         if (-not (Get-LabVIEWInstallRoot -Version $resolvedVersion -Bitness $bitness)) {
-            $results += [pscustomobject]@{
+            $resultEntry = [pscustomobject]@{
                 StageName  = $StageName
                 Bitness    = $bitness
                 Succeeded  = $false
@@ -249,18 +373,48 @@ function Invoke-LabVIEWStage {
                 ExitCode   = $null
                 Error      = $null
             }
+            $results += $resultEntry
+            $bitnessEnd = Get-Date
+            $logEntry = [pscustomobject]@{
+                StageName       = $StageName
+                LabVIEWVersion  = $resolvedVersion
+                Bitness         = $bitness
+                RepoRoot        = $resolvedRepoRoot
+                StartUtc        = $bitnessStart.ToUniversalTime().ToString('o')
+                EndUtc          = $bitnessEnd.ToUniversalTime().ToString('o')
+                DurationMs      = [int]([Math]::Round(($bitnessEnd - $bitnessStart).TotalMilliseconds))
+                DevModeNoLabVIEW = [bool]$DevModeNoLabVIEW
+                CloseBetweenStages = [bool]$CloseBetweenStages
+                Result          = $resultEntry
+                Steps           = [pscustomobject]@{
+                    CloseBefore   = $closeBeforeInfo
+                    BaselineRevert = $baselineInfo
+                    EnableDevMode = $enableInfo
+                    Action        = $actionInfo
+                    RevertDevMode  = $revertInfo
+                    CloseAfter    = $closeAfterInfo
+                }
+            }
+            $logEntries += $logEntry
+            try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { }
             continue
         }
 
         if ($CloseBetweenStages) {
-            $null = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
+            $closeStart = Get-Date
+            $closeResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
+            $closeEnd = Get-Date
+            $closeBeforeInfo = New-LabVIEWStageStepLog -Name 'close-before' -StartTime $closeStart -EndTime $closeEnd -ExitCode $closeResult.ExitCode -Error $null -OutputLines $closeResult.OutputLines
         }
 
         if ($DevModeNoLabVIEW) {
+            $baselineStart = Get-Date
             $baseline = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'disable'
+            $baselineEnd = Get-Date
+            $baselineInfo = New-LabVIEWStageStepLog -Name 'baseline-revert' -StartTime $baselineStart -EndTime $baselineEnd -ExitCode $baseline.ExitCode -Error $null -OutputLines $baseline.OutputLines
             if ($baseline.ExitCode -ne 0) {
                 if ($SkipOnBaselineFailure) {
-                    $results += [pscustomobject]@{
+                    $resultEntry = [pscustomobject]@{
                         StageName  = $StageName
                         Bitness    = $bitness
                         Succeeded  = $false
@@ -270,8 +424,35 @@ function Invoke-LabVIEWStage {
                         Error      = $null
                     }
                     if ($CloseBetweenStages) {
-                        $null = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
+                        $closeAfterStart = Get-Date
+                        $closeAfterResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
+                        $closeAfterEnd = Get-Date
+                        $closeAfterInfo = New-LabVIEWStageStepLog -Name 'close-after' -StartTime $closeAfterStart -EndTime $closeAfterEnd -ExitCode $closeAfterResult.ExitCode -Error $null -OutputLines $closeAfterResult.OutputLines
                     }
+                    $results += $resultEntry
+                    $bitnessEnd = Get-Date
+                    $logEntry = [pscustomobject]@{
+                        StageName       = $StageName
+                        LabVIEWVersion  = $resolvedVersion
+                        Bitness         = $bitness
+                        RepoRoot        = $resolvedRepoRoot
+                        StartUtc        = $bitnessStart.ToUniversalTime().ToString('o')
+                        EndUtc          = $bitnessEnd.ToUniversalTime().ToString('o')
+                        DurationMs      = [int]([Math]::Round(($bitnessEnd - $bitnessStart).TotalMilliseconds))
+                        DevModeNoLabVIEW = [bool]$DevModeNoLabVIEW
+                        CloseBetweenStages = [bool]$CloseBetweenStages
+                        Result          = $resultEntry
+                        Steps           = [pscustomobject]@{
+                            CloseBefore    = $closeBeforeInfo
+                            BaselineRevert = $baselineInfo
+                            EnableDevMode  = $enableInfo
+                            Action         = $actionInfo
+                            RevertDevMode  = $revertInfo
+                            CloseAfter     = $closeAfterInfo
+                        }
+                    }
+                    $logEntries += $logEntry
+                    try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { }
                     continue
                 }
                 throw "Baseline dev mode revert failed with exit code $($baseline.ExitCode)."
@@ -283,15 +464,27 @@ function Invoke-LabVIEWStage {
         $devModeEnabled = $false
         try {
             if ($DevModeNoLabVIEW) {
+                $enableStart = Get-Date
                 $enable = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'enable'
+                $enableEnd = Get-Date
+                $enableInfo = New-LabVIEWStageStepLog -Name 'enable-devmode' -StartTime $enableStart -EndTime $enableEnd -ExitCode $enable.ExitCode -Error $null -OutputLines $enable.OutputLines
                 if ($enable.ExitCode -ne 0) {
+                    $exitCode = $enable.ExitCode
                     throw "Dev mode enable failed with exit code $($enable.ExitCode)."
                 }
                 $devModeEnabled = $true
             }
 
             $context = New-LabVIEWStageContext -StageName $StageName -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs
-            $actionResult = & $Action $context
+            $actionStart = Get-Date
+            $actionResult = $null
+            $actionError = $null
+            try {
+                $actionResult = & $Action $context
+            } catch {
+                $actionError = $_.Exception.Message
+            }
+            $actionEnd = Get-Date
 
             if ($actionResult -is [int]) {
                 $exitCode = $actionResult
@@ -303,11 +496,18 @@ function Invoke-LabVIEWStage {
                 $exitCode = 0
             }
 
+            $actionOutput = if ($actionResult -and $actionResult.OutputLines) { $actionResult.OutputLines } else { $null }
+            $actionInfo = New-LabVIEWStageStepLog -Name 'action' -StartTime $actionStart -EndTime $actionEnd -ExitCode $exitCode -Error $actionError -OutputLines $actionOutput
+
+            if ($actionError) {
+                throw $actionError
+            }
+
             if ($exitCode -ne 0) {
                 throw "Stage '$StageName' failed with exit code $exitCode."
             }
 
-            $results += [pscustomobject]@{
+            $resultEntry = [pscustomobject]@{
                 StageName  = $StageName
                 Bitness    = $bitness
                 Succeeded  = $true
@@ -318,7 +518,7 @@ function Invoke-LabVIEWStage {
             }
         } catch {
             $errorMessage = $_.Exception.Message
-            $results += [pscustomobject]@{
+            $resultEntry = [pscustomobject]@{
                 StageName  = $StageName
                 Bitness    = $bitness
                 Succeeded  = $false
@@ -329,13 +529,45 @@ function Invoke-LabVIEWStage {
             }
         } finally {
             if ($devModeEnabled) {
-                $null = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'disable'
+                $revertStart = Get-Date
+                $revertResult = Invoke-DevModeNoLabVIEW -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness -Mode 'disable'
+                $revertEnd = Get-Date
+                $revertInfo = New-LabVIEWStageStepLog -Name 'revert-devmode' -StartTime $revertStart -EndTime $revertEnd -ExitCode $revertResult.ExitCode -Error $null -OutputLines $revertResult.OutputLines
             }
             if ($CloseBetweenStages) {
-                $null = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
+                $closeAfterStart = Get-Date
+                $closeAfterResult = Invoke-LabVIEWClose -RepoRoot $resolvedRepoRoot -LabVIEWVersion $resolvedVersion -Bitness $bitness
+                $closeAfterEnd = Get-Date
+                $closeAfterInfo = New-LabVIEWStageStepLog -Name 'close-after' -StartTime $closeAfterStart -EndTime $closeAfterEnd -ExitCode $closeAfterResult.ExitCode -Error $null -OutputLines $closeAfterResult.OutputLines
             }
         }
+
+        $results += $resultEntry
+        $bitnessEnd = Get-Date
+        $logEntry = [pscustomobject]@{
+            StageName       = $StageName
+            LabVIEWVersion  = $resolvedVersion
+            Bitness         = $bitness
+            RepoRoot        = $resolvedRepoRoot
+            StartUtc        = $bitnessStart.ToUniversalTime().ToString('o')
+            EndUtc          = $bitnessEnd.ToUniversalTime().ToString('o')
+            DurationMs      = [int]([Math]::Round(($bitnessEnd - $bitnessStart).TotalMilliseconds))
+            DevModeNoLabVIEW = [bool]$DevModeNoLabVIEW
+            CloseBetweenStages = [bool]$CloseBetweenStages
+            Result          = $resultEntry
+            Steps           = [pscustomobject]@{
+                CloseBefore    = $closeBeforeInfo
+                BaselineRevert = $baselineInfo
+                EnableDevMode  = $enableInfo
+                Action         = $actionInfo
+                RevertDevMode  = $revertInfo
+                CloseAfter     = $closeAfterInfo
+            }
+        }
+        $logEntries += $logEntry
+        try { Write-LabVIEWStageLogEntry -LogFile $logContext.LogFile -Entry $logEntry } catch { }
     }
 
+    try { Write-LabVIEWStageSummary -SummaryFile $logContext.SummaryFile -Entries $logEntries -StageName $StageName -LogFile $logContext.LogFile } catch { }
     return $results
 }

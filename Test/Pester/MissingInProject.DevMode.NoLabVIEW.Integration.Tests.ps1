@@ -96,7 +96,7 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
                     '-ConnectTimeoutMs', $context.ConnectTimeoutMs
                 )
                 $run = Invoke-LabVIEWScript -ScriptPath $script:missingScript -Arguments $missingArgs
-                return $run.ExitCode
+                return $run
             }
 
         if (-not $results -or $results.Count -eq 0) {
