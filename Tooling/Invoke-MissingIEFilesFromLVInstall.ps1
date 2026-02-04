@@ -571,7 +571,11 @@ try {
                     if ($statusInfo.MissingPaths -and $statusInfo.MissingPaths.Count -gt 0) {
                         $unexpected = $statusInfo.MissingPaths | Where-Object {
                             $path = $_
-                            -not ($path -match '(?i)LabVIEW Icon API') -and -not ($path -match '(?i)lv_icon\.lvlibp')
+                            -not ($path -match '(?i)LabVIEW Icon API') `
+                                -and -not ($path -match '(?i)lv_icon\.lvlibp') `
+                                -and -not ($path -match '(?i)lv_icon\.vi(t)?') `
+                                -and -not ($path -match '(?i)lv_iconeditor\.lvlib') `
+                                -and -not ($path -match '(?i)NIIconEditor')
                         }
                     }
 
