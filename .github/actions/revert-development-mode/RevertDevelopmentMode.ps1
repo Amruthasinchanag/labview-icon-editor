@@ -141,9 +141,13 @@ if (-not $SkipToggle) {
         ) + $bitnessList + @(
             '-RepoRoot', $resolvedRepoRoot,
             '-ConnectTimeoutMs', $ConnectTimeoutMs,
-            '-ProcessTimeoutMs', $ProcessTimeoutMs,
-            '-RestoreOnFailure', $RestoreOnFailure
+            '-ProcessTimeoutMs', $ProcessTimeoutMs
         )
+        if ($RestoreOnFailure) {
+            $toggleArgs += '-RestoreOnFailure'
+        } else {
+            $toggleArgs += '-RestoreOnFailure:$false'
+        }
         if ($UseLabVIEW) {
             $toggleArgs += '-UseLabVIEW'
         }
