@@ -159,6 +159,10 @@ if ($resolvedRepoRoot) {
     $assertScript = Join-Path $resolvedRepoRoot 'Tooling/Assert-LabVIEWVersion.ps1'
     if (Test-Path -Path $assertScript) {
         $lvInfo = & $assertScript -RepoRoot $resolvedRepoRoot -Context 'runner sanity'
+        if (-not $IsWindows) {
+            Write-Host "Runner check: non-Windows runner; skipping LabVIEW install check."
+            return
+        }
         if ($lvInfo -and -not [string]::IsNullOrWhiteSpace($lvInfo.Year)) {
             $missing = @()
             foreach ($bitness in @('64', '32')) {
