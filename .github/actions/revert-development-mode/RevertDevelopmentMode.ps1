@@ -125,6 +125,21 @@ if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
 }
 
+$shouldCloseBeforeToggle = (-not $UseLabVIEW) -and ($env:GITHUB_ACTIONS -eq 'true' -or $env:CI -eq 'true')
+if ($shouldCloseBeforeToggle) {
+    if (-not (Test-Path -Path $CloseScript)) {
+        throw "Close_LabVIEW.ps1 not found at $CloseScript"
+    }
+
+    Write-Host "Closing LabVIEW before no-LabVIEW revert..."
+    foreach ($bitness in ($SupportedBitness | Where-Object { $_ } | Select-Object -Unique)) {
+        & $CloseScript -MinimumSupportedLVVersion $labviewYear -SupportedBitness $bitness
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+            throw "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
+        }
+    }
+}
+
 if (-not $SkipToggle) {
     $toggleScript = Join-Path $resolvedRepoRoot 'Tooling\Toggle-DevMode.ps1'
     if (-not (Test-Path -Path $toggleScript)) {
