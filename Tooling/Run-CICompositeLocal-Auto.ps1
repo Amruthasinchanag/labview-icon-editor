@@ -13,6 +13,9 @@
 .PARAMETER LabVIEWBitness
     Bitness to run: both, 32, 64, or installed (auto-detect).
 
+.PARAMETER AllowVersionMismatch
+    Allow LabVIEW version mismatches against .lvversion (not recommended).
+
 .PARAMETER MaxAttempts
     Maximum number of attempts.
 
@@ -72,6 +75,8 @@ param(
     [Parameter(Mandatory = $false)]
     [ValidateSet('both', '32', '64', 'installed')]
     [string]$LabVIEWBitness = 'both',
+
+    [switch]$AllowVersionMismatch,
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 100)]
@@ -214,6 +219,12 @@ if ($UseWorktree) {
     $runRepoRoot = & $worktreeScript -Ref HEAD -Name $suffix -WorktreeRoot $resolvedWorktreeRoot
     Write-Host ("Using worktree: {0}" -f $runRepoRoot)
 }
+
+$assertScript = Join-Path $runRepoRoot 'Tooling\Assert-LabVIEWVersion.ps1'
+if (Test-Path -Path $assertScript) {
+    & $assertScript -RepoRoot $runRepoRoot -ExpectedVersion $LabVIEWVersion -AllowMismatch:$AllowVersionMismatch -Context 'ci-local-auto'
+}
+
 $preflight = $null
 $artifactRootResolved = $null
 if (Get-Command Invoke-Preflight -ErrorAction SilentlyContinue) {
@@ -260,6 +271,7 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         & $runScript `
             -LabVIEWVersion $LabVIEWVersion `
             -LabVIEWBitness $LabVIEWBitness `
+            -AllowVersionMismatch:$AllowVersionMismatch `
             -EnsureCleanState:$EnsureCleanState `
             -ConnectTimeoutMs $attemptConnectTimeout `
             -ProcessTimeoutMs $attemptProcessTimeout `

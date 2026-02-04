@@ -195,6 +195,11 @@ function Resolve-LabVIEWVersionInfo {
 
 $repoRoot = Resolve-RepoRoot -BasePath $RepoRoot
 
+$assertScript = Join-Path $repoRoot 'Tooling/Assert-LabVIEWVersion.ps1'
+if (Test-Path -Path $assertScript) {
+    & $assertScript -RepoRoot $repoRoot -Context 'ci-worktree'
+}
+
 $jobName = $JobName
 if ([string]::IsNullOrWhiteSpace($jobName)) {
     $jobName = $env:GITHUB_JOB

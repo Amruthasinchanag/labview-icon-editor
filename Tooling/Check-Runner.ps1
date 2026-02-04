@@ -25,6 +25,7 @@
 param(
     [string]$WorkRoot,
     [string]$WorktreeRoot,
+    [string]$RepoRoot,
     [switch]$FixSafeDirectory = $true,
     [ValidateSet('System', 'Global')]
     [string]$SafeDirectoryScope = 'System'
@@ -42,13 +43,65 @@ function Normalize-Path {
     return $full
 }
 
+function Resolve-RepoRoot {
+    param([string]$Path)
+
+    if (-not [string]::IsNullOrWhiteSpace($Path) -and (Test-Path -Path $Path)) {
+        return (Resolve-Path -Path $Path -ErrorAction Stop).Path
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE) -and (Test-Path -Path $env:GITHUB_WORKSPACE)) {
+        return (Resolve-Path -Path $env:GITHUB_WORKSPACE -ErrorAction Stop).Path
+    }
+
+    return $null
+}
+
+function Get-LabVIEWInstallRoot {
+    param([string]$Version, [string]$Bitness)
+
+    $candidates = @()
+    $regPaths = @()
+    if ($Bitness -eq '32') {
+        $candidates += "C:\Program Files (x86)\National Instruments\LabVIEW $Version"
+        $regPaths += "HKLM:\SOFTWARE\WOW6432Node\National Instruments\LabVIEW $Version"
+    } else {
+        $candidates += "C:\Program Files\National Instruments\LabVIEW $Version"
+        $regPaths += "HKLM:\SOFTWARE\National Instruments\LabVIEW $Version"
+    }
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -Path $candidate) {
+            return $candidate
+        }
+    }
+
+    foreach ($regPath in $regPaths) {
+        try {
+            $props = Get-ItemProperty -Path $regPath -ErrorAction Stop
+            foreach ($name in @('Path', 'InstallDir', 'InstallPath')) {
+                $value = $props.$name
+                if (-not [string]::IsNullOrWhiteSpace($value) -and (Test-Path -Path $value)) {
+                    return $value
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return $null
+}
+
 $resolvedWorkRoot = if ($WorkRoot) { $WorkRoot } else { $env:LVIE_RUNNER_WORK_ROOT }
 $resolvedWorktreeRoot = if ($WorktreeRoot) { $WorktreeRoot } else { $env:LVIE_WORKTREE_ROOT }
 $resolvedWorkRoot = Normalize-Path -Path $resolvedWorkRoot
 $resolvedWorktreeRoot = Normalize-Path -Path $resolvedWorktreeRoot
+$resolvedRepoRoot = Resolve-RepoRoot -Path $RepoRoot
 
 Write-Host ("Runner check: work_root={0}" -f ($resolvedWorkRoot ?? '<unset>'))
 Write-Host ("Runner check: worktree_root={0}" -f ($resolvedWorktreeRoot ?? '<unset>'))
+Write-Host ("Runner check: repo_root={0}" -f ($resolvedRepoRoot ?? '<unset>'))
 
 if ($resolvedWorkRoot -and -not (Test-Path -Path $resolvedWorkRoot)) {
     Write-Warning ("Runner work root does not exist: {0}" -f $resolvedWorkRoot)
@@ -100,4 +153,27 @@ if ($resolvedWorkRoot) {
     } else {
         Write-Host ("Git safe.directory OK: {0} ({1})" -f $safePattern, $SafeDirectoryScope)
     }
+}
+
+if ($resolvedRepoRoot) {
+    $assertScript = Join-Path $resolvedRepoRoot 'Tooling/Assert-LabVIEWVersion.ps1'
+    if (Test-Path -Path $assertScript) {
+        $lvInfo = & $assertScript -RepoRoot $resolvedRepoRoot -Context 'runner sanity'
+        if ($lvInfo -and -not [string]::IsNullOrWhiteSpace($lvInfo.Year)) {
+            $missing = @()
+            foreach ($bitness in @('64', '32')) {
+                if (-not (Get-LabVIEWInstallRoot -Version $lvInfo.Year -Bitness $bitness)) {
+                    $missing += $bitness
+                }
+            }
+            if ($missing.Count -gt 0) {
+                $label = ($missing | ForEach-Object { "$_-bit" }) -join ', '
+                throw "LabVIEW $($lvInfo.Year) install missing for: $label."
+            }
+        }
+    } else {
+        Write-Warning ("LabVIEW version assertion script not found at {0}; skipping version checks." -f $assertScript)
+    }
+} else {
+    Write-Warning "Runner check: repo_root not resolved; skipping LabVIEW version checks."
 }

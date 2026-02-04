@@ -4,12 +4,12 @@ Date Created: 2026-02-04
 Branch: experimental/447-test
 
 ## Phase A (Foundation)
-- [ ] Add Tooling/Assert-LabVIEWVersion.ps1 (parse .lvversion, enforce mismatch rules)
-- [ ] Call Assert-LabVIEWVersion.ps1 from Tooling/New-CIWorktreeForJob.ps1
-- [ ] Extend Tooling/Check-Runner.ps1 to verify installed LabVIEW year/minor
-- [ ] Enforce .lvversion in Tooling/Run-CICompositeLocal.ps1 (with explicit override switch)
-- [ ] Enforce .lvversion in Tooling/Run-CICompositeLocal-Auto.ps1 (with explicit override switch)
-- [ ] CI: add a version gate job that fails fast and exports version outputs
+- [x] Add Tooling/Assert-LabVIEWVersion.ps1 (parse .lvversion, enforce mismatch rules)
+- [x] Call Assert-LabVIEWVersion.ps1 from Tooling/New-CIWorktreeForJob.ps1
+- [x] Extend Tooling/Check-Runner.ps1 to verify installed LabVIEW year/minor
+- [x] Enforce .lvversion in Tooling/Run-CICompositeLocal.ps1 (with explicit override switch)
+- [x] Enforce .lvversion in Tooling/Run-CICompositeLocal-Auto.ps1 (with explicit override switch)
+- [x] CI: add a version gate job that fails fast and exports version outputs
 
 ## Phase B (Runner and Workflow Hardening)
 - [ ] Standardize workflow inputs to use version outputs from the gate

@@ -35,8 +35,31 @@ on:
         type: string
 
 jobs:
+  version-gate:
+    name: LabVIEW Version Gate
+    runs-on: ubuntu-latest
+    outputs:
+      raw: ${{ steps.lv.outputs.raw }}
+      year: ${{ steps.lv.outputs.year }}
+      minor: ${{ steps.lv.outputs.minor }}
+      numeric: ${{ steps.lv.outputs.numeric }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: lv
+        name: Assert .lvversion
+        shell: pwsh
+        run: |
+          $info = & "$env:GITHUB_WORKSPACE/Tooling/Assert-LabVIEWVersion.ps1" -RepoRoot $env:GITHUB_WORKSPACE -Context 'ci-version-gate'
+          "raw=$($info.Raw)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "year=$($info.Year)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "minor=$($info.MinorRevision)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "numeric=$($info.NumericVersion)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
   dev-mode-gate:
     name: Verify IE Paths Gate (LV ${{ matrix.bitness }}-bit)
+    needs: version-gate
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -687,6 +710,7 @@ jobs:
     name: Pipeline Contract
     if: always()
     needs:
+      - version-gate
       - dev-mode-gate
       - changes
       - apply-deps-2021-x64
@@ -710,6 +734,7 @@ jobs:
         shell: pwsh
         run: |
           $required = @(
+            'version-gate',
             'dev-mode-gate',
             'changes',
             'apply-deps-2021-x64',
