@@ -105,6 +105,7 @@ Describe 'LUnit (dev mode, no LabVIEW) integration' {
         $script:setScript = Join-Path $script:repoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
         $script:revertScript = Join-Path $script:repoRoot 'Tooling\Revert-DevelopmentMode-NoLabVIEW.ps1'
         $script:lunitScript = Join-Path $script:repoRoot '.github\actions\run-unit-tests\RunUnitTests.ps1'
+        $script:closeScript = Join-Path $script:repoRoot '.github\actions\close-labview\Close_LabVIEW.ps1'
         $script:versionHelper = Join-Path $script:repoRoot 'Tooling\support\LabVIEWVersion.ps1'
 
         if (Test-Path -Path $script:versionHelper) {
@@ -139,6 +140,12 @@ Describe 'LUnit (dev mode, no LabVIEW) integration' {
         if (-not (Test-Path -Path $script:lunitScript)) {
             $script:skipAll = $true
             $script:skipReason = "RunUnitTests.ps1 not found at $script:lunitScript"
+            return
+        }
+
+        if (-not (Test-Path -Path $script:closeScript)) {
+            $script:skipAll = $true
+            $script:skipReason = "Close_LabVIEW.ps1 not found at $script:closeScript"
             return
         }
 
@@ -216,7 +223,14 @@ Describe 'LUnit (dev mode, no LabVIEW) integration' {
                 '-ConnectTimeoutMs', $script:connectTimeoutMs
             )
 
+            $closeArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness
+            )
+
             try {
+                $null = Invoke-Runner -ScriptPath $script:closeScript -Arguments $closeArgs
+
                 $exitCode = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
                 $exitCode | Should -Be 0
 
@@ -227,6 +241,7 @@ Describe 'LUnit (dev mode, no LabVIEW) integration' {
                 $exitCode | Should -Be 0
             } finally {
                 $null = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
+                $null = Invoke-Runner -ScriptPath $script:closeScript -Arguments $closeArgs
             }
         }
     }

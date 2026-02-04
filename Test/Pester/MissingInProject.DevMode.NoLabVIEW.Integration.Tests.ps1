@@ -105,6 +105,7 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
         $script:setScript = Join-Path $script:repoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
         $script:revertScript = Join-Path $script:repoRoot 'Tooling\Revert-DevelopmentMode-NoLabVIEW.ps1'
         $script:missingScript = Join-Path $script:repoRoot '.github\actions\missing-in-project\Invoke-MissingInProjectCLI.ps1'
+        $script:closeScript = Join-Path $script:repoRoot '.github\actions\close-labview\Close_LabVIEW.ps1'
         $script:versionHelper = Join-Path $script:repoRoot 'Tooling\support\LabVIEWVersion.ps1'
 
         if (Test-Path -Path $script:versionHelper) {
@@ -139,6 +140,12 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
         if (-not (Test-Path -Path $script:missingScript)) {
             $script:skipAll = $true
             $script:skipReason = "Invoke-MissingInProjectCLI.ps1 not found at $script:missingScript"
+            return
+        }
+
+        if (-not (Test-Path -Path $script:closeScript)) {
+            $script:skipAll = $true
+            $script:skipReason = "Close_LabVIEW.ps1 not found at $script:closeScript"
             return
         }
 
@@ -209,7 +216,14 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
                 '-ConnectTimeoutMs', $script:connectTimeoutMs
             )
 
+            $closeArgs = @(
+                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-SupportedBitness', $bitness
+            )
+
             try {
+                $null = Invoke-Runner -ScriptPath $script:closeScript -Arguments $closeArgs
+
                 $exitCode = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
                 $exitCode | Should -Be 0
 
@@ -220,6 +234,7 @@ Describe 'Missing-in-project (dev mode, no LabVIEW) integration' {
                 $exitCode | Should -Be 0
             } finally {
                 $null = Invoke-Runner -ScriptPath $script:revertScript -Arguments $revertArgs
+                $null = Invoke-Runner -ScriptPath $script:closeScript -Arguments $closeArgs
             }
         }
     }
