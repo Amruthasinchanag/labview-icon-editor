@@ -161,6 +161,10 @@ if (-not $SkipToggle) {
             $toggleArgs += @('-SnapshotName', $SnapshotName)
         }
 
+        if (-not [string]::IsNullOrWhiteSpace($env:LVIE_DEBUG_TOGGLE_ARGS)) {
+            Write-Host ("Toggle-DevMode args: {0}" -f ($toggleArgs -join ' '))
+        }
+
         & pwsh @toggleArgs
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             throw "Toggle-DevMode.ps1 failed with exit code $LASTEXITCODE."
