@@ -806,6 +806,8 @@ try {
         New-Item -Path $verifyArchive -ItemType Directory -Force | Out-Null
 
         foreach ($bitness in $bitnessList) {
+            $verifyConnectTimeoutMs = 15000
+
             if ($EnsureCleanState) {
                 $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before enabling VerifyIEPaths ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot 'Tooling/Revert-DevelopmentMode-NoLabVIEW.ps1') `
@@ -819,7 +821,7 @@ try {
                 }
             }
 
-            $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
+            $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $verifyConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
             if ($verifyResult.Error) {
                 throw $verifyResult.Error
             }
