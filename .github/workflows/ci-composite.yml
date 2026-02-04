@@ -450,7 +450,7 @@ jobs:
           close_labview: 'true'
           close_bitness: ${{ matrix.bitness }}
 
-  test-2021:
+  unit-tests:
     name: Run Unit Tests (LV ${{ matrix.bitness }}-bit)
     needs: [run-metadata, version-gate, missing-in-project]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
@@ -568,7 +568,7 @@ jobs:
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
-    needs: [run-metadata, version-gate, test-2021, version]
+    needs: [run-metadata, version-gate, unit-tests, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
@@ -874,7 +874,7 @@ jobs:
       - apply-deps-2021-x64
       - apply-deps-2021-x86
       - missing-in-project
-      - test-2021
+      - unit-tests
       - build-ppl-x64
       - build-ppl-x86
       - build-vip
@@ -900,7 +900,7 @@ jobs:
             'apply-deps-2021-x64',
             'apply-deps-2021-x86',
             'missing-in-project',
-            'test-2021',
+            'unit-tests',
             'build-ppl-x64',
             'build-ppl-x86',
             'build-vip',
