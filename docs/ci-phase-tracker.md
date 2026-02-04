@@ -18,7 +18,7 @@ Branch: experimental/447-test
 - [x] Add docs in README or Tooling/README for version contract
 
 ## Phase C (Observability + Portability)
-- [ ] Add summary output to GitHub Step Summary for version checks
-- [ ] Add unit tests or Pester tests for version parsing and mismatch behavior
-- [ ] Add a dry-run mode for local tooling to validate versions without running jobs
-- [ ] Document runner setup expectations and registry probe logic
+- [x] Add summary output to GitHub Step Summary for version checks
+- [x] Add unit tests or Pester tests for version parsing and mismatch behavior
+- [x] Add a dry-run mode for local tooling to validate versions without running jobs
+- [x] Document runner setup expectations and registry probe logic

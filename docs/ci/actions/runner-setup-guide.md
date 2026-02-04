@@ -107,6 +107,15 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 1. **Install LabVIEW 2021 (21.0), 32-bit and 64-bit**  
    - Confirm both are present on your Windows machine.  
    - Apply `.github/actions/apply-vipc/runner_dependencies.vipc` to each if needed.
+   - **Version contract**: CI treats `.lvversion` as the single source of truth. The runner sanity step validates that the installed LabVIEW version matches `.lvversion` and fails fast if it does not.
+   - **Registry probe logic** (Windows): the runner sanity check looks for installs in:
+     - `C:\Program Files\National Instruments\LabVIEW <Year>` (64-bit)
+     - `C:\Program Files (x86)\National Instruments\LabVIEW <Year>` (32-bit)
+     - Registry keys:
+       - `HKLM:\SOFTWARE\National Instruments\LabVIEW <Year>`
+       - `HKLM:\SOFTWARE\WOW6432Node\National Instruments\LabVIEW <Year>`
+     - It checks `Path`, `InstallDir`, or `InstallPath` values for a valid install root.
+   - If you install to a custom path, ensure the registry keys above are present so the runner can locate LabVIEW.
 
 2. **Install PowerShell 7+ and Git**  
    - Reboot if newly installed so environment variables are recognized.

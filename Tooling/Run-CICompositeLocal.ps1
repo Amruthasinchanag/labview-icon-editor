@@ -23,6 +23,9 @@
 .PARAMETER AllowVersionMismatch
     Allow LabVIEW version mismatches against .lvversion (not recommended).
 
+.PARAMETER DryRun
+    Validate version contract and installed LabVIEW bitness without running jobs.
+
 .PARAMETER SkipVerifyIEPaths
     Skip the Verify IE Paths gate.
 
@@ -114,6 +117,8 @@ param(
     [string]$LabVIEWBitness = 'both',
 
     [switch]$AllowVersionMismatch,
+
+    [switch]$DryRun,
 
     [switch]$SkipVerifyIEPaths,
     [switch]$EnsureCleanState,
@@ -796,7 +801,7 @@ Ensure-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration
 Ensure-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
 $env:LABVIEW_CLOSE_METRICS_PATH = $script:CloseHistoryPath
 $runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
-$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBitness $LabVIEWBitness -AllowVersionMismatch:$AllowVersionMismatch -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
+$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBitness $LabVIEWBitness -AllowVersionMismatch:$AllowVersionMismatch -DryRun:$DryRun -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
 $script:TranscriptStarted = $false
 try {
     Start-Transcript -Path $runLog -Append | Out-Null
@@ -807,6 +812,15 @@ catch {
 }
 
 try {
+    if ($DryRun) {
+        $bitnessList = Resolve-LabVIEWBitnessList -BitnessMode $LabVIEWBitness -Version $LabVIEWVersion
+        foreach ($bitness in $bitnessList) {
+            Assert-LabVIEWInstalled -Version $LabVIEWVersion -Bitness $bitness -BitnessMode $LabVIEWBitness
+        }
+        Write-Host ("Dry run complete. Version contract and LabVIEW installs validated for {0} ({1})." -f $LabVIEWVersion, ($bitnessList -join ', '))
+        return
+    }
+
     if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
         throw "g-cli.exe not found in PATH."
     }

@@ -16,6 +16,9 @@
 .PARAMETER AllowVersionMismatch
     Allow LabVIEW version mismatches against .lvversion (not recommended).
 
+.PARAMETER DryRun
+    Validate version contract and installed LabVIEW bitness without running jobs.
+
 .PARAMETER MaxAttempts
     Maximum number of attempts.
 
@@ -77,6 +80,8 @@ param(
     [string]$LabVIEWBitness = 'both',
 
     [switch]$AllowVersionMismatch,
+
+    [switch]$DryRun,
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 100)]
@@ -248,6 +253,21 @@ if (Get-Command Invoke-Preflight -ErrorAction SilentlyContinue) {
     $artifactRootResolved = $preflight.ArtifactRoot
 } elseif ($resolvedWorktreeRoot) {
     $env:LVIE_WORKTREE_ROOT = $resolvedWorktreeRoot
+}
+
+if ($DryRun) {
+    & $runScript `
+        -LabVIEWVersion $LabVIEWVersion `
+        -LabVIEWBitness $LabVIEWBitness `
+        -AllowVersionMismatch:$AllowVersionMismatch `
+        -DryRun `
+        -RepoRoot $runRepoRoot `
+        -WorktreeRoot $resolvedWorktreeRoot `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -RunId $RunId `
+        -ArtifactRoot $ArtifactRoot `
+        -CleanRoom:$CleanRoom
+    return
 }
 
 $logRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'agent-logs' } else { Join-Path $repoRoot 'TestResults/agent-logs' }

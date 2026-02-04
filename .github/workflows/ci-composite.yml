@@ -51,7 +51,7 @@ jobs:
         name: Assert .lvversion
         shell: pwsh
         run: |
-          $info = & "$env:GITHUB_WORKSPACE/Tooling/Assert-LabVIEWVersion.ps1" -RepoRoot $env:GITHUB_WORKSPACE -Context 'ci-version-gate'
+          $info = & "$env:GITHUB_WORKSPACE/Tooling/Assert-LabVIEWVersion.ps1" -RepoRoot $env:GITHUB_WORKSPACE -Context 'ci-version-gate' -WriteSummary
           "raw=$($info.Raw)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
           "year=$($info.Year)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
           "minor=$($info.MinorRevision)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append

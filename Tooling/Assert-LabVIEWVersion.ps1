@@ -20,6 +20,12 @@
 
 .PARAMETER Context
     Optional context label used in messages.
+
+.PARAMETER WriteSummary
+    When set, write a summary entry to the GitHub Step Summary file.
+
+.PARAMETER SummaryPath
+    Optional override path for summary output (defaults to GITHUB_STEP_SUMMARY).
 #>
 
 [CmdletBinding()]
@@ -33,7 +39,12 @@ param(
     [switch]$AllowMismatch,
 
     [Parameter(Mandatory = $false)]
-    [string]$Context
+    [string]$Context,
+
+    [switch]$WriteSummary,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SummaryPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -85,6 +96,48 @@ function Add-DeclaredVersion {
     }
 }
 
+function Resolve-SummaryPath {
+    param([string]$OverridePath)
+
+    if (-not [string]::IsNullOrWhiteSpace($OverridePath)) {
+        return $OverridePath
+    }
+
+    return $env:GITHUB_STEP_SUMMARY
+}
+
+function Write-VersionSummary {
+    param(
+        [string]$Path,
+        [string]$ContextLabel,
+        [string]$Status,
+        [pscustomobject]$RepoInfo,
+        [string[]]$Mismatches,
+        [string]$Guidance
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return
+    }
+
+    $lines = @()
+    $lines += "## LabVIEW Version Contract"
+    if (-not [string]::IsNullOrWhiteSpace($ContextLabel)) {
+        $lines += "- Context: $ContextLabel"
+    }
+    $lines += ("- .lvversion: {0} (year {1}, minor {2})" -f $RepoInfo.Raw, $RepoInfo.Year, $RepoInfo.MinorRevision)
+    $lines += ("- Status: {0}" -f $Status)
+    if ($Mismatches -and $Mismatches.Count -gt 0) {
+        $lines += ("- Mismatches: {0}" -f ($Mismatches -join '; '))
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Guidance)) {
+        $lines += ("- Guidance: {0}" -f $Guidance)
+    }
+    $lines += ""
+
+    $lines | Out-File -FilePath $Path -Append -Encoding utf8
+}
+
 $repoRootResolved = Resolve-RepoRoot -Path $RepoRoot
 $versionHelper = Join-Path $repoRootResolved 'Tooling/support/LabVIEWVersion.ps1'
 if (-not (Test-Path -Path $versionHelper)) {
@@ -129,17 +182,31 @@ foreach ($entry in $declared) {
 
 $contextLabel = if ([string]::IsNullOrWhiteSpace($Context)) { '' } else { " [$Context]" }
 $baseMessage = "LabVIEW version contract${contextLabel}: .lvversion=$($repoInfo.Raw) (year $repoYear, minor $repoMinor)."
+$guidance = "Update .lvversion or remove overrides (LVIE_REQUIRED_LABVIEW_VERSION*, LABVIEW_VERSION_YEAR/MINOR). For local runs, pass -AllowVersionMismatch to bypass."
+$summaryPath = $null
+if ($WriteSummary) {
+    $summaryPath = Resolve-SummaryPath -OverridePath $SummaryPath
+    if ([string]::IsNullOrWhiteSpace($summaryPath)) {
+        Write-Warning "WriteSummary requested, but no summary path was provided and GITHUB_STEP_SUMMARY is not set."
+    }
+}
 
 if ($mismatches.Count -gt 0) {
     $details = "Mismatched declarations: {0}" -f ($mismatches -join '; ')
-    $guidance = "Update .lvversion or remove overrides (LVIE_REQUIRED_LABVIEW_VERSION*, LABVIEW_VERSION_YEAR/MINOR). For local runs, pass -AllowVersionMismatch to bypass."
     $message = "$baseMessage $details $guidance"
+    $summaryStatus = if ($AllowMismatch) { 'warning' } else { 'failed' }
+    if ($summaryPath) {
+        Write-VersionSummary -Path $summaryPath -ContextLabel $Context -Status $summaryStatus -RepoInfo $repoInfo -Mismatches $mismatches -Guidance $guidance
+    }
     if ($AllowMismatch) {
         Write-Warning $message
     } else {
         throw $message
     }
 } else {
+    if ($summaryPath) {
+        Write-VersionSummary -Path $summaryPath -ContextLabel $Context -Status 'ok' -RepoInfo $repoInfo -Mismatches @() -Guidance $null
+    }
     Write-Host "$baseMessage OK."
 }
 
