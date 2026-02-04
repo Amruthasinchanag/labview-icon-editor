@@ -114,11 +114,15 @@ function Normalize-PathValue {
         return $null
     }
 
-    if (Test-Path -LiteralPath $PathValue) {
-        try {
-            return (Resolve-Path -LiteralPath $PathValue).Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
-        } catch {
+    try {
+        if (Test-Path -LiteralPath $PathValue -ErrorAction SilentlyContinue) {
+            try {
+                return (Resolve-Path -LiteralPath $PathValue).Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+            } catch {
+            }
         }
+    } catch {
+        # Access denied or other IO errors should not break dev-mode toggling.
     }
 
     try {
