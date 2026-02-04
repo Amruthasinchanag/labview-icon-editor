@@ -17,7 +17,7 @@ param(
     [Parameter(Mandatory = $true, ParameterSetName = 'Script')]
     [string]$ScriptPath,
 
-    [Parameter(Mandatory = $false, ParameterSetName = 'Script')]
+    [Parameter(Mandatory = $false, ParameterSetName = 'Script', ValueFromRemainingArguments = $true)]
     [string[]]$ScriptArguments,
 
     [Parameter(Mandatory = $false)]
