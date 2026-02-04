@@ -66,13 +66,17 @@ runs:
         BUMP_TYPE:    ${{ steps.bump_type.outputs.bump_type }}
         BUILD_NUMBER: ${{ steps.inc_build.outputs.new_build_number }}
       run: |
-        $latestRaw = git describe --tags --abbrev=0 2>$null
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "No existing tags were found; defaulting to 0.0.0."
-          $latestRaw = ''
-          $global:LASTEXITCODE = 0
+        $semverPattern = '^v?\d+(\.\d+){0,2}($|-)'
+        $latestRaw = ''
+        $tags = git tag --list --sort=-creatordate 2>$null
+        foreach ($tag in $tags) {
+          if ($tag -match $semverPattern) {
+            $latestRaw = $tag
+            break
+          }
         }
         if ([string]::IsNullOrWhiteSpace($latestRaw)) {
+          Write-Host "No semver-like tags found; defaulting to 0.0.0."
           $maj=0; $min=1; $pat=0
         }
         else {
