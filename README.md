@@ -34,7 +34,7 @@ In practice, **your contributions** – whether new features, fixes, or improvem
 
 - 🛠 **Built in LabVIEW (“G” code)** – All editor functionality is implemented as LabVIEW VIs (graphical code).
 - 📁 **Compatibility Target** – Source is stored in LabVIEW 2021 (21.0) format for development, and the distributed packages target LabVIEW 2021 (21.0).
-- ⚙️ **CI Pipeline** – **GitHub Actions** orchestrate PowerShell-based workflows for testing, building, and publishing the `.vip` package.
+- ⚙️ **CI Pipeline** – **GitHub Actions** orchestrate PowerShell-based workflows for testing, building, and publishing the `.vip` package. The LabVIEW version is enforced via `.lvversion` (mismatches fail fast in CI and local parity scripts unless explicitly overridden).
 - 🔄 **Modern Development Practices** – This project helped pioneer NI’s open-source CI/CD patterns, and its infrastructure will migrate to a centralized toolkit for future LabVIEW projects.
 
 NI’s open-source initiative encourages **community collaboration** on this project to continuously improve the Icon Editor and streamline LabVIEW development workflows.

@@ -132,7 +132,8 @@ $baseMessage = "LabVIEW version contract${contextLabel}: .lvversion=$($repoInfo.
 
 if ($mismatches.Count -gt 0) {
     $details = "Mismatched declarations: {0}" -f ($mismatches -join '; ')
-    $message = "$baseMessage $details"
+    $guidance = "Update .lvversion or remove overrides (LVIE_REQUIRED_LABVIEW_VERSION*, LABVIEW_VERSION_YEAR/MINOR). For local runs, pass -AllowVersionMismatch to bypass."
+    $message = "$baseMessage $details $guidance"
     if ($AllowMismatch) {
         Write-Warning $message
     } else {

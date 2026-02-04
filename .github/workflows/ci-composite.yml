@@ -63,6 +63,9 @@ jobs:
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     strategy:
       fail-fast: false
       matrix:
@@ -105,8 +108,12 @@ jobs:
 
   changes:
     name: Detect VIPC changes
-    needs: dev-mode-gate
+    needs: [version-gate, dev-mode-gate]
     runs-on: ubuntu-latest
+    env:
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     outputs:
       vipc: ${{ steps.filter.outputs.vipc }}
     steps:
@@ -126,10 +133,13 @@ jobs:
 
   apply-deps-2021-x64:
     name: Apply VIPC (LV x64)
-    needs: changes
+    needs: [version-gate, changes]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -159,10 +169,13 @@ jobs:
 
   apply-deps-2021-x86:
     name: Apply VIPC (LV x86)
-    needs: [apply-deps-2021-x64, changes]
+    needs: [version-gate, apply-deps-2021-x64, changes]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -192,10 +205,13 @@ jobs:
 
   version:
     name: Compute Version
-    needs: dev-mode-gate
+    needs: [version-gate, dev-mode-gate]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     outputs:
       VERSION:       ${{ steps.compute.outputs.VERSION }}
       MAJOR:         ${{ steps.compute.outputs.MAJOR }}
@@ -225,10 +241,13 @@ jobs:
 
   missing-in-project:
     name: Missing-In-Project (LV ${{ matrix.bitness }}-bit)
-    needs: apply-deps-2021-x86
+    needs: [version-gate, apply-deps-2021-x86]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -308,10 +327,13 @@ jobs:
 
   test-2021:
     name: Run Unit Tests (LV ${{ matrix.bitness }}-bit)
-    needs: missing-in-project
+    needs: [version-gate, missing-in-project]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -361,10 +383,13 @@ jobs:
 
   build-ppl-x86:
     name: Build 32-bit Packed Library
-    needs: [build-ppl-x64, version]
+    needs: [version-gate, build-ppl-x64, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -418,10 +443,13 @@ jobs:
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
-    needs: [test-2021, version]
+    needs: [version-gate, test-2021, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -476,13 +504,16 @@ jobs:
   build-vip:
     name: Build VI Package
     # Chain after 32-bit PPL build (which depends on 64-bit PPL build).
-    needs: [build-ppl-x86, version]
+    needs: [version-gate, build-ppl-x86, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
       LVIE_VIPM_TIMEOUT_SECONDS: 900
       LVIE_VIPM_MAX_ATTEMPTS: 2
       LVIE_VIPM_RETRY_DELAY_SECONDS: 30
+      LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
+      LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
+      LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

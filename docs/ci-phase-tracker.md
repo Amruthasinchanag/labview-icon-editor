@@ -12,10 +12,10 @@ Branch: experimental/447-test
 - [x] CI: add a version gate job that fails fast and exports version outputs
 
 ## Phase B (Runner and Workflow Hardening)
-- [ ] Standardize workflow inputs to use version outputs from the gate
-- [ ] Add clear failure messages for mismatch cases (CI + local)
-- [ ] Add guard to prevent accidental overrides of LABVIEW_VERSION_YEAR/MINOR
-- [ ] Add docs in README or Tooling/README for version contract
+- [x] Standardize workflow inputs to use version outputs from the gate
+- [x] Add clear failure messages for mismatch cases (CI + local)
+- [x] Add guard to prevent accidental overrides of LABVIEW_VERSION_YEAR/MINOR
+- [x] Add docs in README or Tooling/README for version contract
 
 ## Phase C (Observability + Portability)
 - [ ] Add summary output to GitHub Step Summary for version checks
