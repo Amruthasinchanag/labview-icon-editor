@@ -22,3 +22,9 @@ Branch: experimental/447-test
 - [x] Add unit tests or Pester tests for version parsing and mismatch behavior
 - [x] Add a dry-run mode for local tooling to validate versions without running jobs
 - [x] Document runner setup expectations and registry probe logic
+
+## Phase D (Tooling Lint Hardening)
+- [x] Add PSScriptAnalyzer job to CI and repo settings/baseline
+- [x] Remove/rename unapproved verbs in Tooling scripts
+- [x] Fix automatic variable assignments in tests/tooling
+- [x] Eliminate remaining analyzer warnings (baseline at zero)
