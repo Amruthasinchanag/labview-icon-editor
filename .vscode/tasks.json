@@ -12,12 +12,12 @@
         "-File",
         "${workspaceFolder}\\Tooling\\Invoke-MissingIEFilesFromLVInstall.ps1",
         "-MinimumSupportedLVVersion",
-        "${input:lvVersion}",
+        "2021",
         "-SupportedBitness",
         "${input:lvBitness}",
         "-ConnectTimeoutMs",
         "${input:lvConnectTimeoutMs}",
-        "-EnableDevMode",
+        "-EnableDevModeNoLabVIEW",
         "-AutoWorktree"
       ],
       "options": {
@@ -114,20 +114,6 @@
     }
   ],
   "inputs": [
-    {
-      "id": "lvVersion",
-      "type": "pickString",
-      "description": "LabVIEW version for g-cli",
-      "options": [
-        "2020",
-        "2021",
-        "2022",
-        "2023",
-        "2024",
-        "2025"
-      ],
-      "default": "2021"
-    },
     {
       "id": "lvBitness",
       "type": "pickString",

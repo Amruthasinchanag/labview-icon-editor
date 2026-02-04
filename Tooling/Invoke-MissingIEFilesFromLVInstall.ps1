@@ -20,6 +20,11 @@
     are treated as success; other missing paths still fail the check.
     Non-zero VerifyIEPaths g-cli exit codes are ignored so the status file can be evaluated.
 
+.PARAMETER EnableDevModeNoLabVIEW
+    Enable development mode without launching LabVIEW by editing install files and LabVIEW.ini.
+    When enabled, missing paths that are expected in dev mode (LabVIEW Icon API and lv_icon.lvlibp)
+    are treated as success; other missing paths still fail the check.
+
 .PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
@@ -92,6 +97,9 @@ param(
     [switch]$EnableDevMode,
 
     [Parameter(Mandatory = $false)]
+    [switch]$EnableDevModeNoLabVIEW,
+
+    [Parameter(Mandatory = $false)]
     [string]$StatusFileName = 'missing_IE_paths.txt',
 
     [Parameter(Mandatory = $false)]
@@ -141,6 +149,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+$devModeRequested = $EnableDevMode -or $EnableDevModeNoLabVIEW
+if ($EnableDevMode -and $EnableDevModeNoLabVIEW) {
+    Write-Warning "EnableDevModeNoLabVIEW is set; ignoring EnableDevMode."
+}
 
 function Convert-BoundParametersToArgs {
     param(
@@ -468,22 +481,35 @@ if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
 
 $gCliPath = (Get-Command g-cli -ErrorAction SilentlyContinue).Source
 
-if ($EnableDevMode) {
-    $devModeScript = Join-Path $repoRoot '.github\actions\set-development-mode\Set_Development_Mode.ps1'
-    if (-not (Test-Path -Path $devModeScript)) {
-        throw "Set_Development_Mode.ps1 not found at $devModeScript"
+if ($devModeRequested) {
+    if ($EnableDevModeNoLabVIEW) {
+        $devModeScript = Join-Path $repoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
+        if (-not (Test-Path -Path $devModeScript)) {
+            throw "Set-DevelopmentMode-NoLabVIEW.ps1 not found at $devModeScript"
+        }
+
+        Write-Host ("Enabling development mode without LabVIEW before VerifyIEPaths (LV{0} {1}-bit)..." -f $labviewYear, $SupportedBitness)
+        & $devModeScript `
+            -MinimumSupportedLVVersion $labviewYear `
+            -SupportedBitness $SupportedBitness `
+            -RepoRoot $repoRoot
+    } else {
+        $devModeScript = Join-Path $repoRoot '.github\actions\set-development-mode\Set_Development_Mode.ps1'
+        if (-not (Test-Path -Path $devModeScript)) {
+            throw "Set_Development_Mode.ps1 not found at $devModeScript"
+        }
+
+        Write-Host ("Enabling development mode before VerifyIEPaths (LV{0} {1}-bit)..." -f $labviewYear, $SupportedBitness)
+        & $devModeScript `
+            -MinimumSupportedLVVersion $labviewYear `
+            -SupportedBitness $SupportedBitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs
     }
 
-    Write-Host ("Enabling development mode before VerifyIEPaths (LV{0} {1}-bit)..." -f $labviewYear, $SupportedBitness)
-    & $devModeScript `
-        -MinimumSupportedLVVersion $labviewYear `
-        -SupportedBitness $SupportedBitness `
-        -RepoRoot $repoRoot `
-        -ConnectTimeoutMs $ConnectTimeoutMs `
-        -ProcessTimeoutMs $ProcessTimeoutMs
-
     if ($LASTEXITCODE -ne 0) {
-        throw "Set_Development_Mode.ps1 failed with exit code $LASTEXITCODE."
+        throw "Development mode enable failed with exit code $LASTEXITCODE."
     }
 
     if (-not (Test-IEDevModeEnabled -LabVIEWInstallRoot $installRoot)) {
@@ -516,9 +542,9 @@ try {
         throw "VerifyIEPaths.vi timed out after $ProcessTimeoutMs ms."
     }
     if ($result.ExitCode -ne 0) {
-        $allowGcliExit = $IgnoreGcliExitCode -or $EnableDevMode
+        $allowGcliExit = $IgnoreGcliExitCode -or $devModeRequested
         if ($allowGcliExit) {
-            $reason = if ($IgnoreGcliExitCode) { 'IgnoreGcliExitCode is set' } else { 'EnableDevMode is set' }
+            $reason = if ($IgnoreGcliExitCode) { 'IgnoreGcliExitCode is set' } else { 'development mode is enabled' }
             Write-Warning ("VerifyIEPaths.vi returned exit code {0}; continuing because {1}." -f $result.ExitCode, $reason)
         } else {
             throw "VerifyIEPaths.vi failed with exit code $($result.ExitCode)."
@@ -540,7 +566,7 @@ try {
                     $statusInfo.RawStatus
                 }
 
-                if ($EnableDevMode) {
+                if ($devModeRequested) {
                     $unexpected = @()
                     if ($statusInfo.MissingPaths -and $statusInfo.MissingPaths.Count -gt 0) {
                         $unexpected = $statusInfo.MissingPaths | Where-Object {
