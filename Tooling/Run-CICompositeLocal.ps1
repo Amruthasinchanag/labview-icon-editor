@@ -24,7 +24,7 @@
     Skip the Verify IE Paths gate.
 
 .PARAMETER EnsureCleanState
-    Revert dev mode before running Verify IE Paths.
+    Revert dev mode before enabling it for Verify IE Paths.
 
 .PARAMETER SkipVipc
     Skip applying VIPC dependencies.
@@ -484,6 +484,7 @@ function Invoke-VerifyIEPaths {
             -ProcessTimeoutMs $ProcessTimeoutMs `
             -StatusFileTimeoutMs $StatusTimeoutMs `
             -StatusFileArchiveDirectory $VerifyArchive `
+            -EnableDevModeNoLabVIEW `
             -IgnoreGcliExitCode
     }
 }
@@ -805,48 +806,15 @@ try {
         New-Item -Path $verifyArchive -ItemType Directory -Force | Out-Null
 
         foreach ($bitness in $bitnessList) {
-            $shortConnectMs = 10000
-            $shortStatusMs = 10000
-
             if ($EnsureCleanState) {
-                $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before VerifyIEPaths ($bitness-bit)" -Action {
-                    & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
+                $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before enabling VerifyIEPaths ($bitness-bit)" -Action {
+                    & (Join-Path $repoRoot 'Tooling/Revert-DevelopmentMode-NoLabVIEW.ps1') `
                         -LabVIEWVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
-                        -RepoRoot $repoRoot `
-                        -ConnectTimeoutMs $ConnectTimeoutMs `
-                        -ProcessTimeoutMs $ProcessTimeoutMs
+                        -RepoRoot $repoRoot
                 }
 
-                if ($revertResult.Error -and (Test-ConnectTimeoutError -ErrorRecord $revertResult.Error)) {
-                    Write-Warning ("Revert dev mode hit g-cli connect timeout for {0}-bit; retrying quickly..." -f $bitness)
-
-                    # Fast retries are only meaningful when LabVIEW is already running (otherwise a short connect
-                    # timeout is guaranteed to fail on cold start).
-                    if (Test-LabVIEWRunning -Version $LabVIEWVersion -Bitness $bitness) {
-                        $retryResult = Invoke-CheckedWithResult -Label "Revert dev mode retry ($bitness-bit, fast connect)" -Action {
-                            & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                                -LabVIEWVersion $LabVIEWVersion `
-                                -SupportedBitness $bitness `
-                                -RepoRoot $repoRoot `
-                                -ConnectTimeoutMs $shortConnectMs `
-                                -ProcessTimeoutMs $ProcessTimeoutMs
-                        }
-
-                        if ($retryResult.Error -and -not (Test-ConnectTimeoutError -ErrorRecord $retryResult.Error)) {
-                            throw $retryResult.Error
-                        }
-                    } else {
-                        Write-Warning ("No matching LabVIEW {0} ({1}-bit) process running; skipping fast revert retry." -f $LabVIEWVersion, $bitness)
-                    }
-
-                    # Regardless of the revert outcome, VerifyIEPaths is the authoritative gate for proceeding.
-                    $verifyResult = Invoke-VerifyIEPaths -Bitness $bitness -ConnectTimeoutMs $ConnectTimeoutMs -StatusTimeoutMs $StatusFileTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -VerifyArchive $verifyArchive
-                    if ($verifyResult.Error) {
-                        throw $verifyResult.Error
-                    }
-                    continue
-                } elseif ($revertResult.Error) {
+                if ($revertResult.Error) {
                     throw $revertResult.Error
                 }
             }

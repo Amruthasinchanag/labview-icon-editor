@@ -72,7 +72,8 @@ jobs:
             -ConnectTimeoutMs 180000 `
             -ProcessTimeoutMs 300000 `
             -StatusFileTimeoutMs 60000 `
-            -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths"
+            -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths" `
+            -EnableDevModeNoLabVIEW
       - name: Upload VerifyIEPaths status (on failure)
         if: failure()
         uses: actions/upload-artifact@v4

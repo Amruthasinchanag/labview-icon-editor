@@ -35,7 +35,7 @@
     Upper bound for process timeout.
 
 .PARAMETER EnsureCleanState
-    Revert dev mode before Verify IE Paths.
+    Revert dev mode before enabling it for Verify IE Paths.
 
 .PARAMETER UseWorktree
     Create a worktree under the configured root and run parity from there.
