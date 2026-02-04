@@ -33,7 +33,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Normalize-Path {
+function Resolve-NormalizedPath {
     param([string]$Path)
     if ([string]::IsNullOrWhiteSpace($Path)) { return $Path }
     $full = [System.IO.Path]::GetFullPath($Path)
@@ -95,8 +95,8 @@ function Get-LabVIEWInstallRoot {
 
 $resolvedWorkRoot = if ($WorkRoot) { $WorkRoot } else { $env:LVIE_RUNNER_WORK_ROOT }
 $resolvedWorktreeRoot = if ($WorktreeRoot) { $WorktreeRoot } else { $env:LVIE_WORKTREE_ROOT }
-$resolvedWorkRoot = Normalize-Path -Path $resolvedWorkRoot
-$resolvedWorktreeRoot = Normalize-Path -Path $resolvedWorktreeRoot
+$resolvedWorkRoot = Resolve-NormalizedPath -Path $resolvedWorkRoot
+$resolvedWorktreeRoot = Resolve-NormalizedPath -Path $resolvedWorktreeRoot
 $resolvedRepoRoot = Resolve-RepoRoot -Path $RepoRoot
 
 Write-Host ("Runner check: work_root={0}" -f ($resolvedWorkRoot ?? '<unset>'))
@@ -181,3 +181,4 @@ if ($resolvedRepoRoot) {
 } else {
     Write-Warning "Runner check: repo_root not resolved; skipping LabVIEW version checks."
 }
+

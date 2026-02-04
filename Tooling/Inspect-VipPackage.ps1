@@ -58,13 +58,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Write-SummaryLine {
-    param([string]$Line)
+    param(
+        [string]$Line,
+        [bool]$SummaryEnabled
+    )
 
-    if (-not $WriteSummary) { return }
+    if (-not $SummaryEnabled) { return }
     if ([string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) { return }
 
     $Line | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
 }
+
+$summaryEnabled = $WriteSummary.IsPresent
 
 $VipPath = [System.IO.Path]::GetFullPath($VipPath)
 if (-not (Test-Path -LiteralPath $VipPath -PathType Leaf)) {
@@ -80,9 +85,9 @@ catch {
 }
 
 Write-Host ("Inspecting VI Package (as zip): {0}" -f $VipPath)
-Write-SummaryLine "## VI Package Inspection"
-Write-SummaryLine ""
-Write-SummaryLine ('- VIP: `{0}`' -f $VipPath)
+Write-SummaryLine -Line "## VI Package Inspection" -SummaryEnabled $summaryEnabled
+Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+Write-SummaryLine -Line ('- VIP: `{0}`' -f $VipPath) -SummaryEnabled $summaryEnabled
 
 $archive = $null
 try {
@@ -109,13 +114,13 @@ try {
     Write-Host ("Max internal path length: {0}" -f $maxLen)
     Write-Host ("Avg internal path length: {0}" -f $avgLen)
 
-    Write-SummaryLine ("- Entries: **{0}**" -f $entryCount)
-    Write-SummaryLine ("- Max internal path length: **{0}**" -f $maxLen)
-    Write-SummaryLine ("- Avg internal path length: **{0}**" -f $avgLen)
+    Write-SummaryLine -Line ("- Entries: **{0}**" -f $entryCount) -SummaryEnabled $summaryEnabled
+    Write-SummaryLine -Line ("- Max internal path length: **{0}**" -f $maxLen) -SummaryEnabled $summaryEnabled
+    Write-SummaryLine -Line ("- Avg internal path length: **{0}**" -f $avgLen) -SummaryEnabled $summaryEnabled
 
     if ($maxLen -ge $WarnPathLength) {
         Write-Warning ("Max internal entry path length ({0}) is >= warn threshold ({1})." -f $maxLen, $WarnPathLength)
-        Write-SummaryLine ("- :warning: Max internal entry path length ({0}) is >= warn threshold ({1})." -f $maxLen, $WarnPathLength)
+        Write-SummaryLine -Line ("- :warning: Max internal entry path length ({0}) is >= warn threshold ({1})." -f $maxLen, $WarnPathLength) -SummaryEnabled $summaryEnabled
     }
 
     if ($FailPathLength -gt 0 -and $maxLen -ge $FailPathLength) {
@@ -132,14 +137,14 @@ try {
         Write-Host ("{0,4}  {1}" -f $row.NameLength, $row.Name)
     }
 
-    Write-SummaryLine ""
-    Write-SummaryLine ("### Top {0} Longest Internal Paths" -f $TopLongest)
-    Write-SummaryLine ""
-    Write-SummaryLine "|Len|Entry|"
-    Write-SummaryLine "|---:|---|"
+    Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+    Write-SummaryLine -Line ("### Top {0} Longest Internal Paths" -f $TopLongest) -SummaryEnabled $summaryEnabled
+    Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+    Write-SummaryLine -Line "|Len|Entry|" -SummaryEnabled $summaryEnabled
+    Write-SummaryLine -Line "|---:|---|" -SummaryEnabled $summaryEnabled
     foreach ($row in $top) {
         $escaped = ($row.Name -replace '\|', '\|')
-        Write-SummaryLine ('|{0}|`{1}`|' -f $row.NameLength, $escaped)
+        Write-SummaryLine -Line ('|{0}|`{1}`|' -f $row.NameLength, $escaped) -SummaryEnabled $summaryEnabled
     }
 
     # Detect obvious build/test artifacts inside the VIP (these should not ship).
@@ -167,16 +172,16 @@ try {
             Write-Host ("ARTIFACT  {0,4}  {1}" -f $row.NameLength, $row.Name)
         }
 
-        Write-SummaryLine ""
-        Write-SummaryLine "### Build/Test Artifacts Detected"
-        Write-SummaryLine ""
-        Write-SummaryLine (":warning: VIP contains **{0}** entries that look like build/test artifacts (e.g. `TestResults`, `builds`)." -f $artifactEntries.Count)
-        Write-SummaryLine ""
-        Write-SummaryLine "|Len|Entry|"
-        Write-SummaryLine "|---:|---|"
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "### Build/Test Artifacts Detected" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line (":warning: VIP contains **{0}** entries that look like build/test artifacts (e.g. `TestResults`, `builds`)." -f $artifactEntries.Count) -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "|Len|Entry|" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "|---:|---|" -SummaryEnabled $summaryEnabled
         foreach ($row in $sample) {
             $escaped = ($row.Name -replace '\|', '\|')
-            Write-SummaryLine ('|{0}|`{1}`|' -f $row.NameLength, $escaped)
+            Write-SummaryLine -Line ('|{0}|`{1}`|' -f $row.NameLength, $escaped) -SummaryEnabled $summaryEnabled
         }
     }
 
@@ -215,22 +220,22 @@ try {
 
     if ($suspicious.Count -gt 0) {
         Write-Warning ("Found {0} suspicious zip entries that look like absolute/runner paths." -f $suspicious.Count)
-        Write-SummaryLine ""
-        Write-SummaryLine ("### Suspicious Paths")
-        Write-SummaryLine ""
-        Write-SummaryLine (":warning: Found **{0}** suspicious zip entries that look like absolute/runner paths." -f $suspicious.Count)
-        Write-SummaryLine ""
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line ("### Suspicious Paths") -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line (":warning: Found **{0}** suspicious zip entries that look like absolute/runner paths." -f $suspicious.Count) -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
 
         $sample = $suspicious | Sort-Object NameLength -Descending | Select-Object -First 25
         foreach ($row in $sample) {
             Write-Host ("SUSPICIOUS {0,4}  {1}" -f $row.NameLength, $row.Name)
         }
 
-        Write-SummaryLine "|Len|Entry|"
-        Write-SummaryLine "|---:|---|"
+        Write-SummaryLine -Line "|Len|Entry|" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "|---:|---|" -SummaryEnabled $summaryEnabled
         foreach ($row in $sample) {
             $escaped = ($row.Name -replace '\|', '\|')
-            Write-SummaryLine ('|{0}|`{1}`|' -f $row.NameLength, $escaped)
+            Write-SummaryLine -Line ('|{0}|`{1}`|' -f $row.NameLength, $escaped) -SummaryEnabled $summaryEnabled
         }
 
         if ($FailOnAbsolutePaths) {
@@ -239,10 +244,10 @@ try {
         }
     } else {
         Write-Host "No suspicious absolute/runner path fragments detected in zip entry names."
-        Write-SummaryLine ""
-        Write-SummaryLine "### Suspicious Paths"
-        Write-SummaryLine ""
-        Write-SummaryLine "No suspicious absolute/runner path fragments detected in zip entry names."
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "### Suspicious Paths" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "" -SummaryEnabled $summaryEnabled
+        Write-SummaryLine -Line "No suspicious absolute/runner path fragments detected in zip entry names." -SummaryEnabled $summaryEnabled
     }
 }
 catch {

@@ -197,7 +197,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Ensure-CsvHeader {
+function Initialize-CsvHeader {
     param(
         [string]$Path,
         [string]$Header
@@ -485,15 +485,20 @@ function Invoke-VerifyIEPaths {
         [string]$VerifyArchive
     )
 
+    $connectTimeoutMsValue = $ConnectTimeoutMs
+    $statusTimeoutMsValue = $StatusTimeoutMs
+    $processTimeoutMsValue = $ProcessTimeoutMs
+    $verifyArchiveValue = $VerifyArchive
+
     return Invoke-CheckedWithResult -Label "Verify IE Paths gate ($Bitness-bit)" -Action {
         & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') `
             -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
-            -ConnectTimeoutMs $ConnectTimeoutMs `
-            -ProcessTimeoutMs $ProcessTimeoutMs `
-            -StatusFileTimeoutMs $StatusTimeoutMs `
-            -StatusFileArchiveDirectory $VerifyArchive `
+            -ConnectTimeoutMs $connectTimeoutMsValue `
+            -ProcessTimeoutMs $processTimeoutMsValue `
+            -StatusFileTimeoutMs $statusTimeoutMsValue `
+            -StatusFileArchiveDirectory $verifyArchiveValue `
             -EnableDevModeNoLabVIEW `
             -IgnoreGcliExitCode
     }
@@ -507,6 +512,9 @@ function Invoke-EnableDevModeWithRecovery {
         [string]$Context
     )
 
+    $connectTimeoutMsValue = $ConnectTimeoutMs
+    $processTimeoutMsValue = $ProcessTimeoutMs
+
     Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
 
     $label = if ([string]::IsNullOrWhiteSpace($Context)) {
@@ -519,8 +527,8 @@ function Invoke-EnableDevModeWithRecovery {
             -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
-            -ConnectTimeoutMs $ConnectTimeoutMs `
-            -ProcessTimeoutMs $ProcessTimeoutMs
+            -ConnectTimeoutMs $connectTimeoutMsValue `
+            -ProcessTimeoutMs $processTimeoutMsValue
     }
 
     if (-not $result.Error) {
@@ -536,8 +544,8 @@ function Invoke-EnableDevModeWithRecovery {
             -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
-            -ConnectTimeoutMs $ConnectTimeoutMs `
-            -ProcessTimeoutMs $ProcessTimeoutMs
+            -ConnectTimeoutMs $connectTimeoutMsValue `
+            -ProcessTimeoutMs $processTimeoutMsValue
     }
     if ($revertResult.Error) {
         Write-Warning ("Dev mode recovery failed during revert: {0}" -f $revertResult.Error.Exception.Message)
@@ -550,8 +558,8 @@ function Invoke-EnableDevModeWithRecovery {
             -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
-            -ConnectTimeoutMs $ConnectTimeoutMs `
-            -ProcessTimeoutMs $ProcessTimeoutMs
+            -ConnectTimeoutMs $connectTimeoutMsValue `
+            -ProcessTimeoutMs $processTimeoutMsValue
     }
     if ($retry.Error) {
         Write-Warning ("Dev mode recovery failed on retry: {0}" -f $retry.Error.Exception.Message)
@@ -564,7 +572,7 @@ function Invoke-EnableDevModeWithRecovery {
 }
 
 function Get-LocalVersionInfo {
-    param([string]$RepoRoot, [string]$BumpType)
+    param([string]$BumpType)
 
     $versionPattern = '^(v)?\d+(\.\d+){0,2}$'
     $latestRaw = git describe --tags --abbrev=0 2>$null
@@ -797,8 +805,8 @@ New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $script:RunHistoryPath = Join-Path $logRoot 'run-history.csv'
 $script:StepHistoryPath = Join-Path $logRoot 'step-history.csv'
 $script:CloseHistoryPath = Join-Path $logRoot ("close-history-{0}.csv" -f $runTimestamp)
-Ensure-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration_seconds,command'
-Ensure-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
+Initialize-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,duration_seconds,command'
+Initialize-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
 $env:LABVIEW_CLOSE_METRICS_PATH = $script:CloseHistoryPath
 $runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
 $commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBitness $LabVIEWBitness -AllowVersionMismatch:$AllowVersionMismatch -DryRun:$DryRun -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
@@ -836,7 +844,7 @@ try {
     }
     $vipLabVIEWMinorRevision = if ($labviewInfo) { [int]$labviewInfo.MinorRevision } else { 0 }
 
-    $versionInfo = Get-LocalVersionInfo -RepoRoot $repoRoot -BumpType $BumpType
+    $versionInfo = Get-LocalVersionInfo -BumpType $BumpType
     if ($PSBoundParameters.ContainsKey('Major')) { $versionInfo.Major = $Major }
     if ($PSBoundParameters.ContainsKey('Minor')) { $versionInfo.Minor = $Minor }
     if ($PSBoundParameters.ContainsKey('Patch')) { $versionInfo.Patch = $Patch }
@@ -1102,4 +1110,5 @@ finally {
     "{0},{1},{2},{3}" -f $runTimestamp, $runStatus, $runDuration, ($commandLine -replace ',', ' ') | Add-Content -Path $script:RunHistoryPath
     Pop-Location
 }
+
 

@@ -93,7 +93,7 @@ function Set-RunnerContract {
     $Contract | ConvertTo-Json -Depth 6 | Set-Content -Path $ContractPath -Encoding ascii
 }
 
-function Apply-RunnerContract {
+function Set-RunnerContractEnvironment {
     param(
         [pscustomobject]$Contract,
         [string]$ContractPath
@@ -125,3 +125,4 @@ function Apply-RunnerContract {
         $env:LVIE_RUNNER_CONTRACT_PATH = $ContractPath
     }
 }
+

@@ -105,7 +105,7 @@ function Get-AnalyzerFiles {
     } | Select-Object -ExpandProperty FullName
 }
 
-function Normalize-Issue {
+function Convert-IssueRecord {
     param(
         [object]$Issue,
         [string]$Root
@@ -215,7 +215,7 @@ $results = foreach ($file in $files) {
 }
 $normalized = @()
 if ($results) {
-    $normalized = $results | ForEach-Object { Normalize-Issue -Issue $_ -Root $repoRoot } |
+    $normalized = $results | ForEach-Object { Convert-IssueRecord -Issue $_ -Root $repoRoot } |
         Sort-Object -Property Path, Line, Column, RuleName
 }
 
@@ -263,3 +263,4 @@ if ($newIssues.Count -gt 0) {
 } else {
     Write-Host ("No new PSScriptAnalyzer issues detected. Total issues: {0}" -f $normalized.Count)
 }
+

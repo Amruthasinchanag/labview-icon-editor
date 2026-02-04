@@ -58,7 +58,7 @@ function Invoke-Git {
     return $output
 }
 
-function Ensure-Gh {
+function Confirm-GhReady {
     $null = & gh --version 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "GitHub CLI (gh) not found or not authenticated."
@@ -68,7 +68,7 @@ function Ensure-Gh {
 $repoRoot = Invoke-Git @('rev-parse', '--show-toplevel')
 Set-Location $repoRoot
 
-Ensure-Gh
+Confirm-GhReady
 
 $fullSha = Invoke-Git @('rev-parse', '--verify', "$Sha^{commit}")
 $shortSha = Invoke-Git @('rev-parse', '--short', $fullSha)
@@ -98,3 +98,4 @@ if ($CleanupRemote) {
 }
 
 Write-Host ("Done. Ref: {0}" -f $branchName)
+

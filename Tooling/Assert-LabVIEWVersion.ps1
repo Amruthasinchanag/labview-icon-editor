@@ -59,7 +59,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path $Path -ErrorAction Stop).Path
 }
 
-function Normalize-VersionInput {
+function Resolve-VersionInput {
     param([string]$Year, [string]$Minor)
 
     if ([string]::IsNullOrWhiteSpace($Year)) {
@@ -161,12 +161,12 @@ if (-not [string]::IsNullOrWhiteSpace($requiredVersion)) {
     $declared += Add-DeclaredVersion -Source 'LVIE_REQUIRED_LABVIEW_VERSION' -VersionInput $requiredVersion -RepoRoot $repoRootResolved
 }
 
-$requiredFromParts = Normalize-VersionInput -Year $env:LVIE_REQUIRED_LABVIEW_VERSION_YEAR -Minor $env:LVIE_REQUIRED_LABVIEW_MINOR_REVISION
+$requiredFromParts = Resolve-VersionInput -Year $env:LVIE_REQUIRED_LABVIEW_VERSION_YEAR -Minor $env:LVIE_REQUIRED_LABVIEW_MINOR_REVISION
 if ($requiredFromParts) {
     $declared += Add-DeclaredVersion -Source 'LVIE_REQUIRED_LABVIEW_VERSION_YEAR/MINOR' -VersionInput $requiredFromParts -RepoRoot $repoRootResolved
 }
 
-$envFromParts = Normalize-VersionInput -Year $env:LABVIEW_VERSION_YEAR -Minor $env:LABVIEW_MINOR_REVISION
+$envFromParts = Resolve-VersionInput -Year $env:LABVIEW_VERSION_YEAR -Minor $env:LABVIEW_MINOR_REVISION
 if ($envFromParts) {
     $declared += Add-DeclaredVersion -Source 'LABVIEW_VERSION_YEAR/MINOR' -VersionInput $envFromParts -RepoRoot $repoRootResolved
 }
@@ -211,3 +211,4 @@ if ($mismatches.Count -gt 0) {
 }
 
 Write-Output $repoInfo
+

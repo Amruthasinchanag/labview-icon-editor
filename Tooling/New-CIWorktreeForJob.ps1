@@ -82,7 +82,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Normalize-PathString {
+function Resolve-NormalizedPath {
     param([string]$Path)
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
@@ -243,7 +243,7 @@ $root = [System.IO.Path]::GetFullPath($root)
 if (-not $rootIsExplicit) {
     New-Item -Path $root -ItemType Directory -Force | Out-Null
 }
-$root = Normalize-PathString -Path $root
+$root = Resolve-NormalizedPath -Path $root
 
 $hashBytes = [System.Text.Encoding]::UTF8.GetBytes($jobName)
 $jobHash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA1]::Create().ComputeHash($hashBytes)).Replace('-', '').Substring(0, 8)
@@ -256,7 +256,7 @@ $name = if ($variantToken) {
 }
 
 $targetPath = Join-Path $root $name
-$targetPath = Normalize-PathString -Path $targetPath
+$targetPath = Resolve-NormalizedPath -Path $targetPath
 
 $ensureScript = Join-Path $repoRoot 'Tooling/Ensure-WorktreeRoot.ps1'
 if (-not (Test-Path -Path $ensureScript)) {
@@ -307,14 +307,14 @@ if (Test-Path -Path $targetPath) {
 }
 
 $worktree = & $worktreeScript -Ref $ref -Path $targetPath -WorktreeRoot $root
-$worktree = Normalize-PathString -Path $worktree
+$worktree = Resolve-NormalizedPath -Path $worktree
 
 if (-not (Test-Path -Path $worktree)) {
     throw "Worktree path does not exist after creation: $worktree"
 }
 
 $projectPath = Join-Path $worktree $ProjectFile
-$projectPath = Normalize-PathString -Path $projectPath
+$projectPath = Resolve-NormalizedPath -Path $projectPath
 
 if (-not (Test-Path -Path $projectPath)) {
     throw "Project file not found at $projectPath"
@@ -335,3 +335,4 @@ if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_ENV)) {
 Write-Host ("Worktree created: {0}" -f $worktree)
 Write-Host ("LabVIEW version: {0} (year {1}, minor {2})" -f $lvInfo.Raw, $lvInfo.Year, $lvInfo.MinorRevision)
 Write-Output $worktree
+

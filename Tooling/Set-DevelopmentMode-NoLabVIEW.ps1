@@ -105,7 +105,7 @@ function Get-LabVIEWInstallRoot {
     return $null
 }
 
-function Normalize-PathValue {
+function Resolve-PathValue {
     param(
         [string]$PathValue
     )
@@ -119,11 +119,11 @@ function Normalize-PathValue {
             try {
                 return (Resolve-Path -LiteralPath $PathValue).Path.TrimEnd([System.IO.Path]::DirectorySeparatorChar)
             } catch {
-                Write-Verbose ("Normalize-PathValue: resolve path failed. {0}" -f $_.Exception.Message)
+                Write-Verbose ("Resolve-PathValue: resolve path failed. {0}" -f $_.Exception.Message)
             }
         }
     } catch {
-        Write-Verbose ("Normalize-PathValue: access denied or IO failure. {0}" -f $_.Exception.Message)
+        Write-Verbose ("Resolve-PathValue: access denied or IO failure. {0}" -f $_.Exception.Message)
     }
 
     try {
@@ -198,10 +198,10 @@ function Set-IniLibraryPath {
         }
     }
 
-    $repoRootNormalized = Normalize-PathValue -PathValue $RepoRoot
+    $repoRootNormalized = Resolve-PathValue -PathValue $RepoRoot
     $existingNormalized = @{}
     foreach ($pathValue in $paths) {
-        $normalized = Normalize-PathValue -PathValue $pathValue
+        $normalized = Resolve-PathValue -PathValue $pathValue
         if ($normalized) {
             $existingNormalized[$normalized.ToLowerInvariant()] = $pathValue
         }
@@ -241,14 +241,14 @@ function Test-LibraryPathContainsRepoRoot {
         [string]$RepoRoot
     )
 
-    $repoRootNormalized = Normalize-PathValue -PathValue $RepoRoot
+    $repoRootNormalized = Resolve-PathValue -PathValue $RepoRoot
     if (-not $repoRootNormalized) {
         return $false
     }
     $repoKey = $repoRootNormalized.ToLowerInvariant()
 
     foreach ($pathValue in (Get-IniLibraryPaths -IniPath $IniPath)) {
-        $candidate = Normalize-PathValue -PathValue $pathValue
+        $candidate = Resolve-PathValue -PathValue $pathValue
         if ($candidate -and $candidate.ToLowerInvariant() -eq $repoKey) {
             return $true
         }
@@ -397,6 +397,14 @@ function Enable-DevModeNoLabVIEW {
 }
 
 function Invoke-DevModeNoLabVIEWMain {
+    param(
+        [string]$LabVIEWVersion,
+        [string[]]$SupportedBitness,
+        [string]$RepoRoot,
+        [string]$ContractPath,
+        [switch]$SkipProcessCheck
+    )
+
     $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
     $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
     $contractHelper = Join-Path $resolvedRepoRoot 'Tooling\support\DevModeContract.ps1'
@@ -437,5 +445,11 @@ function Invoke-DevModeNoLabVIEWMain {
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    Invoke-DevModeNoLabVIEWMain
+    Invoke-DevModeNoLabVIEWMain `
+        -LabVIEWVersion $LabVIEWVersion `
+        -SupportedBitness $SupportedBitness `
+        -RepoRoot $RepoRoot `
+        -ContractPath $ContractPath `
+        -SkipProcessCheck:$SkipProcessCheck
 }
+

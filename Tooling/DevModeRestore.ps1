@@ -19,7 +19,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-function Ensure-Directory {
+function New-DirectoryIfMissing {
     param(
         [string]$Path
     )
@@ -37,7 +37,7 @@ function Copy-File {
 
     $destDir = Split-Path -Parent -Path $Destination
     if (-not [string]::IsNullOrWhiteSpace($destDir)) {
-        Ensure-Directory -Path $destDir
+        New-DirectoryIfMissing -Path $destDir
     }
     Copy-Item -LiteralPath $Source -Destination $Destination -Force
 }
@@ -50,7 +50,7 @@ function Copy-Folder {
 
     $destDir = Split-Path -Parent -Path $Destination
     if (-not [string]::IsNullOrWhiteSpace($destDir)) {
-        Ensure-Directory -Path $destDir
+        New-DirectoryIfMissing -Path $destDir
     }
     Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
 }
@@ -162,3 +162,4 @@ $restoreRecord = [ordered]@{
 $restorePath = Join-Path -Path $snapshotRootResolved -ChildPath 'dev-mode-restore.json'
 $restoreRecord | ConvertTo-Json -Depth 4 | Set-Content -Path $restorePath -Encoding utf8
 Write-Host ("Dev mode restore complete from {0}" -f $snapshotRootResolved)
+

@@ -19,7 +19,7 @@ function Resolve-DevModeContractPath {
     return (Join-Path -Path $RepoRoot -ChildPath 'builds\status\dev-mode.json')
 }
 
-function Ensure-DevModeContractDirectory {
+function Initialize-DevModeContractDirectory {
     param(
         [Parameter(Mandatory = $true)]
         [string]$ContractPath
@@ -127,7 +127,7 @@ function Write-DevModeContract {
         [string]$ContractPath
     )
 
-    Ensure-DevModeContractDirectory -ContractPath $ContractPath
+    Initialize-DevModeContractDirectory -ContractPath $ContractPath
     $Contract | ConvertTo-Json -Depth 8 | Set-Content -Path $ContractPath -Encoding utf8
 }
 
@@ -143,3 +143,4 @@ function Assert-DevModeNoProcesses {
         throw ("Refusing to toggle dev mode while running: {0}. Close these processes or pass -SkipProcessCheck." -f ($names -join ', '))
     }
 }
+

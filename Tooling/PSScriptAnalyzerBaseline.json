@@ -128,28 +128,12 @@
     "Column": 13
   },
   {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-VersionInput' uses an unapproved verb.",
-    "Path": "Tooling\\Assert-LabVIEWVersion.ps1",
-    "Line": 62,
-    "Column": 10
-  },
-  {
     "RuleName": "PSAvoidDefaultValueSwitchParameter",
     "Severity": "Warning",
     "Message": "File 'Check-Runner.ps1' has a switch parameter default to true.",
     "Path": "Tooling\\Check-Runner.ps1",
     "Line": 29,
     "Column": 5
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-Path' uses an unapproved verb.",
-    "Path": "Tooling\\Check-Runner.ps1",
-    "Line": 36,
-    "Column": 10
   },
   {
     "RuleName": "PSUseSingularNouns",
@@ -166,30 +150,6 @@
     "Path": "Tooling\\DevModeFinalizeDisable.ps1",
     "Line": 90,
     "Column": 1
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Ensure-Directory' uses an unapproved verb.",
-    "Path": "Tooling\\DevModeRestore.ps1",
-    "Line": 22,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Ensure-Directory' uses an unapproved verb.",
-    "Path": "Tooling\\DevModeSnapshot.ps1",
-    "Line": 134,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'WriteSummary' has been declared but not used.",
-    "Path": "Tooling\\Inspect-VipPackage.ps1",
-    "Line": 55,
-    "Column": 13
   },
   {
     "RuleName": "PSUseSingularNouns",
@@ -240,27 +200,11 @@
     "Column": 10
   },
   {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-Issue' uses an unapproved verb.",
-    "Path": "Tooling\\Invoke-PSScriptAnalyzer.ps1",
-    "Line": 108,
-    "Column": 10
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Copy-VipmLogs' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Invoke-VipBuild.ps1",
     "Line": 139,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-PathString' uses an unapproved verb.",
-    "Path": "Tooling\\New-CIWorktreeForJob.ps1",
-    "Line": 85,
     "Column": 10
   },
   {
@@ -272,131 +216,11 @@
     "Column": 10
   },
   {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'Repo' has been declared but not used.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 2,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'Ref' has been declared but not used.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 3,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'LabVIEWVersion' has been declared but not used.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 7,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'PollSeconds' has been declared but not used.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 8,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'TimeoutMinutes' has been declared but not used.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 9,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'RunTimeoutMinutes' has been declared but not used.",
-    "Path": "Tooling\\Pester\\DevModeCycle.ps1",
-    "Line": 10,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'LabVIEWVersion' has been declared but not used.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 36,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'SupportedBitness' has been declared but not used.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 40,
-    "Column": 15
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'RepoRoot' has been declared but not used.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 43,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'ContractPath' has been declared but not used.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 46,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'SkipProcessCheck' has been declared but not used.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 49,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-PathValue' uses an unapproved verb.",
-    "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 108,
-    "Column": 10
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Get-IniLibraryPaths' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Revert-DevelopmentMode-NoLabVIEW.ps1",
     "Line": 136,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Ensure-Gh' uses an unapproved verb.",
-    "Path": "Tooling\\Run-CICompositeForCommit.ps1",
-    "Line": 61,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Ensure-CsvHeader' uses an unapproved verb.",
-    "Path": "Tooling\\Run-CICompositeLocal-Auto.ps1",
-    "Line": 155,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Ensure-CsvHeader' uses an unapproved verb.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 200,
     "Column": 10
   },
   {
@@ -408,67 +232,11 @@
     "Column": 10
   },
   {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'ConnectTimeoutMs' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 482,
-    "Column": 14
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'StatusTimeoutMs' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 483,
-    "Column": 14
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'ProcessTimeoutMs' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 484,
-    "Column": 14
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'VerifyArchive' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 485,
-    "Column": 17
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'ConnectTimeoutMs' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 505,
-    "Column": 14
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'ProcessTimeoutMs' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 506,
-    "Column": 14
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'RepoRoot' has been declared but not used.",
-    "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 567,
-    "Column": 19
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Get-RepoMetadata' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 625,
+    "Line": 633,
     "Column": 10
   },
   {
@@ -476,7 +244,7 @@
     "Severity": "Warning",
     "Message": "The cmdlet 'Copy-LatestVipToBuilds' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Run-CICompositeLocal.ps1",
-    "Line": 683,
+    "Line": 691,
     "Column": 10
   },
   {
@@ -488,83 +256,11 @@
     "Column": 10
   },
   {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'LabVIEWVersion' has been declared but not used.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 36,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'SupportedBitness' has been declared but not used.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 40,
-    "Column": 15
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'RepoRoot' has been declared but not used.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 43,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'ContractPath' has been declared but not used.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 46,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSReviewUnusedParameter",
-    "Severity": "Warning",
-    "Message": "The parameter 'SkipProcessCheck' has been declared but not used.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 49,
-    "Column": 13
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-PathValue' uses an unapproved verb.",
-    "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
-    "Line": 108,
-    "Column": 10
-  },
-  {
     "RuleName": "PSUseSingularNouns",
     "Severity": "Warning",
     "Message": "The cmdlet 'Get-IniLibraryPaths' uses a plural noun. A singular noun should be used instead.",
     "Path": "Tooling\\Set-DevelopmentMode-NoLabVIEW.ps1",
     "Line": 136,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-Path' uses an unapproved verb.",
-    "Path": "Tooling\\Setup-Runner.ps1",
-    "Line": 23,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Normalize-Path' uses an unapproved verb.",
-    "Path": "Tooling\\Setup-RunnerWorktreeRoot.ps1",
-    "Line": 35,
-    "Column": 10
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Ensure-DevModeContractDirectory' uses an unapproved verb.",
-    "Path": "Tooling\\support\\DevModeContract.ps1",
-    "Line": 22,
     "Column": 10
   },
   {
@@ -590,14 +286,6 @@
     "Path": "Tooling\\support\\LabVIEWStage.ps1",
     "Line": 341,
     "Column": 9
-  },
-  {
-    "RuleName": "PSUseApprovedVerbs",
-    "Severity": "Warning",
-    "Message": "The cmdlet 'Apply-RunnerContract' uses an unapproved verb.",
-    "Path": "Tooling\\support\\RunnerContract.ps1",
-    "Line": 96,
-    "Column": 10
   },
   {
     "RuleName": "PSAvoidDefaultValueSwitchParameter",

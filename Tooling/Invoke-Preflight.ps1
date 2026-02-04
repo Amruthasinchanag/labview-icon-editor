@@ -260,7 +260,7 @@ function Invoke-Preflight {
         $contractPath = Resolve-RunnerContractPath -ContractPath $env:LVIE_RUNNER_CONTRACT_PATH -RunnerRoot $env:LVIE_RUNNER_ROOT -WorkRoot $env:LVIE_RUNNER_WORK_ROOT
         $contract = Get-RunnerContract -ContractPath $contractPath -RunnerRoot $env:LVIE_RUNNER_ROOT -WorkRoot $env:LVIE_RUNNER_WORK_ROOT
         if ($contract) {
-            Apply-RunnerContract -Contract $contract -ContractPath $contractPath
+            Set-RunnerContractEnvironment -Contract $contract -ContractPath $contractPath
         } elseif ($env:LVIE_REQUIRE_RUNNER_CONTRACT -eq '1') {
             throw "Runner contract not found. Run Tooling\\Setup-Runner.ps1 to create $contractPath."
         }
@@ -415,3 +415,4 @@ function Invoke-Preflight {
         CleanRoomAfter      = $CleanRoom
     }
 }
+

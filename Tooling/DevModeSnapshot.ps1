@@ -131,7 +131,7 @@ function Resolve-SnapshotRoot {
     return (Join-Path -Path $baseRoot -ChildPath $name)
 }
 
-function Ensure-Directory {
+function New-DirectoryIfMissing {
     param(
         [string]$Path
     )
@@ -149,7 +149,7 @@ function Copy-File {
 
     $destDir = Split-Path -Parent -Path $Destination
     if (-not [string]::IsNullOrWhiteSpace($destDir)) {
-        Ensure-Directory -Path $destDir
+        New-DirectoryIfMissing -Path $destDir
     }
     Copy-Item -LiteralPath $Source -Destination $Destination -Force
 }
@@ -162,7 +162,7 @@ function Copy-Folder {
 
     $destDir = Split-Path -Parent -Path $Destination
     if (-not [string]::IsNullOrWhiteSpace($destDir)) {
-        Ensure-Directory -Path $destDir
+        New-DirectoryIfMissing -Path $destDir
     }
     Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
 }
@@ -183,7 +183,7 @@ $snapshotRootResolved = Resolve-SnapshotRoot -ResolvedRepoRoot $resolvedRepoRoot
 if (Test-Path -Path $snapshotRootResolved) {
     throw "Snapshot root already exists: $snapshotRootResolved"
 }
-Ensure-Directory -Path $snapshotRootResolved
+New-DirectoryIfMissing -Path $snapshotRootResolved
 
 $manifest = [ordered]@{
     SnapshotVersion = 1
@@ -267,3 +267,4 @@ $manifestPath = Join-Path -Path $snapshotRootResolved -ChildPath 'dev-mode-snaps
 $manifest | ConvertTo-Json -Depth 7 | Set-Content -Path $manifestPath -Encoding utf8
 Write-Host ("Dev mode snapshot saved at {0}" -f $snapshotRootResolved)
 Write-Output $snapshotRootResolved
+

@@ -152,7 +152,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Ensure-CsvHeader {
+function Initialize-CsvHeader {
     param(
         [string]$Path,
         [string]$Header
@@ -273,7 +273,7 @@ if ($DryRun) {
 $logRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'agent-logs' } else { Join-Path $repoRoot 'TestResults/agent-logs' }
 New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $historyPath = Join-Path $logRoot 'auto-run-history.csv'
-Ensure-CsvHeader -Path $historyPath -Header 'timestamp,attempt,status,duration_seconds,connect_timeout_ms,process_timeout_ms'
+Initialize-CsvHeader -Path $historyPath -Header 'timestamp,attempt,status,duration_seconds,connect_timeout_ms,process_timeout_ms'
 
 $attemptConnectTimeout = $ConnectTimeoutMs
 $attemptProcessTimeout = $ProcessTimeoutMs
@@ -324,3 +324,4 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
 if ($preflight -and $preflight.CleanRoomAfter) {
     Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
 }
+
