@@ -26,6 +26,21 @@
 #        Use LabVIEW + g-cli to toggle development mode. Defaults to using the
 #        no-LabVIEW path when omitted.
 #
+#    .PARAMETER SkipToggle
+#        Skip the snapshot-enabled Toggle-DevMode entrypoint.
+#
+#    .PARAMETER SnapshotRoot
+#        Optional snapshot root for Toggle-DevMode.
+#
+#    .PARAMETER SnapshotName
+#        Optional snapshot folder name when SnapshotRoot is not provided.
+#
+#    .PARAMETER SkipSnapshot
+#        Skip snapshot creation in Toggle-DevMode.
+#
+#    .PARAMETER RestoreOnFailure
+#        Attempt restore when Toggle-DevMode fails (default: true).
+#
 #    .EXAMPLE
 #        .\Set_Development_Mode.ps1 -MinimumSupportedLVVersion 2021
 #
@@ -54,7 +69,22 @@ param(
     [int]$ProcessTimeoutMs = 300000,
 
     [Parameter(Mandatory = $false)]
-    [switch]$UseLabVIEW
+    [switch]$UseLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipToggle,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SnapshotRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SnapshotName,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipSnapshot,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$RestoreOnFailure = $true
 )
 
 # Determine the directory where this script is located
@@ -95,6 +125,45 @@ if (Test-Path -Path $versionHelper) {
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
+}
+
+if (-not $SkipToggle) {
+    $toggleScript = Join-Path $resolvedRepoRoot 'Tooling\Toggle-DevMode.ps1'
+    if (-not (Test-Path -Path $toggleScript)) {
+        throw "Toggle-DevMode.ps1 not found at $toggleScript"
+    }
+    $toggleArgs = @(
+        '-Mode', 'enable',
+        '-MinimumSupportedLVVersion', $labviewYear,
+        '-SupportedBitness'
+    ) + $SupportedBitness + @(
+        '-RepoRoot', $resolvedRepoRoot,
+        '-ConnectTimeoutMs', $ConnectTimeoutMs,
+        '-ProcessTimeoutMs', $ProcessTimeoutMs,
+        '-RestoreOnFailure', $RestoreOnFailure
+    )
+    if ($UseLabVIEW) {
+        $toggleArgs += '-UseLabVIEW'
+    }
+    if ($SkipSnapshot) {
+        $toggleArgs += '-SkipSnapshot'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SnapshotRoot)) {
+        $toggleArgs += @('-SnapshotRoot', $SnapshotRoot)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SnapshotName)) {
+        $toggleArgs += @('-SnapshotName', $SnapshotName)
+    }
+    try {
+        & $toggleScript @toggleArgs
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+            throw "Toggle-DevMode.ps1 failed with exit code $LASTEXITCODE."
+        }
+    } catch {
+        Write-Error "An unexpected error occurred during script execution: $($_.Exception.Message)"
+        exit 1
+    }
+    return
 }
 
 if (-not $UseLabVIEW) {
