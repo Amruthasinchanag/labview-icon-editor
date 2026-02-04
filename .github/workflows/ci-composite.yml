@@ -45,9 +45,14 @@ jobs:
       matrix:
         bitness: ["64", "32"]
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: ${{ matrix.bitness }}
       - name: Initialize VerifyIEPaths archive folder
         shell: pwsh
@@ -103,9 +108,14 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: 64
       - name: Apply VIPC (LV x64)
         if: needs.changes.outputs.vipc == 'true'
@@ -131,9 +141,14 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: 32
       - name: Apply VIPC (LV x86)
         if: needs.changes.outputs.vipc == 'true'
@@ -166,9 +181,14 @@ jobs:
       BUILD:         ${{ steps.compute.outputs.BUILD }}
       IS_PRERELEASE: ${{ steps.compute.outputs.IS_PRERELEASE }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           create_worktree: 'false'
       - id: compute
         uses: ./.github/actions/compute-version
@@ -192,9 +212,14 @@ jobs:
       matrix:
         bitness: ["64", "32"]
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: ${{ matrix.bitness }}
       - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
@@ -270,9 +295,14 @@ jobs:
       matrix:
         bitness: ["64", "32"]
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: ${{ matrix.bitness }}
       - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
@@ -313,9 +343,14 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: 32
       - name: Enable Development Mode (LV 32-bit)
         shell: pwsh
@@ -365,9 +400,14 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: 64
       - name: Enable Development Mode (LV 64-bit)
         shell: pwsh
@@ -421,9 +461,14 @@ jobs:
       LVIE_VIPM_MAX_ATTEMPTS: 2
       LVIE_VIPM_RETRY_DELAY_SECONDS: 30
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Job setup
         uses: ./.github/actions/lvie-job-setup
         with:
+          checkout: 'false'
           bitness: 64
       - name: Generate release notes
         shell: pwsh
