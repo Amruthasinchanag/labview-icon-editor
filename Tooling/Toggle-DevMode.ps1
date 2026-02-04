@@ -139,20 +139,19 @@ if (-not $SkipSnapshot) {
         throw "DevModeSnapshot.ps1 not found at $snapshotScript"
     }
 
-    $snapshotArgs = @(
-        '-MinimumSupportedLVVersion', $labviewYear,
-        '-SupportedBitness'
-    ) + $bitnesses + @(
-        '-RepoRoot', $resolvedRepoRoot
-    )
+    $snapshotParams = @{
+        MinimumSupportedLVVersion = $labviewYear
+        SupportedBitness          = $bitnesses
+        RepoRoot                  = $resolvedRepoRoot
+    }
     if (-not [string]::IsNullOrWhiteSpace($SnapshotRoot)) {
-        $snapshotArgs += @('-SnapshotRoot', $SnapshotRoot)
+        $snapshotParams.SnapshotRoot = $SnapshotRoot
     }
     if (-not [string]::IsNullOrWhiteSpace($SnapshotName)) {
-        $snapshotArgs += @('-SnapshotName', $SnapshotName)
+        $snapshotParams.SnapshotName = $SnapshotName
     }
 
-    $snapshotOutput = & $snapshotScript @snapshotArgs
+    $snapshotOutput = & $snapshotScript @snapshotParams
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         throw "DevModeSnapshot.ps1 failed with exit code $LASTEXITCODE."
     }
