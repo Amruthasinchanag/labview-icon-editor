@@ -45,23 +45,10 @@ jobs:
       matrix:
         bitness: ["64", "32"]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Runner sanity
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness ${{ matrix.bitness }}
+          bitness: ${{ matrix.bitness }}
       - name: Initialize VerifyIEPaths archive folder
         shell: pwsh
         run: |
@@ -84,19 +71,9 @@ jobs:
         with:
           name: verify-iepaths-${{ matrix.bitness }}-bit
           path: ${{ runner.temp }}\verify-iepaths
-      - name: Cleanup worktree
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
 
   changes:
     name: Detect VIPC changes
@@ -126,23 +103,10 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Runner sanity
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness 64
+          bitness: 64
       - name: Apply VIPC (LV x64)
         if: needs.changes.outputs.vipc == 'true'
         shell: pwsh
@@ -156,19 +120,9 @@ jobs:
             -VIPCPath ".github/actions/apply-vipc/runner_dependencies.vipc"
       - run: echo "No .vipc changes detected; skipping dependency application."
         if: needs.changes.outputs.vipc != 'true'
-      - name: Cleanup worktree
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
 
   apply-deps-2021-x86:
     name: Apply VIPC (LV x86)
@@ -177,23 +131,10 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Runner sanity
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness 32
+          bitness: 32
       - name: Apply VIPC (LV x86)
         if: needs.changes.outputs.vipc == 'true'
         shell: pwsh
@@ -207,19 +148,9 @@ jobs:
             -VIPCPath ".github/actions/apply-vipc/runner_dependencies.vipc"
       - run: echo "No .vipc changes detected; skipping dependency application."
         if: needs.changes.outputs.vipc != 'true'
-      - name: Cleanup worktree
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
 
   version:
     name: Compute Version
@@ -235,22 +166,19 @@ jobs:
       BUILD:         ${{ steps.compute.outputs.BUILD }}
       IS_PRERELEASE: ${{ steps.compute.outputs.IS_PRERELEASE }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
+          create_worktree: 'false'
       - id: compute
         uses: ./.github/actions/compute-version
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Release LabVIEW runner lock
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
+        with:
+          cleanup_worktree: 'false'
 
   missing-in-project:
     name: Missing-In-Project (LV ${{ matrix.bitness }}-bit)
@@ -264,20 +192,10 @@ jobs:
       matrix:
         bitness: ["64", "32"]
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" `
-            -Bitness ${{ matrix.bitness }}
+          bitness: ${{ matrix.bitness }}
       - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -331,35 +249,14 @@ jobs:
           echo "ERROR: Missing files for $env:LABVIEW_VERSION_YEAR-${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
           echo "$env:MISSING_CSV" >> $GITHUB_STEP_SUMMARY
           exit 1
-      - name: Revert Development Mode (LV ${{ matrix.bitness }}-bit)
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        working-directory: ${{ env.REPO_ROOT }}
-        run: |
-          & ".github\\actions\\revert-development-mode\\RevertDevelopmentMode.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT"
-      - name: Close LabVIEW (LV ${{ matrix.bitness }}-bit)
-        if: always()
-        shell: pwsh
-        run: |
-          & "$env:REPO_ROOT\\.github\\actions\\close-labview\\Close_LabVIEW.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness ${{ matrix.bitness }}
-      - name: Cleanup worktree
-        if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
+        with:
+          revert_dev_mode: 'true'
+          revert_bitness: ${{ matrix.bitness }}
+          close_labview: 'true'
+          close_bitness: ${{ matrix.bitness }}
 
   test-2021:
     name: Run Unit Tests (LV ${{ matrix.bitness }}-bit)
@@ -373,23 +270,10 @@ jobs:
       matrix:
         bitness: ["64", "32"]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Runner sanity
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness ${{ matrix.bitness }}
+          bitness: ${{ matrix.bitness }}
       - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -413,35 +297,14 @@ jobs:
           name: unit-tests-${{ matrix.bitness }}-bit-report
           path: ${{ env.REPO_ROOT }}/.github/actions/run-unit-tests/UnitTestReport.xml
           if-no-files-found: warn
-      - if: always()
-        name: Revert Development Mode (LV ${{ matrix.bitness }}-bit)
-        shell: pwsh
-        working-directory: ${{ env.REPO_ROOT }}
-        run: |
-          & ".github/actions/revert-development-mode/RevertDevelopmentMode.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT"
-      - if: always()
-        name: Close LabVIEW ${{ matrix.bitness }}-bit after unit tests
-        shell: pwsh
-        run: |
-          & "$env:REPO_ROOT\\.github\\actions\\close-labview\\Close_LabVIEW.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness ${{ matrix.bitness }}
-      - name: Cleanup worktree
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
+        with:
+          revert_dev_mode: 'true'
+          revert_bitness: ${{ matrix.bitness }}
+          close_labview: 'true'
+          close_bitness: ${{ matrix.bitness }}
 
   build-ppl-x86:
     name: Build 32-bit Packed Library
@@ -450,19 +313,10 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness 32
+          bitness: 32
       - name: Enable Development Mode (LV 32-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -495,35 +349,14 @@ jobs:
         with:
           name: lv_icon_x86.lvlibp
           path: ${{ env.REPO_ROOT }}/resource/plugins/lv_icon_x86.lvlibp
-      - name: Revert Development Mode (LV 32-bit)
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        working-directory: ${{ env.REPO_ROOT }}
-        run: |
-          & ".github/actions/revert-development-mode/RevertDevelopmentMode.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness 32 `
-            -RepoRoot "$env:REPO_ROOT"
-      - name: Close LabVIEW (LV 32-bit)
-        if: always()
-        shell: pwsh
-        run: |
-          & "$env:REPO_ROOT\\.github\\actions\\close-labview\\Close_LabVIEW.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness 32
-      - name: Cleanup worktree
-        if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
+        with:
+          revert_dev_mode: 'true'
+          revert_bitness: 32
+          close_labview: 'true'
+          close_bitness: 32
 
   build-ppl-x64:
     name: Build 64-bit Packed Library
@@ -532,23 +365,10 @@ jobs:
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Runner sanity
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness 64
+          bitness: 64
       - name: Enable Development Mode (LV 64-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -581,35 +401,14 @@ jobs:
         with:
           name: lv_icon_x64.lvlibp
           path: ${{ env.REPO_ROOT }}/resource/plugins/lv_icon_x64.lvlibp
-      - name: Revert Development Mode (LV 64-bit)
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        working-directory: ${{ env.REPO_ROOT }}
-        run: |
-          & ".github/actions/revert-development-mode/RevertDevelopmentMode.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness 64 `
-            -RepoRoot "$env:REPO_ROOT"
-      - name: Close LabVIEW (LV 64-bit)
-        if: always()
-        shell: pwsh
-        run: |
-          & "$env:REPO_ROOT\\.github\\actions\\close-labview\\Close_LabVIEW.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness 64
-      - name: Cleanup worktree
-        if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
+        with:
+          revert_dev_mode: 'true'
+          revert_bitness: 64
+          close_labview: 'true'
+          close_bitness: 64
 
   build-vip:
     name: Build VI Package
@@ -622,18 +421,10 @@ jobs:
       LVIE_VIPM_MAX_ATTEMPTS: 2
       LVIE_VIPM_RETRY_DELAY_SECONDS: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Job setup
+        uses: ./.github/actions/lvie-job-setup
         with:
-          fetch-depth: 0
-      - name: Acquire LabVIEW runner lock
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Acquire
-      - name: Create short-path worktree
-        id: worktree
-        shell: pwsh
-        run: |
-          & "$env:GITHUB_WORKSPACE\Tooling\New-CIWorktreeForJob.ps1" -Bitness 64
+          bitness: 64
       - name: Generate release notes
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -821,12 +612,6 @@ jobs:
           name: gcli-logs
           path: ${{ env.REPO_ROOT }}/builds/logs
           if-no-files-found: warn
-      - if: always()
-        shell: pwsh
-        run: |
-          & "$env:REPO_ROOT\\.github\\actions\\close-labview\\Close_LabVIEW.ps1" `
-            -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
-            -SupportedBitness 64
       - name: Validate tag matches computed version (if provided)
         if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.dispatch_tag != ''
         shell: pwsh
@@ -846,19 +631,12 @@ jobs:
           } else {
             Write-Host ("Tag validation ok: {0}" -f $provided)
           }
-      - name: Cleanup worktree
+      - name: Job teardown
         if: always()
-        shell: pwsh
-        run: |
-          if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
-            git -C "$env:GITHUB_WORKSPACE" worktree remove --force "$env:REPO_ROOT" 2>$null
-            git -C "$env:GITHUB_WORKSPACE" worktree prune
-          }
-      - name: Release LabVIEW runner lock
-        if: always()
-        shell: pwsh
-        run: |
-          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release
+        uses: ./.github/actions/lvie-job-teardown
+        with:
+          close_labview: 'true'
+          close_bitness: 64
 
   pipeline-contract:
     name: Pipeline Contract
