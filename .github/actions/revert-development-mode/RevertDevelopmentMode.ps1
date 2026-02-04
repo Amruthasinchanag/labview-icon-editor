@@ -157,11 +157,15 @@ if (-not $SkipToggle) {
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             throw "Toggle-DevMode.ps1 failed with exit code $LASTEXITCODE."
         }
+        return
     } catch {
-        Write-Error "An unexpected error occurred during script execution: $($_.Exception.Message)"
-        exit 1
+        $toggleError = $_.Exception.Message
+        if ($UseLabVIEW) {
+            Write-Error "An unexpected error occurred during script execution: $toggleError"
+            exit 1
+        }
+        Write-Warning ("Toggle-DevMode.ps1 failed; falling back to no-LabVIEW revert path. Error: {0}" -f $toggleError)
     }
-    return
 }
 
 if (-not $UseLabVIEW) {
