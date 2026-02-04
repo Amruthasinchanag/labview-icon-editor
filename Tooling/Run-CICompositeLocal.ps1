@@ -556,10 +556,29 @@ function Invoke-EnableDevModeWithRecovery {
 function Get-LocalVersionInfo {
     param([string]$RepoRoot, [string]$BumpType)
 
+    $versionPattern = '^(v)?\d+(\.\d+){0,2}$'
     $latestRaw = git describe --tags --abbrev=0 2>$null
     if ($LASTEXITCODE -ne 0) {
         $latestRaw = ''
         $global:LASTEXITCODE = 0
+    }
+    if (-not [string]::IsNullOrWhiteSpace($latestRaw)) {
+        $candidate = $latestRaw.Trim()
+        if (-not ($candidate -match $versionPattern)) {
+            $latestRaw = ''
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($latestRaw)) {
+        $tags = git tag --list 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $global:LASTEXITCODE = 0
+        }
+        if ($tags) {
+            $semverTags = $tags | Where-Object { $_ -match $versionPattern }
+            if ($semverTags) {
+                $latestRaw = $semverTags | Sort-Object { [version]($_.TrimStart('v')) } -Descending | Select-Object -First 1
+            }
+        }
     }
 
     if ([string]::IsNullOrWhiteSpace($latestRaw)) {
