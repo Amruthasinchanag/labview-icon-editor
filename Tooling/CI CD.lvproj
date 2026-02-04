@@ -18,12 +18,18 @@
 			<Item Name="RestoreSetupLVSource.vi" Type="VI" URL="../RestoreSetupLVSource.vi"/>
 			<Item Name="VerifyIEPaths.vi" Type="VI" URL="../VerifyIEPaths.vi"/>
 		</Item>
+		<Item Name="Icon Editor Support" Type="Folder">
+			<Item Name="Get Icon Editor Context.vi" Type="VI" URL="../../resource/plugins/NIIconEditor/Miscellaneous/Icon Editor/Get Icon Editor Context.vi"/>
+			<Item Name="IE_Resolve Symbolic Paths.vi" Type="VI" URL="../../resource/plugins/NIIconEditor/Support/IE_Resolve Symbolic Paths.vi"/>
+		</Item>
 		<Item Name="support" Type="Folder">
 			<Item Name="Add dev dist if present.vi" Type="VI" URL="../support/Add dev dist if present.vi"/>
 			<Item Name="Add Files to Archive.vi" Type="VI" URL="../support/Add Files to Archive.vi"/>
+			<Item Name="API Paths.vi" Type="VI" URL="../support/API Paths.vi"/>
 			<Item Name="Delete Icon Editor from LV Installation.vi" Type="VI" URL="../support/Delete Icon Editor from LV Installation.vi"/>
 			<Item Name="Get Paths to Icon Editor Files in LV Installation.vi" Type="VI" URL="../support/Get Paths to Icon Editor Files in LV Installation.vi"/>
 			<Item Name="MissingIEFilesFromLVInstall.vi" Type="VI" URL="../MissingIEFilesFromLVInstall.vi"/>
+			<Item Name="PPL Paths.vi" Type="VI" URL="../support/PPL Paths.vi"/>
 			<Item Name="Prompt to Confirm Archival.vi" Type="VI" URL="../support/Prompt to Confirm Archival.vi"/>
 			<Item Name="Set LibraryPaths to Include Icon Editor.vi" Type="VI" URL="../support/Set LibraryPaths to Include Icon Editor.vi"/>
 		</Item>
@@ -34,6 +40,7 @@
 			<Item Name="VIP_Post-Uninstall Custom Action.vi" Type="VI" URL="../deployment/VIP_Post-Uninstall Custom Action.vi"/>
 			<Item Name="VIP_Pre-Install Custom Action.vi" Type="VI" URL="../deployment/VIP_Pre-Install Custom Action.vi"/>
 		</Item>
+		<Item Name="Force Icon Editor to Unload.vi" Type="VI" URL="../Force Icon Editor to Unload.vi"/>
 		<Item Name="Dependencies" Type="Dependencies"/>
 		<Item Name="Build Specifications" Type="Build"/>
 	</Item>
