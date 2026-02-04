@@ -206,6 +206,37 @@
       "group": "test"
     },
     {
+      "label": "Pester: Dev Mode Integration (LV2021 32-bit)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\Test\\Pester\\Run-Pester.ps1",
+        "-LabVIEWVersion",
+        "2021",
+        "-LabVIEWBitness",
+        "32",
+        "-RunDevModeTests",
+        "-AutoWorktree"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "LVIE_WORKTREE_NAME_PREFIX": "w",
+          "LVIE_WORKTREE_NO_REPO_PREFIX": "1"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
       "label": "CI: Worktree + Parity (Clean Only)",
       "type": "shell",
       "command": "pwsh",
