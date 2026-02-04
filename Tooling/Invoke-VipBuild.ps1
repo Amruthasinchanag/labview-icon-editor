@@ -12,9 +12,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$VIPBPath,
 
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [ValidateRange(2000, 2100)]
-    [int]$MinimumSupportedLVVersion,
+    [int]$LabVIEWVersion,
 
     [ValidateRange(0, 99)]
     [int]$LabVIEWMinorRevision = 0,
@@ -224,7 +224,7 @@ while ($attempt -lt $maxAttemptsValue) {
         '-SupportedBitness', $SupportedBitness,
         '-RepoRoot', $resolvedRepoRoot,
         '-VIPBPath', $VIPBPath,
-        '-MinimumSupportedLVVersion', $MinimumSupportedLVVersion.ToString(),
+        '-LabVIEWVersion', $LabVIEWVersion.ToString(),
         '-LabVIEWMinorRevision', $LabVIEWMinorRevision.ToString(),
         '-Major', $Major.ToString(),
         '-Minor', $Minor.ToString(),

@@ -7,7 +7,7 @@
 #        PrepareIESource.vi for each LabVIEW bitness. LabVIEW is closed after
 #        each run by the helper so downstream steps load the changes.
 #
-#    .PARAMETER MinimumSupportedLVVersion
+#    .PARAMETER LabVIEWVersion
 #        LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 #
 #    .PARAMETER SupportedBitness
@@ -42,16 +42,16 @@
 #        Attempt restore when Toggle-DevMode fails (default: true).
 #
 #    .EXAMPLE
-#        .\Set_Development_Mode.ps1 -MinimumSupportedLVVersion 2021
+#        .\Set_Development_Mode.ps1 -LabVIEWVersion 2021
 #
 #>
 
 param(
     [Parameter(Mandatory = $false)]
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -117,10 +117,10 @@ function Resolve-RepoRoot {
 
 $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $resolvedRepoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -134,7 +134,7 @@ if (-not $SkipToggle) {
     }
     $toggleArgs = @(
         '-Mode', 'enable',
-        '-MinimumSupportedLVVersion', $labviewYear,
+        '-LabVIEWVersion', $labviewYear,
         '-SupportedBitness'
     ) + $SupportedBitness + @(
         '-RepoRoot', $resolvedRepoRoot,
@@ -174,7 +174,7 @@ if (-not $UseLabVIEW) {
 
     Write-Host ("Using no-LabVIEW dev mode path (LV{0})..." -f $labviewYear)
     & $noLabviewScript `
-        -MinimumSupportedLVVersion $labviewYear `
+        -LabVIEWVersion $labviewYear `
         -SupportedBitness $SupportedBitness `
         -RepoRoot $resolvedRepoRoot
 
@@ -255,7 +255,7 @@ function Invoke-PrepareLabviewSource {
     Write-Host "Preparing LabVIEW sources for $Bitness-bit."
     # Prepare_LabVIEW_source.ps1 closes LabVIEW after the VI runs.
     $scriptArgs = @{
-        MinimumSupportedLVVersion = $labviewYear
+        LabVIEWVersion            = $labviewYear
         SupportedBitness          = $Bitness
         ConnectTimeoutMs          = $ConnectTimeoutMs
         ProcessTimeoutMs          = $ProcessTimeoutMs

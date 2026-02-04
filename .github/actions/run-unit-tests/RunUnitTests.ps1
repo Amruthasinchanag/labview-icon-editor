@@ -9,8 +9,9 @@
       - Non-zero exit if g-cli fails or if any test fails
       - Requires an explicit LabVIEW project path (-ProjectPath).
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Bitness for LabVIEW (e.g., "64").
@@ -37,11 +38,11 @@
 param(
     [Parameter(Mandatory = $true, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $true, ParameterSetName = 'ReportOnly')]
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
     [string]
-    $MinimumSupportedLVVersion,
+    $LabVIEWVersion,
 
     [Parameter(Mandatory = $true, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $true, ParameterSetName = 'ReportOnly')]
@@ -102,7 +103,7 @@ if (Test-Path -Path $preflightScript) {
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
         -WorktreeRoot $WorktreeRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWVersion $LabVIEWVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$false `
@@ -114,10 +115,10 @@ if (Test-Path -Path $preflightScript) {
     $repoRoot = $preflight.RepoRoot
 }
 $versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {

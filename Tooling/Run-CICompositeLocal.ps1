@@ -381,7 +381,7 @@ function Invoke-CloseLabVIEW {
 
     Invoke-Checked -Label $label -Action {
         & (Join-Path $repoRoot '.github/actions/close-labview/Close_LabVIEW.ps1') `
-            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness
     }
 }
@@ -477,7 +477,7 @@ function Invoke-VerifyIEPaths {
 
     return Invoke-CheckedWithResult -Label "Verify IE Paths gate ($Bitness-bit)" -Action {
         & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') `
-            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -503,7 +503,7 @@ function Invoke-EnableDevModeWithRecovery {
     }
     $result = Invoke-CheckedWithResult -Label $label -Action {
         & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
-            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -520,7 +520,7 @@ function Invoke-EnableDevModeWithRecovery {
     Write-Warning ("Enable dev mode error: {0}" -f $result.Error.Exception.Message)
     $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before retry ($Bitness-bit)" -Action {
         & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -534,7 +534,7 @@ function Invoke-EnableDevModeWithRecovery {
 
     $retry = Invoke-CheckedWithResult -Label "Enable dev mode retry ($Bitness-bit)" -Action {
         & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') `
-            -MinimumSupportedLVVersion $LabVIEWVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -811,7 +811,7 @@ try {
             if ($EnsureCleanState) {
                 $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before VerifyIEPaths ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                        -MinimumSupportedLVVersion $LabVIEWVersion `
+                        -LabVIEWVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
                         -RepoRoot $repoRoot `
                         -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -826,7 +826,7 @@ try {
                     if (Test-LabVIEWRunning -Version $LabVIEWVersion -Bitness $bitness) {
                         $retryResult = Invoke-CheckedWithResult -Label "Revert dev mode retry ($bitness-bit, fast connect)" -Action {
                             & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                                -MinimumSupportedLVVersion $LabVIEWVersion `
+                                -LabVIEWVersion $LabVIEWVersion `
                                 -SupportedBitness $bitness `
                                 -RepoRoot $repoRoot `
                                 -ConnectTimeoutMs $shortConnectMs `
@@ -862,7 +862,7 @@ try {
         foreach ($bitness in $bitnessList) {
             Invoke-Checked -Label "Apply VIPC (LV$LabVIEWVersion $bitness-bit)" -Action {
                 & (Join-Path $repoRoot '.github/actions/apply-vipc/ApplyVIPC.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
+                    -LabVIEWVersion $LabVIEWVersion `
                     -VIP_LVVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
@@ -894,7 +894,7 @@ try {
             }
             finally {
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
+                    -LabVIEWVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -916,14 +916,14 @@ try {
 
                 Invoke-Checked -Label "Run unit tests ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/run-unit-tests/RunUnitTests.ps1') `
-                        -MinimumSupportedLVVersion $LabVIEWVersion `
+                        -LabVIEWVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
                         -ProjectPath (Join-Path $repoRoot 'lv_icon_editor.lvproj')
                 }
             }
             finally {
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
+                    -LabVIEWVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -940,7 +940,7 @@ try {
 
                 Invoke-Checked -Label "Build PPL ($bitness-bit)" -Action {
                     & (Join-Path $repoRoot '.github/actions/build-lvlibp/Build_lvlibp.ps1') `
-                        -MinimumSupportedLVVersion $LabVIEWVersion `
+                        -LabVIEWVersion $LabVIEWVersion `
                         -SupportedBitness $bitness `
                         -RepoRoot $repoRoot `
                         -Major $versionInfo.Major `
@@ -952,7 +952,7 @@ try {
             }
             finally {
                 & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
+                    -LabVIEWVersion $LabVIEWVersion `
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
@@ -994,7 +994,7 @@ try {
                 -SupportedBitness 64 `
                 -RepoRoot $repoRoot `
                 -VIPBPath $VipbPath `
-                -MinimumSupportedLVVersion $LabVIEWVersion `
+                -LabVIEWVersion $LabVIEWVersion `
                 -LabVIEWMinorRevision $vipLabVIEWMinorRevision `
                 -Major $versionInfo.Major `
                 -Minor $versionInfo.Minor `
@@ -1011,7 +1011,7 @@ try {
                     -SupportedBitness 64 `
                     -RepoRoot $repoRoot `
                     -VIPBPath $VipbPath `
-                    -MinimumSupportedLVVersion $LabVIEWVersion `
+                    -LabVIEWVersion $LabVIEWVersion `
                     -LabVIEWMinorRevision $vipLabVIEWMinorRevision `
                     -Major $versionInfo.Major `
                     -Minor $versionInfo.Minor `

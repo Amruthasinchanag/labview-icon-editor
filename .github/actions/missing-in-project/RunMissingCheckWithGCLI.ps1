@@ -86,7 +86,7 @@ function Invoke-CloseLabVIEWSafely {
     $closeScript = Join-Path -Path $repoRoot -ChildPath '.github\actions\close-labview\Close_LabVIEW.ps1'
     if (Test-Path -Path $closeScript) {
         try {
-            & $closeScript -MinimumSupportedLVVersion $Version -SupportedBitness $Bitness | Out-Null
+            & $closeScript -LabVIEWVersion $Version -SupportedBitness $Bitness | Out-Null
         } catch {
             Write-Warning ("Close_LabVIEW.ps1 failed: {0}" -f $_.Exception.Message)
         }

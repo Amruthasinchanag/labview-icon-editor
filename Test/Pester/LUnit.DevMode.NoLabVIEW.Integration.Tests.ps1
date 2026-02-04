@@ -98,7 +98,7 @@ Describe 'LUnit (dev mode, no LabVIEW) integration' {
             -Action {
                 param($context)
                 $unitArgs = @(
-                    '-MinimumSupportedLVVersion', $context.LabVIEWVersion,
+                    '-LabVIEWVersion', $context.LabVIEWVersion,
                     '-SupportedBitness', $context.Bitness,
                     '-ProjectPath', $script:projectFile,
                     '-ConnectTimeoutMs', $context.ConnectTimeoutMs

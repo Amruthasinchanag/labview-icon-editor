@@ -270,7 +270,7 @@ function Invoke-LabVIEWClose {
     }
 
     return Invoke-LabVIEWScript -ScriptPath $closeScript -Arguments @(
-        '-MinimumSupportedLVVersion', $LabVIEWVersion,
+        '-LabVIEWVersion', $LabVIEWVersion,
         '-SupportedBitness', $Bitness
     )
 }
@@ -295,7 +295,7 @@ function Invoke-DevModeNoLabVIEW {
     }
 
     return Invoke-LabVIEWScript -ScriptPath $scriptPath -Arguments @(
-        '-MinimumSupportedLVVersion', $LabVIEWVersion,
+        '-LabVIEWVersion', $LabVIEWVersion,
         '-SupportedBitness', $Bitness,
         '-RepoRoot', $RepoRoot
     )

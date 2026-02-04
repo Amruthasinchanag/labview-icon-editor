@@ -8,8 +8,9 @@
     the LabVIEW token to the repository root. LabVIEW is closed after the
     VI executes so subsequent steps load the changes.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Target bitness of the LabVIEW environment ("32" or "64").
@@ -25,14 +26,15 @@
     Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
 
 .EXAMPLE
-    .\Prepare_LabVIEW_source.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64"
+    .\Prepare_LabVIEW_source.ps1 -LabVIEWVersion "2021" -SupportedBitness "64"
 #>
 
 param(
     [Parameter(Mandatory = $true)]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion,
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion,
 
     [Parameter(Mandatory = $true)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -108,10 +110,10 @@ function Get-LabVIEWInstallRoot {
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -218,7 +220,7 @@ try {
     } else {
         try {
             Write-Host "Closing LabVIEW $labviewYear ($SupportedBitness-bit)..."
-            & $closeScript -MinimumSupportedLVVersion $labviewYear -SupportedBitness $SupportedBitness
+            & $closeScript -LabVIEWVersion $labviewYear -SupportedBitness $SupportedBitness
             if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
                 $closeFailure = "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
             }

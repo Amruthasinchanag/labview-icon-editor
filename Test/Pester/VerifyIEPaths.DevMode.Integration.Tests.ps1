@@ -162,7 +162,7 @@ Describe 'Verify IE Paths (dev mode) integration' {
             }
 
             $revertArgs = @(
-                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-LabVIEWVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
                 '-RepoRoot', $script:repoRoot
             )
@@ -193,7 +193,7 @@ Describe 'Verify IE Paths (dev mode) integration' {
 
         foreach ($bitness in $script:bitnessesToTest) {
             $setArgs = @(
-                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-LabVIEWVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
                 '-RepoRoot', $script:repoRoot
             )
@@ -205,7 +205,7 @@ Describe 'Verify IE Paths (dev mode) integration' {
             $runStartUtc = (Get-Date).ToUniversalTime()
 
             $verifyArgs = @(
-                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-LabVIEWVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
                 '-ConnectTimeoutMs', $script:connectTimeoutMs,
                 '-ProcessTimeoutMs', $script:processTimeoutMs,
@@ -215,7 +215,7 @@ Describe 'Verify IE Paths (dev mode) integration' {
             )
 
             $revertArgs = @(
-                '-MinimumSupportedLVVersion', $script:labviewVersion,
+                '-LabVIEWVersion', $script:labviewVersion,
                 '-SupportedBitness', $bitness,
                 '-RepoRoot', $script:repoRoot
             )

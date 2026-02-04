@@ -8,8 +8,9 @@
     specified LabVIEW version and bitness. Reads the status file produced at
     the repo root to report pass/fail details.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     LabVIEW bitness to target ("32" or "64"). Defaults to "64".
@@ -83,7 +84,8 @@ param(
     [Parameter(Mandatory = $false)]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -421,7 +423,7 @@ if (Test-Path -Path $preflightScript) {
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflightParams = @{
         RepoRoot       = $repoRoot
-        LabVIEWVersion = $MinimumSupportedLVVersion
+        LabVIEWVersion = $LabVIEWVersion
         LabVIEWBitness = $SupportedBitness
         ScriptPath     = $relativeScript
         ScriptArguments = $scriptArgs
@@ -441,10 +443,10 @@ if (Test-Path -Path $preflightScript) {
     $artifactRootResolved = $preflight.ArtifactRoot
 }
 $versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -490,7 +492,7 @@ if ($devModeRequested) {
 
         Write-Host ("Enabling development mode without LabVIEW before VerifyIEPaths (LV{0} {1}-bit)..." -f $labviewYear, $SupportedBitness)
         & $devModeScript `
-            -MinimumSupportedLVVersion $labviewYear `
+            -LabVIEWVersion $labviewYear `
             -SupportedBitness $SupportedBitness `
             -RepoRoot $repoRoot
     } else {
@@ -501,7 +503,7 @@ if ($devModeRequested) {
 
         Write-Host ("Enabling development mode before VerifyIEPaths (LV{0} {1}-bit)..." -f $labviewYear, $SupportedBitness)
         & $devModeScript `
-            -MinimumSupportedLVVersion $labviewYear `
+            -LabVIEWVersion $labviewYear `
             -SupportedBitness $SupportedBitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $ConnectTimeoutMs `

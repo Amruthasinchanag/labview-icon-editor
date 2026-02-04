@@ -7,8 +7,9 @@
     environments using RestoreSetupLVSource.vi. LabVIEW is closed by the
     helper after each run so downstream steps load the changes.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     One or more bitness values ("32", "64") to run (default: both).
@@ -42,15 +43,15 @@
     Attempt restore when Toggle-DevMode fails (default: true).
 
 .EXAMPLE
-    .\RevertDevelopmentMode.ps1 -MinimumSupportedLVVersion 2021
+    .\RevertDevelopmentMode.ps1 -LabVIEWVersion 2021
 #>
 
 param(
     [Parameter(Mandatory = $false)]
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -114,10 +115,10 @@ function Resolve-RepoRoot {
 
 $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $resolvedRepoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -136,7 +137,7 @@ if (-not $SkipToggle) {
             '-NoProfile',
             '-File', $toggleScript,
             '-Mode', 'disable',
-            '-MinimumSupportedLVVersion', $labviewYear,
+            '-LabVIEWVersion', $labviewYear,
             '-SupportedBitness'
         ) + $bitnessList + @(
             '-RepoRoot', $resolvedRepoRoot,
@@ -188,7 +189,7 @@ if (-not $UseLabVIEW) {
 
     Write-Host ("Using no-LabVIEW dev mode revert path (LV{0})..." -f $labviewYear)
     & $noLabviewScript `
-        -MinimumSupportedLVVersion $labviewYear `
+        -LabVIEWVersion $labviewYear `
         -SupportedBitness $SupportedBitness `
         -RepoRoot $resolvedRepoRoot
 
@@ -269,7 +270,7 @@ function Invoke-RestoreLabviewSource {
     Write-Host "Restoring LabVIEW sources for $Bitness-bit."
     # RestoreSetupLVSource.ps1 closes LabVIEW after the VI runs.
     $scriptArgs = @{
-        MinimumSupportedLVVersion = $labviewYear
+        LabVIEWVersion            = $labviewYear
         SupportedBitness          = $Bitness
         ConnectTimeoutMs          = $ConnectTimeoutMs
         ProcessTimeoutMs          = $ProcessTimeoutMs

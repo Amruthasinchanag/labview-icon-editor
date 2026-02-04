@@ -164,7 +164,7 @@ try {
 #    # 2) Apply VIPC (32-bit)
 #    Write-Verbose "Now applying VIPC for 32-bit..."
 #    Execute-Script $ApplyVIPC `
-#        ("-MinimumSupportedLVVersion 2021 " +
+#        ("-LabVIEWVersion 2021 " +
 #         "-VIP_LVVersion 2021 " +
 #         "-SupportedBitness 32 " +
 #         "-RepoRoot `"$RepoRoot`" " +
@@ -174,7 +174,7 @@ try {
     Write-Verbose "Building LV library (32-bit)..."
     $BuildLvlibp = Join-Path $ActionsPath "build-lvlibp/Build_lvlibp.ps1"
     Execute-Script $BuildLvlibp `
-        ("-MinimumSupportedLVVersion 2021 " +
+        ("-LabVIEWVersion 2021 " +
          "-SupportedBitness 32 " +
          "-RepoRoot `"$RepoRoot`" " +
          "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
@@ -184,7 +184,7 @@ try {
     Write-Verbose "Closing LabVIEW (32-bit)..."
     $CloseLabVIEW = Join-Path $ActionsPath "close-labview/Close_LabVIEW.ps1"
     Execute-Script $CloseLabVIEW `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 32"
+        "-LabVIEWVersion 2021 -SupportedBitness 32"
 
     # 5) Rename .lvlibp -> lv_icon_x86.lvlibp
     Write-Verbose "Renaming .lvlibp file to lv_icon_x86.lvlibp..."
@@ -196,7 +196,7 @@ try {
  #   Write-Verbose "Now applying VIPC for 64-bit..."
 #   $ApplyVIPC = Join-Path $ActionsPath "apply-vipc/ApplyVIPC.ps1"
 #   Execute-Script $ApplyVIPC `
- #       ("-MinimumSupportedLVVersion 2021 " +
+ #       ("-LabVIEWVersion 2021 " +
  #        "-VIP_LVVersion 2021 " +
  #        "-SupportedBitness 64 " +
  #        "-RepoRoot `"$RepoRoot`" " +
@@ -205,7 +205,7 @@ try {
     # 7) Build LV Library (64-bit)
     Write-Verbose "Building LV library (64-bit)..."
     Execute-Script $BuildLvlibp `
-        ("-MinimumSupportedLVVersion 2021 " +
+        ("-LabVIEWVersion 2021 " +
          "-SupportedBitness 64 " +
          "-RepoRoot `"$RepoRoot`" " +
          "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
@@ -214,7 +214,7 @@ try {
     # 7.1) Close LabVIEW (64-bit)
     Write-Verbose "Closing LabVIEW (64-bit)..."
     Execute-Script $CloseLabVIEW `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
+        "-LabVIEWVersion 2021 -SupportedBitness 64"
     
 
     # Rename .lvlibp -> lv_icon_x64.lvlibp
@@ -256,7 +256,7 @@ try {
             "-SupportedBitness 64 " +
             "-RepoRoot `"$RepoRoot`" " +
             "-VIPBPath `"Tooling\deployment\NI Icon editor.vipb`" " +
-            "-MinimumSupportedLVVersion 2021 " +
+            "-LabVIEWVersion 2021 " +
             "-LabVIEWMinorRevision $LabVIEWMinorRevision " +
             "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
             "-Commit `"$Commit`" " +
@@ -275,7 +275,7 @@ try {
             "-SupportedBitness 64 " +
             "-RepoRoot `"$RepoRoot`" " +
             "-VIPBPath `"Tooling\deployment\NI Icon editor.vipb`" " +
-            "-MinimumSupportedLVVersion 2021 " +
+            "-LabVIEWVersion 2021 " +
             "-LabVIEWMinorRevision $LabVIEWMinorRevision " +
             "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
             "-Commit `"$Commit`" " +
@@ -288,7 +288,7 @@ try {
     # 12) Close LabVIEW (64-bit)
     Write-Verbose "Closing LabVIEW (64-bit)..."
     Execute-Script $CloseLabVIEW `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
+        "-LabVIEWVersion 2021 -SupportedBitness 64"
 
     Write-Host "All scripts executed successfully!" -ForegroundColor Green
     Write-Verbose "Script: Build.ps1 completed without errors."

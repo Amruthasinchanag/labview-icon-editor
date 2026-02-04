@@ -6,8 +6,9 @@
     Invokes the LabVIEW build specification "Editor Packed Library" through
     g-cli, embedding the provided version information and commit identifier.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Bitness of the LabVIEW environment ("32" or "64").
@@ -31,13 +32,13 @@
     Commit hash or identifier recorded in the build.
 
 .EXAMPLE
-    .\Build_lvlibp.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RepoRoot "C:\labview-icon-editor" -Major 1 -Minor 0 -Patch 0 -Build 0 -Commit "Placeholder"
+    .\Build_lvlibp.ps1 -LabVIEWVersion "2021" -SupportedBitness "64" -RepoRoot "C:\labview-icon-editor" -Major 1 -Minor 0 -Patch 0 -Build 0 -Commit "Placeholder"
 #>
 param(
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '2021',
+    [string]$LabVIEWVersion = '2021',
     [string]$SupportedBitness,
     [string]$RepoRoot,
     [string]$WorktreeRoot,
@@ -66,7 +67,7 @@ if ($resolvedRepoRoot) {
         $preflight = Invoke-Preflight `
             -RepoRoot $resolvedRepoRoot `
             -WorktreeRoot $WorktreeRoot `
-            -LabVIEWVersion $MinimumSupportedLVVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -LabVIEWBitness $SupportedBitness `
             -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
             -AutoWorktree:$false `
@@ -80,12 +81,12 @@ if ($resolvedRepoRoot) {
     }
 }
 
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if ($RepoRoot) {
     $versionHelper = Join-Path -Path $RepoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
     if (Test-Path -Path $versionHelper) {
         . $versionHelper
-        $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $RepoRoot
+        $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $RepoRoot
         $labviewYear = $versionInfo.Year
     }
 }
@@ -102,7 +103,7 @@ function Invoke-CloseLabVIEWSafely {
     $closeScript = Join-Path -Path $RepoRoot -ChildPath '.github\actions\close-labview\Close_LabVIEW.ps1'
     if (Test-Path -Path $closeScript) {
         try {
-            & $closeScript -MinimumSupportedLVVersion $Version -SupportedBitness $Bitness | Out-Null
+            & $closeScript -LabVIEWVersion $Version -SupportedBitness $Bitness | Out-Null
         } catch {
             Write-Warning ("Close_LabVIEW.ps1 failed: {0}" -f $_.Exception.Message)
         }

@@ -149,7 +149,7 @@ Describe 'Build lvlibp (dev mode, no LabVIEW) integration' {
                 }
 
                 $buildArgs = @(
-                    '-MinimumSupportedLVVersion', $context.LabVIEWVersion,
+                    '-LabVIEWVersion', $context.LabVIEWVersion,
                     '-SupportedBitness', $context.Bitness,
                     '-RepoRoot', $context.RepoRoot,
                     '-Major', $script:versionInfo.Major,

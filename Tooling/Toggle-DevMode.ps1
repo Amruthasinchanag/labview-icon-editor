@@ -11,8 +11,9 @@
 .PARAMETER Mode
     Dev mode action: enable or disable.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     One or more bitness values ("32", "64") to run (default: both).
@@ -49,10 +50,10 @@ param(
     [string]$Mode,
 
     [Parameter(Mandatory = $false)]
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -121,10 +122,10 @@ function Resolve-LogPath {
 
 $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $resolvedRepoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -140,7 +141,7 @@ if (-not $SkipSnapshot) {
     }
 
     $snapshotParams = @{
-        MinimumSupportedLVVersion = $labviewYear
+        LabVIEWVersion            = $labviewYear
         SupportedBitness          = $bitnesses
         RepoRoot                  = $resolvedRepoRoot
     }
@@ -191,7 +192,7 @@ try {
         $scriptArgs = @(
             '-NoProfile',
             '-File', $scriptPath,
-            '-MinimumSupportedLVVersion', $labviewYear,
+            '-LabVIEWVersion', $labviewYear,
             '-SupportedBitness'
         ) + $bitnesses + @(
             '-RepoRoot', $resolvedRepoRoot,
@@ -216,7 +217,7 @@ try {
         $scriptArgs = @(
             '-NoProfile',
             '-File', $scriptPath,
-            '-MinimumSupportedLVVersion', $labviewYear,
+            '-LabVIEWVersion', $labviewYear,
             '-SupportedBitness'
         ) + $bitnesses + @(
             '-RepoRoot', $resolvedRepoRoot

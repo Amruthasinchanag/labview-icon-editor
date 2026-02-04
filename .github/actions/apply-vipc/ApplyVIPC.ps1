@@ -4,14 +4,15 @@
     This version includes additional debug/verbose output.
 
 .EXAMPLE
-    .\applyvipc.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RepoRoot "C:\release\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\runner_dependencies.vipc" -VIP_LVVersion "2021" -Verbose
+    .\applyvipc.ps1 -LabVIEWVersion "2021" -SupportedBitness "64" -RepoRoot "C:\release\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\runner_dependencies.vipc" -VIP_LVVersion "2021" -Verbose
 #>
 
 [CmdletBinding()]  # Enables -Verbose and other common parameters
 Param (
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '2021',
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion = '2021',
     [AllowNull()]
     [AllowEmptyString()]
     [string]$VIP_LVVersion = '2021',
@@ -25,7 +26,7 @@ Param (
 
 Write-Verbose "Script Name: $($MyInvocation.MyCommand.Definition)"
 Write-Verbose "Parameters provided:"
-Write-Verbose " - MinimumSupportedLVVersion: $MinimumSupportedLVVersion"
+Write-Verbose " - LabVIEWVersion:            $LabVIEWVersion"
 Write-Verbose " - VIP_LVVersion:             $VIP_LVVersion"
 Write-Verbose " - SupportedBitness:          $SupportedBitness"
 Write-Verbose " - RepoRoot:              $RepoRoot"
@@ -47,7 +48,7 @@ try {
         $preflight = Invoke-Preflight `
             -RepoRoot $ResolvedRepoRoot `
             -WorktreeRoot $WorktreeRoot `
-            -LabVIEWVersion $MinimumSupportedLVVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -LabVIEWBitness $SupportedBitness `
             -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
             -AutoWorktree:$false `
@@ -106,7 +107,7 @@ if (-not (Test-Path -Path $versionHelper)) {
 }
 . $versionHelper
 
-$minInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $ResolvedRepoRoot
+$minInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $ResolvedRepoRoot
 $vipInfo = Get-LabVIEWVersionInfo -VersionInput $VIP_LVVersion -RepoRoot $ResolvedRepoRoot
 
 $VIP_LVVersion_B = Get-VipmVersionString -NumericVersion $minInfo.NumericVersion -Bitness $SupportedBitness
@@ -122,7 +123,7 @@ Write-Verbose "VIP_LVVersion_B (for minimum LVVersion): $VIP_LVVersion_B"
 Write-Verbose "Constructing g-cli vipc command list..."
 $vipVersions = @($VIP_LVVersion_B)
 if ($vipInfo.NumericVersion -ne $minInfo.NumericVersion -or $vipInfo.Year -ne $minInfo.Year) {
-    Write-Verbose "VIP_LVVersion and MinimumSupportedLVVersion differ; adding commands for $VIP_LVVersion_A..."
+    Write-Verbose "VIP_LVVersion and LabVIEWVersion differ; adding commands for $VIP_LVVersion_A..."
     $vipVersions += $VIP_LVVersion_A
 }
 

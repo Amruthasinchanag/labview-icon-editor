@@ -135,7 +135,7 @@ Describe 'Development Mode integration' {
             )
 
             return @(
-                '-MinimumSupportedLVVersion', $LabVIEWVersion,
+                '-LabVIEWVersion', $LabVIEWVersion,
                 '-RepoRoot', $RepoRoot,
                 '-SupportedBitness', $Bitness,
                 '-ConnectTimeoutMs', $script:connectTimeoutMs,
