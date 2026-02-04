@@ -117,3 +117,12 @@ Write-Host ("LVIE_ARTIFACT_ROOT set to {0} ({1} scope)" -f $artifactRootResolved
 Write-Host ("LVIE_LOCK_ROOT set to {0} ({1} scope)" -f $lockRootResolved, $Scope)
 Write-Host ("LVIE_LOG_ROOT set to {0} ({1} scope)" -f $logRootResolved, $Scope)
 Write-Host "Restart the runner service after updating Machine/User environment variables."
+
+# Configure git safe.directory scoped to the runner work root to avoid dubious ownership errors
+try {
+    $safePattern = ($workRootResolved -replace '\\', '/') + '/*'
+    & git config --system --add safe.directory $safePattern
+    Write-Host ("Git safe.directory configured: {0} (system)" -f $safePattern)
+} catch {
+    Write-Warning ("Failed to configure git safe.directory: {0}" -f $_.Exception.Message)
+}
