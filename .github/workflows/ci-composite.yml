@@ -33,6 +33,10 @@ on:
         description: "Expected tag for this run (optional, for dispatched builds)"
         required: false
         type: string
+      allow_baseline_update:
+        description: "Allow PSScriptAnalyzer baseline updates (manual runs only)"
+        required: false
+        type: boolean
 
 jobs:
   version-gate:
@@ -64,6 +68,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Guard PSScriptAnalyzer baseline
+        shell: pwsh
+        env:
+          ALLOW_BASELINE_UPDATE: ${{ github.event.inputs.allow_baseline_update }}
+        run: |
+          $baselinePath = 'Tooling/PSScriptAnalyzerBaseline.json'
+          $eventName = '${{ github.event_name }}'
+          $branchName = if ($eventName -eq 'pull_request') { '${{ github.head_ref }}' } else { '${{ github.ref_name }}' }
+          $allowInput = $env:ALLOW_BASELINE_UPDATE -eq 'true'
+          $allowBranch = $branchName -match '^lint-baseline/' -or $branchName -match '^chore/lint-baseline/'
+          if ($allowInput -or $allowBranch) {
+            Write-Host ("Baseline guard: update allowed (allow_input={0}, branch={1})." -f $allowInput, $branchName)
+            exit 0
+          }
+
+          $baseSha = if ($eventName -eq 'pull_request') { '${{ github.event.pull_request.base.sha }}' } else { '${{ github.event.before }}' }
+          $headSha = '${{ github.sha }}'
+          if ([string]::IsNullOrWhiteSpace($baseSha) -or $baseSha -eq '0000000000000000000000000000000000000000') {
+            $revList = @(git rev-list --max-count=2 $headSha)
+            if ($revList.Count -gt 1) { $baseSha = $revList[1] }
+          }
+          if ([string]::IsNullOrWhiteSpace($baseSha)) {
+            throw "Baseline guard: unable to determine base commit for comparison."
+          }
+
+          $changed = git diff --name-only $baseSha $headSha -- $baselinePath
+          if ($changed) {
+            throw ("PSScriptAnalyzer baseline change detected in {0}. Use branch prefix 'lint-baseline/' or workflow_dispatch input allow_baseline_update=true." -f $baselinePath)
+          }
+
+          Write-Host "Baseline guard: no changes detected."
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
