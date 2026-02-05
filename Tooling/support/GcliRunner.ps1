@@ -43,6 +43,7 @@ function Invoke-GCliCommand {
             try {
                 $process.Kill($true)
             } catch {
+                Write-Verbose ("Failed to terminate g-cli process after timeout. {0}" -f $_.Exception.Message)
             }
         }
         $process.WaitForExit() | Out-Null

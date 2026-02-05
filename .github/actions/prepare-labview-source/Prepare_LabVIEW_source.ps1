@@ -8,8 +8,9 @@
     the LabVIEW token to the repository root. LabVIEW is closed after the
     VI executes so subsequent steps load the changes.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Target bitness of the LabVIEW environment ("32" or "64").
@@ -25,14 +26,15 @@
     Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
 
 .EXAMPLE
-    .\Prepare_LabVIEW_source.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64"
+    .\Prepare_LabVIEW_source.ps1 -LabVIEWVersion "2021" -SupportedBitness "64"
 #>
 
 param(
     [Parameter(Mandatory = $true)]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion,
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion,
 
     [Parameter(Mandatory = $true)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -108,10 +110,10 @@ function Get-LabVIEWInstallRoot {
 
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -136,8 +138,47 @@ if (-not (Test-Path -Path $viPath)) {
     throw "PrepareIESource.vi not found at $viPath"
 }
 
-if (-not (Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness)) {
+$installRoot = Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness
+if (-not $installRoot) {
     throw "LabVIEW $labviewYear ($SupportedBitness-bit) install not found."
+}
+
+# Fast-path: avoid launching LabVIEW when the install already reflects the "dev mode enabled" state.
+$installPaths = @{
+    IconApiFolder = Join-Path $installRoot 'vi.lib\LabVIEW Icon API'
+    IconApiZip    = Join-Path $installRoot 'vi.lib\LabVIEW Icon API.zip'
+    Lvlibp        = Join-Path $installRoot 'resource\plugins\lv_icon.lvlibp'
+    Ship          = Join-Path $installRoot 'resource\plugins\lv_icon.ship'
+    IconEditorDir = Join-Path $installRoot 'resource\plugins\NIIconEditor'
+    IconEditorLib = Join-Path $installRoot 'resource\plugins\lv_IconEditor.lvlib'
+    IconEditorVi  = Join-Path $installRoot 'resource\plugins\lv_icon.vi'
+}
+
+$hasLvlibp = Test-Path -Path $installPaths.Lvlibp
+$hasShip = Test-Path -Path $installPaths.Ship
+$hasIconFolder = Test-Path -Path $installPaths.IconApiFolder
+$hasIconZip = Test-Path -Path $installPaths.IconApiZip
+$hasIconEditorDir = Test-Path -Path $installPaths.IconEditorDir
+$hasIconEditorLib = Test-Path -Path $installPaths.IconEditorLib
+$hasIconEditorVi = Test-Path -Path $installPaths.IconEditorVi
+Write-Host ("Install state (LV{0} {1}-bit): lv_icon.lvlibp={2} lv_icon.ship={3} icon_api_folder={4} icon_api_zip={5}" -f `
+        $labviewYear, $SupportedBitness, $hasLvlibp, $hasShip, $hasIconFolder, $hasIconZip)
+
+$devModeEnabled = ($hasShip -and -not $hasLvlibp -and -not $hasIconFolder -and $hasIconZip)
+$missingDevModePaths = @()
+if (-not $hasIconEditorDir) { $missingDevModePaths += 'resource\plugins\NIIconEditor' }
+if (-not $hasIconEditorLib) { $missingDevModePaths += 'resource\plugins\lv_IconEditor.lvlib' }
+if (-not $hasIconEditorVi) { $missingDevModePaths += 'resource\plugins\lv_icon.vi' }
+
+if ($missingDevModePaths.Count -gt 0) {
+    $missingJoined = $missingDevModePaths -join ', '
+    throw "LabVIEW install is missing required Icon Editor resources: $missingJoined. Dev mode cannot be enabled; repair/reinstall the LabVIEW Icon Editor components."
+}
+
+if ($devModeEnabled -and $missingDevModePaths.Count -eq 0) {
+    Write-Host "Prepare_LabVIEW_source: development mode already enabled and required icon editor sources present; skipping g-cli call."
+    $global:LASTEXITCODE = 0
+    return
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
@@ -196,7 +237,7 @@ try {
     } else {
         try {
             Write-Host "Closing LabVIEW $labviewYear ($SupportedBitness-bit)..."
-            & $closeScript -MinimumSupportedLVVersion $labviewYear -SupportedBitness $SupportedBitness
+            & $closeScript -LabVIEWVersion $labviewYear -SupportedBitness $SupportedBitness
             if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
                 $closeFailure = "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
             }

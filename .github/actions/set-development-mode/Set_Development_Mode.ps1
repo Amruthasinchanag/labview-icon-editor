@@ -5,9 +5,9 @@
 #    .DESCRIPTION
 #        Configures the repository for development mode by invoking
 #        PrepareIESource.vi for each LabVIEW bitness. LabVIEW is closed after
-#        each run so downstream steps load the changes.
+#        each run by the helper so downstream steps load the changes.
 #
-#    .PARAMETER MinimumSupportedLVVersion
+#    .PARAMETER LabVIEWVersion
 #        LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 #
 #    .PARAMETER SupportedBitness
@@ -22,17 +22,40 @@
 #    .PARAMETER ProcessTimeoutMs
 #        Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
 #
+#    .PARAMETER UseLabVIEW
+#        Use LabVIEW + g-cli to toggle development mode. Defaults to using the
+#        no-LabVIEW path when omitted.
+#
+#    .PARAMETER AllowFallbackToNoLabVIEW
+#        When UseLabVIEW is set, allow fallback to the no-LabVIEW path if the
+#        LabVIEW toggle fails.
+#
+#    .PARAMETER SkipToggle
+#        Skip the snapshot-enabled Toggle-DevMode entrypoint.
+#
+#    .PARAMETER SnapshotRoot
+#        Optional snapshot root for Toggle-DevMode.
+#
+#    .PARAMETER SnapshotName
+#        Optional snapshot folder name when SnapshotRoot is not provided.
+#
+#    .PARAMETER SkipSnapshot
+#        Skip snapshot creation in Toggle-DevMode.
+#
+#    .PARAMETER RestoreOnFailure
+#        Attempt restore when Toggle-DevMode fails (default: true).
+#
 #    .EXAMPLE
-#        .\Set_Development_Mode.ps1 -MinimumSupportedLVVersion 2021
+#        .\Set_Development_Mode.ps1 -LabVIEWVersion 2021
 #
 #>
 
 param(
     [Parameter(Mandatory = $false)]
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -47,7 +70,28 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(0, 1200000)]
-    [int]$ProcessTimeoutMs = 300000
+    [int]$ProcessTimeoutMs = 300000,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$UseLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AllowFallbackToNoLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipToggle,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SnapshotRoot,
+
+    [Parameter(Mandatory = $false)]
+    [string]$SnapshotName,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipSnapshot,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$RestoreOnFailure = $true
 )
 
 # Determine the directory where this script is located
@@ -62,6 +106,15 @@ Write-Host "Prepare_LabVIEW_source script: $PrepareScript"
 Write-Host "Close_LabVIEW script: $CloseScript"
 
 $ErrorActionPreference = 'Stop'
+
+function Test-ForceNoLabVIEWDevMode {
+    $value = $env:LVIE_FORCE_NO_LABVIEW_DEVMODE
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $false
+    }
+    $normalized = $value.Trim().ToLowerInvariant()
+    return ($normalized -notin @('0', 'false', 'no'))
+}
 
 function Resolve-RepoRoot {
     param(
@@ -80,14 +133,148 @@ function Resolve-RepoRoot {
 
 $resolvedRepoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path $resolvedRepoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $resolvedRepoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $resolvedRepoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
+}
+
+if (Test-ForceNoLabVIEWDevMode) {
+    if ($UseLabVIEW) {
+        Write-Host 'LVIE_FORCE_NO_LABVIEW_DEVMODE=1; ignoring UseLabVIEW.'
+    }
+    $UseLabVIEW = $false
+}
+
+if (-not $SkipToggle) {
+    $toggleScript = Join-Path $resolvedRepoRoot 'Tooling\Toggle-DevMode.ps1'
+    if (-not (Test-Path -Path $toggleScript)) {
+        throw "Toggle-DevMode.ps1 not found at $toggleScript"
+    }
+
+    $toggleParams = @{
+        Mode             = 'enable'
+        LabVIEWVersion   = $labviewYear
+        SupportedBitness = $SupportedBitness
+        RepoRoot         = $resolvedRepoRoot
+        ConnectTimeoutMs = $ConnectTimeoutMs
+        ProcessTimeoutMs = $ProcessTimeoutMs
+        RestoreOnFailure = $RestoreOnFailure
+    }
+    if ($UseLabVIEW) {
+        $toggleParams.UseLabVIEW = $true
+    }
+    if ($AllowFallbackToNoLabVIEW) {
+        $toggleParams.AllowFallbackToNoLabVIEW = $true
+    }
+    if ($SkipSnapshot) {
+        $toggleParams.SkipSnapshot = $true
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SnapshotRoot)) {
+        $toggleParams.SnapshotRoot = $SnapshotRoot
+    }
+    if (-not [string]::IsNullOrWhiteSpace($SnapshotName)) {
+        $toggleParams.SnapshotName = $SnapshotName
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:LVIE_DEBUG_TOGGLE_ARGS)) {
+        $paramSummary = ($toggleParams.GetEnumerator() | Sort-Object Key | ForEach-Object { "{0}={1}" -f $_.Key, $_.Value }) -join '; '
+        Write-Host ("Toggle-DevMode params: {0}" -f $paramSummary)
+    }
+    try {
+        & $toggleScript @toggleParams
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+            throw "Toggle-DevMode.ps1 failed with exit code $LASTEXITCODE."
+        }
+    } catch {
+        Write-Error "An unexpected error occurred during script execution: $($_.Exception.Message)"
+        exit 1
+    }
+    return
+}
+
+if (-not $UseLabVIEW) {
+    $noLabviewScript = Join-Path $resolvedRepoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
+    if (-not (Test-Path -Path $noLabviewScript)) {
+        throw "Set-DevelopmentMode-NoLabVIEW.ps1 not found at $noLabviewScript"
+    }
+
+    Write-Host ("Using no-LabVIEW dev mode path (LV{0})..." -f $labviewYear)
+    & $noLabviewScript `
+        -LabVIEWVersion $labviewYear `
+        -SupportedBitness $SupportedBitness `
+        -RepoRoot $resolvedRepoRoot
+
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw "Set-DevelopmentMode-NoLabVIEW.ps1 failed with exit code $LASTEXITCODE."
+    }
+
+    return
+}
+
+function Write-CloseMetricsHint {
+    param(
+        [string]$Bitness,
+        [string]$Context,
+        [string]$ExpectedVersion
+    )
+
+    $metricsPath = $env:LABVIEW_CLOSE_METRICS_PATH
+    if ([string]::IsNullOrWhiteSpace($metricsPath)) {
+        return
+    }
+
+    if (Test-Path -Path $metricsPath) {
+        $lines = @()
+        try {
+            $lines = Get-Content -Path $metricsPath -Tail 50 | Where-Object { $_ -and $_ -notmatch '^timestamp,' }
+        } catch {
+            Write-Warning ("Failed to read close metrics at {0}: {1}" -f $metricsPath, $_.Exception.Message)
+            return
+        }
+
+        if (-not $lines -or $lines.Count -eq 0) {
+            Write-Host ("Close metrics file is empty: {0}" -f $metricsPath)
+            return
+        }
+
+        $entries = foreach ($line in $lines) {
+            $parts = $line -split ',', 6
+            if ($parts.Length -ge 6) {
+                [pscustomobject]@{
+                    Line      = $line
+                    Timestamp = $parts[0]
+                    Version   = $parts[1]
+                    Bitness   = $parts[2]
+                    HadProc   = $parts[3]
+                    Outcome   = $parts[4]
+                    Duration  = $parts[5]
+                }
+            }
+        }
+
+        $match = $entries | Where-Object { $_.Version -eq $ExpectedVersion -and $_.Bitness -eq $Bitness } | Select-Object -Last 1
+        if ($match) {
+            Write-Host ("Close metrics ({0}) {1}-bit: version={2} outcome={3} duration_s={4} had_process={5} timestamp={6}" -f `
+                    $Context, $Bitness, $match.Version, $match.Outcome, $match.Duration, $match.HadProc, $match.Timestamp)
+            return
+        }
+
+        $lastEntry = $entries | Select-Object -Last 1
+        if ($lastEntry) {
+            Write-Warning ("Close metrics ({0}) {1}-bit: no matching entry for version {2}; last entry: {3}" -f `
+                    $Context, $Bitness, $ExpectedVersion, $lastEntry.Line)
+        } else {
+            Write-Warning ("Close metrics ({0}) {1}-bit: no parsable entries found in {2}" -f $Context, $Bitness, $metricsPath)
+        }
+
+        return
+    }
+
+    Write-Host ("Close metrics path set but file not found: {0}" -f $metricsPath)
 }
 
 function Invoke-PrepareLabviewSource {
@@ -95,18 +282,10 @@ function Invoke-PrepareLabviewSource {
         [string]$Bitness
     )
 
-    if (-not (Test-Path -Path $CloseScript)) {
-        throw "Close_LabVIEW.ps1 not found at $CloseScript"
-    }
-
-    & $CloseScript -MinimumSupportedLVVersion $labviewYear -SupportedBitness $Bitness
-    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-        throw "Close_LabVIEW.ps1 failed for $Bitness-bit with exit code $LASTEXITCODE."
-    }
-
     Write-Host "Preparing LabVIEW sources for $Bitness-bit."
+    # Prepare_LabVIEW_source.ps1 closes LabVIEW after the VI runs.
     $scriptArgs = @{
-        MinimumSupportedLVVersion = $labviewYear
+        LabVIEWVersion            = $labviewYear
         SupportedBitness          = $Bitness
         ConnectTimeoutMs          = $ConnectTimeoutMs
         ProcessTimeoutMs          = $ProcessTimeoutMs
@@ -121,6 +300,8 @@ function Invoke-PrepareLabviewSource {
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         throw "Prepare_LabVIEW_source.ps1 failed for $Bitness-bit with exit code $LASTEXITCODE."
     }
+
+    Write-CloseMetricsHint -Bitness $Bitness -Context 'set-dev-mode' -ExpectedVersion $labviewYear
 }
 
 try {

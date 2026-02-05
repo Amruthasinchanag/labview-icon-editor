@@ -26,6 +26,14 @@ runs:
 
         $scriptArgs.SupportedBitness = "${{ inputs.supported_bitness }}"
 
+        $useLabviewInput = "${{ inputs.use_labview }}"
+        if (-not [string]::IsNullOrWhiteSpace($useLabviewInput)) {
+          $normalized = $useLabviewInput.Trim().ToLowerInvariant()
+          if ($normalized -in @('1', 'true', 'yes', 'y')) {
+            $scriptArgs.UseLabVIEW = $true
+          }
+        }
+
         & "${{ github.action_path }}/RevertDevelopmentMode.ps1" @scriptArgs
 inputs:
   labview_version:
@@ -36,6 +44,9 @@ inputs:
     required: true
   repo_root:
     description: 'Workspace root path'
+    required: false
+  use_labview:
+    description: 'Use LabVIEW + g-cli instead of the no-LabVIEW path.'
     required: false
 
 

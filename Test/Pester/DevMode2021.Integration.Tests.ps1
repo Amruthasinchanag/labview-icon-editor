@@ -1,13 +1,13 @@
 $ErrorActionPreference = 'Stop'
 
-Describe 'Development Mode integration (LabVIEW 2025)' {
+Describe 'Development Mode integration (LabVIEW 2021)' {
     BeforeAll {
         $script:skipAll = $false
         $script:skipReason = ''
         $script:installRoots = @{}
         $script:bitnessesToTest = @()
         $script:missingPathsHelperLoaded = $false
-        $script:labviewVersion = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_VERSION)) { '2025' } else { $env:LABVIEW_VERSION }
+        $script:labviewVersion = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_VERSION)) { '2021' } else { $env:LABVIEW_VERSION }
         $script:labviewBitness = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_BITNESS)) { '64' } else { $env:LABVIEW_BITNESS }
         $script:connectTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_CONNECT_TIMEOUT_MS)) { '120000' } else { $env:LABVIEW_CONNECT_TIMEOUT_MS }
         $script:processTimeoutMs = if ([string]::IsNullOrWhiteSpace($env:LABVIEW_PROCESS_TIMEOUT_MS)) { '300000' } else { $env:LABVIEW_PROCESS_TIMEOUT_MS }
@@ -61,7 +61,7 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
             return $null
         }
 
-        function script:Get-LabVIEWPaths {
+        function script:Get-LabVIEWPathMap {
             param(
                 [string]$InstallRoot
             )
@@ -97,7 +97,7 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
             }
         }
 
-        function script:Get-ScriptArguments {
+        function script:Get-ScriptArgumentList {
             param(
                 [string]$LabVIEWVersion,
                 [string]$RepoRoot,
@@ -105,7 +105,7 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
             )
 
             return @(
-                '-MinimumSupportedLVVersion', $LabVIEWVersion,
+                '-LabVIEWVersion', $LabVIEWVersion,
                 '-RelativePath', $RepoRoot,
                 '-SupportedBitness', $Bitness,
                 '-ConnectTimeoutMs', $script:connectTimeoutMs,
@@ -132,9 +132,9 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
         }
 
 
-        if ($script:labviewVersion -ne '2025') {
+        if ($script:labviewVersion -ne '2021') {
             $script:skipAll = $true
-            $script:skipReason = 'Only LabVIEW 2025 is supported by this test suite.'
+            $script:skipReason = 'Only LabVIEW 2021 is supported by this test suite.'
             return
         }
 
@@ -164,8 +164,8 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
 
         $filteredBitnesses = New-Object System.Collections.Generic.List[string]
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+            $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $scriptArgs
             if ($result.ExitCode -eq 0) {
                 $filteredBitnesses.Add($bitness)
                 continue
@@ -195,8 +195,8 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
     AfterAll {
         if (-not $script:skipAll) {
             foreach ($bitness in $script:bitnessesToTest) {
-                $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-                $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+                $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+                $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $scriptArgs
                 if ($result.ExitCode -ne 0) {
                     throw "Failed to restore LabVIEW setup for $bitness-bit; exit code $($result.ExitCode)."
                 }
@@ -211,8 +211,8 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-            $result = Invoke-LabVIEWScript -ScriptPath $script:setScript -Arguments $args
+            $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $result = Invoke-LabVIEWScript -ScriptPath $script:setScript -Arguments $scriptArgs
             $result.ExitCode | Should -Be 0
             (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
         }
@@ -225,7 +225,7 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $paths = Get-LabVIEWPaths -InstallRoot $script:installRoots[$bitness]
+            $paths = Get-LabVIEWPathMap -InstallRoot $script:installRoots[$bitness]
             (Test-Path -Path $paths.Ship) | Should -BeTrue
             (Test-Path -Path $paths.Lvlibp) | Should -BeFalse
             (Test-Path -Path $paths.IconApiFolder) | Should -BeFalse
@@ -240,8 +240,8 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $args = Get-ScriptArguments -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
-            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $args
+            $scriptArgs = Get-ScriptArgumentList -LabVIEWVersion $script:labviewVersion -RepoRoot $script:repoRoot -Bitness $bitness
+            $result = Invoke-LabVIEWScript -ScriptPath $script:revertScript -Arguments $scriptArgs
             $result.ExitCode | Should -Be 0
             (Get-Process -Name LabVIEW -ErrorAction SilentlyContinue) | Should -BeNullOrEmpty
         }
@@ -254,7 +254,7 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
         }
 
         foreach ($bitness in $script:bitnessesToTest) {
-            $paths = Get-LabVIEWPaths -InstallRoot $script:installRoots[$bitness]
+            $paths = Get-LabVIEWPathMap -InstallRoot $script:installRoots[$bitness]
             (Test-Path -Path $paths.Lvlibp) | Should -BeTrue
             (Test-Path -Path $paths.Ship) | Should -BeFalse
             (Test-Path -Path $paths.IconApiFolder) | Should -BeTrue
@@ -263,3 +263,5 @@ Describe 'Development Mode integration (LabVIEW 2025)' {
     }
 
 }
+
+

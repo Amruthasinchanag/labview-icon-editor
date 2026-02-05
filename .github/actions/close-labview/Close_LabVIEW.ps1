@@ -6,20 +6,21 @@
     Utilizes g-cli's QuitLabVIEW command to shut down the specified LabVIEW
     version and bitness, ensuring the application exits cleanly.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Bitness of the LabVIEW instance ("32" or "64").
 
 .EXAMPLE
-    .\Close_LabVIEW.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64"
+    .\Close_LabVIEW.ps1 -LabVIEWVersion "2021" -SupportedBitness "64"
 #>
 param(
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '2021',
+    [string]$LabVIEWVersion = '2021',
     [string]$SupportedBitness,
     [ValidateRange(5, 600)]
     [int]$TimeoutSeconds = 120,
@@ -31,10 +32,10 @@ $scriptStart = Get-Date
 $metricsPathResolved = if ($MetricsPath) { $MetricsPath } elseif ($env:LABVIEW_CLOSE_METRICS_PATH) { $env:LABVIEW_CLOSE_METRICS_PATH } else { $null }
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {

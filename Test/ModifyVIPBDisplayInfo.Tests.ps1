@@ -1,4 +1,4 @@
-Describe "ModifyVIPBDisplayInfo.ps1" {
+﻿Describe "ModifyVIPBDisplayInfo.ps1" {
     BeforeAll {
         # Pester runs discovery and execution in separate scopes; compute paths at execution time.
         function Find-RepoRoot {
@@ -67,7 +67,7 @@ Describe "ModifyVIPBDisplayInfo.ps1" {
             -SupportedBitness 64 `
             -RepoRoot $script:repoRoot `
             -VIPBPath $relativeVipbPath `
-            -MinimumSupportedLVVersion 2021 `
+            -LabVIEWVersion 2021 `
             -LabVIEWMinorRevision 0 `
             -Major 1 `
             -Minor 4 `
@@ -95,3 +95,4 @@ Describe "ModifyVIPBDisplayInfo.ps1" {
         $exclusionPaths | Should -Contain 'TestResults'
     }
 }
+

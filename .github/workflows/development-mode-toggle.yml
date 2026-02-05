@@ -3,8 +3,11 @@ name: "Toggle Development Mode"
 permissions:
   actions: read
 
+env:
+  LVIE_FORCE_NO_LABVIEW_DEVMODE: 1
+
 concurrency:
-  group: labview-${{ github.repository }}-self-hosted-windows-lv-ie
+  group: labview-${{ github.repository }}-${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   cancel-in-progress: false
 
 on:
@@ -93,7 +96,7 @@ jobs:
           inputs.bitness || '64',
           inputs.labview_version || '2021') }}
 
-    runs-on: [self-hosted-windows-lv-ie]
+    runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
       selected_bitness: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.bitness || inputs.bitness }}
@@ -101,6 +104,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Runner sanity
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
       - name: Acquire LabVIEW runner lock
         shell: pwsh
         run: |
@@ -201,4 +208,5 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             exit $LASTEXITCODE
           }
+
 

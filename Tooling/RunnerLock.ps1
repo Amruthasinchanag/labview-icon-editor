@@ -40,7 +40,9 @@ function Get-EnvValue {
 function Resolve-IntSetting {
     param(
         [string]$Name,
-        [int]$Fallback
+        [int]$Fallback,
+        [int]$Minimum = [int]::MinValue,
+        [int]$Maximum = [int]::MaxValue
     )
 
     $raw = Get-EnvValue -Name $Name
@@ -50,6 +52,10 @@ function Resolve-IntSetting {
 
     $value = 0
     if ([int]::TryParse($raw, [ref]$value)) {
+        if ($value -lt $Minimum -or $value -gt $Maximum) {
+            Write-Warning "Ignoring out-of-range $Name value '$raw'; using $Fallback."
+            return $Fallback
+        }
         return $value
     }
 
@@ -102,7 +108,7 @@ function Resolve-LockRoot {
     return 'C:\dev'
 }
 
-function Get-LockMetadata {
+function Get-LockMetadataRecord {
     param([string]$MetadataPath)
 
     if (-not (Test-Path -Path $MetadataPath)) {
@@ -232,31 +238,31 @@ function Format-LockOwner {
 $timeoutSecondsValue = if ($PSBoundParameters.ContainsKey('TimeoutSeconds')) {
     $TimeoutSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_TIMEOUT_SECONDS' -Fallback $TimeoutSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_TIMEOUT_SECONDS' -Fallback $TimeoutSeconds -Minimum 30 -Maximum 86400
 }
 
 $leaseSecondsValue = if ($PSBoundParameters.ContainsKey('LeaseSeconds')) {
     $LeaseSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_LEASE_SECONDS' -Fallback $LeaseSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_LEASE_SECONDS' -Fallback $LeaseSeconds -Minimum 300 -Maximum 86400
 }
 
 $staleAfterSecondsValue = if ($PSBoundParameters.ContainsKey('StaleAfterSeconds')) {
     $StaleAfterSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_STALE_SECONDS' -Fallback $StaleAfterSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_STALE_SECONDS' -Fallback $StaleAfterSeconds -Minimum 300 -Maximum 604800
 }
 
 $gitHubMinAgeSecondsValue = if ($PSBoundParameters.ContainsKey('GitHubMinAgeSeconds')) {
     $GitHubMinAgeSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_MIN_AGE_SECONDS' -Fallback $GitHubMinAgeSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_MIN_AGE_SECONDS' -Fallback $GitHubMinAgeSeconds -Minimum 30 -Maximum 3600
 }
 
 $gitHubCheckIntervalSecondsValue = if ($PSBoundParameters.ContainsKey('GitHubCheckIntervalSeconds')) {
     $GitHubCheckIntervalSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_CHECK_INTERVAL_SECONDS' -Fallback $GitHubCheckIntervalSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_CHECK_INTERVAL_SECONDS' -Fallback $GitHubCheckIntervalSeconds -Minimum 15 -Maximum 3600
 }
 
 $gitHubCheckEnabled = -not $DisableGitHubStaleCheck.IsPresent
@@ -311,11 +317,32 @@ if ($Mode -eq 'Acquire') {
             Write-Host "Acquired LabVIEW runner lock: $lockPath"
             break
         } catch {
-            $metadata = Get-LockMetadata -MetadataPath $metadataPath
+            $metadata = Get-LockMetadataRecord -MetadataPath $metadataPath
             $owner = Format-LockOwner -Metadata $metadata
             $acquiredAtUtc = Resolve-AcquiredAtUtc -Metadata $metadata -LockPath $lockPath
             $leaseExpiresAtUtc = Resolve-LeaseExpiresAtUtc -Metadata $metadata -AcquiredAtUtc $acquiredAtUtc -LeaseSecondsValue $leaseSecondsValue
-            $ageSeconds = [int]([DateTime]::UtcNow - $acquiredAtUtc).TotalSeconds
+            $ageSecondsRaw = [int]([DateTime]::UtcNow - $acquiredAtUtc).TotalSeconds
+            $ageSeconds = $ageSecondsRaw
+            $ageSecondsForChecks = $ageSecondsRaw
+            if ($ageSecondsRaw -lt 0) {
+                $ageSecondsRawOriginal = $ageSecondsRaw
+                $fallbackAcquiredAtUtc = $null
+                if (Test-Path -Path $lockPath) {
+                    $fallbackAcquiredAtUtc = (Get-Item -Path $lockPath).CreationTimeUtc
+                }
+                if ($fallbackAcquiredAtUtc -and $fallbackAcquiredAtUtc -le [DateTime]::UtcNow) {
+                    $acquiredAtUtc = $fallbackAcquiredAtUtc
+                    $leaseExpiresAtUtc = $acquiredAtUtc.AddSeconds($leaseSecondsValue)
+                    $ageSecondsRaw = [int]([DateTime]::UtcNow - $acquiredAtUtc).TotalSeconds
+                    $ageSeconds = [Math]::Max(0, $ageSecondsRaw)
+                    $ageSecondsForChecks = [Math]::Max($gitHubMinAgeSecondsValue, $ageSeconds)
+                    Write-Warning ("Runner lock clock skew detected (age {0}s). Using lock creation time {1:o} for age/lease calculations." -f $ageSecondsRawOriginal, $acquiredAtUtc)
+                } else {
+                    $ageSeconds = 0
+                    $ageSecondsForChecks = $gitHubMinAgeSecondsValue
+                    Write-Warning ("Runner lock clock skew detected (age {0}s). Treating lock as at least {1}s old for GitHub checks." -f $ageSecondsRawOriginal, $gitHubMinAgeSecondsValue)
+                }
+            }
             $ownerSameRun = $false
             if ($metadata -and $metadata.run_id -and $env:GITHUB_RUN_ID) {
                 $ownerSameRun = ($metadata.run_id -eq $env:GITHUB_RUN_ID)
@@ -329,7 +356,7 @@ if ($Mode -eq 'Acquire') {
 
             if (-not $ownerSameRun -and $gitHubCheckEnabled -and $metadata -and $metadata.run_id -and $metadata.repository) {
                 $now = (Get-Date).ToUniversalTime()
-                if ($ageSeconds -ge $gitHubMinAgeSecondsValue -and $now -ge $nextGitHubCheck) {
+                if ($ageSecondsForChecks -ge $gitHubMinAgeSecondsValue -and $now -ge $nextGitHubCheck) {
                     $runStatus = Get-GitHubRunStatus -Repository $metadata.repository -RunId $metadata.run_id
                     $nextGitHubCheck = $now.AddSeconds($gitHubCheckIntervalSecondsValue)
                     if ($runStatus) {
@@ -341,6 +368,10 @@ if ($Mode -eq 'Acquire') {
                             }
                         } elseif ($runStatus.status_code -eq 404) {
                             $staleReason = 'GitHub run not found'
+                        } else {
+                            $statusCode = if ($runStatus.status_code) { $runStatus.status_code } else { 'unknown' }
+                            $statusError = if ($runStatus.error) { $runStatus.error } else { 'unknown error' }
+                            Write-Warning ("Runner lock GitHub check failed (status={0} error={1})." -f $statusCode, $statusError)
                         }
                     }
                 }
@@ -389,3 +420,4 @@ if ($Mode -eq 'Acquire') {
         Write-Host "LabVIEW runner lock not present: $lockPath"
     }
 }
+

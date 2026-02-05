@@ -10,6 +10,9 @@ inputs:
   repo_root:
     description: 'Workspace root path'
     required: false
+  use_labview:
+    description: 'Use LabVIEW + g-cli instead of the no-LabVIEW path.'
+    required: false
 runs:
   using: "composite"
   steps:
@@ -35,6 +38,14 @@ runs:
         }
 
         $scriptArgs.SupportedBitness = "${{ inputs.supported_bitness }}"
+
+        $useLabviewInput = "${{ inputs.use_labview }}"
+        if (-not [string]::IsNullOrWhiteSpace($useLabviewInput)) {
+          $normalized = $useLabviewInput.Trim().ToLowerInvariant()
+          if ($normalized -in @('1', 'true', 'yes', 'y')) {
+            $scriptArgs.UseLabVIEW = $true
+          }
+        }
 
         & "${{ github.action_path }}/Set_Development_Mode.ps1" @scriptArgs
 

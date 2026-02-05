@@ -20,7 +20,9 @@
 param(
     [Parameter(Mandatory)][string]$LVVersion,
     [Parameter(Mandatory)][ValidateSet('32','64')][string]$Arch,
-    [Parameter(Mandatory)][string]$ProjectFile
+    [Parameter(Mandatory)][string]$ProjectFile,
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 $ErrorActionPreference = 'Stop'
 Write-Host "ℹ️  [GCLI] Starting Missing‑in‑Project check ..."
@@ -58,6 +60,10 @@ $gcliArgs = @(
     $ProjectFile
 )
 
+if ($ConnectTimeoutMs -gt 0) {
+    $gcliArgs = @('--connect-timeout', $ConnectTimeoutMs) + $gcliArgs
+}
+
 $gcliOutput = & g-cli @gcliArgs 2>&1 | Tee-Object -Variable _outLines
 $exitCode   = $LASTEXITCODE
 
@@ -70,8 +76,32 @@ if ($exitCode -eq 0) {
     Write-Host "❌  Missing‑in‑Project check FAILED – exit code $exitCode"
 }
 
+function Invoke-CloseLabVIEWSafely {
+    param(
+        [string]$Version,
+        [string]$Bitness
+    )
+
+    $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    $closeScript = Join-Path -Path $repoRoot -ChildPath '.github\actions\close-labview\Close_LabVIEW.ps1'
+    if (Test-Path -Path $closeScript) {
+        try {
+            & $closeScript -LabVIEWVersion $Version -SupportedBitness $Bitness | Out-Null
+        } catch {
+            Write-Warning ("Close_LabVIEW.ps1 failed: {0}" -f $_.Exception.Message)
+        }
+        return
+    }
+
+    try {
+        & g-cli --lv-ver $Version --arch $Bitness QuitLabVIEW | Out-Null
+    } catch {
+        Write-Warning ("Failed to close LabVIEW: {0}" -f $_.Exception.Message)
+    }
+}
+
 # close LabVIEW if still running (harmless if not)
-& g-cli --lv-ver $LVVersion --arch $Arch QuitLabVIEW | Out-Null
+Invoke-CloseLabVIEWSafely -Version $LVVersion -Bitness $Arch
 
 $global:LASTEXITCODE = $exitCode
 return

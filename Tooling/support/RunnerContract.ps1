@@ -93,7 +93,7 @@ function Set-RunnerContract {
     $Contract | ConvertTo-Json -Depth 6 | Set-Content -Path $ContractPath -Encoding ascii
 }
 
-function Apply-RunnerContract {
+function Set-RunnerContractEnvironment {
     param(
         [pscustomobject]$Contract,
         [string]$ContractPath
@@ -121,7 +121,17 @@ function Apply-RunnerContract {
     if (-not [string]::IsNullOrWhiteSpace($Contract.log_root) -and [string]::IsNullOrWhiteSpace($env:LVIE_LOG_ROOT)) {
         $env:LVIE_LOG_ROOT = $Contract.log_root
     }
+    if (-not [string]::IsNullOrWhiteSpace($Contract.runner_label) -and [string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_LABEL)) {
+        $env:LVIE_RUNNER_LABEL = $Contract.runner_label
+    }
+    if ($Contract.runner_labels -and [string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_LABELS)) {
+        $env:LVIE_RUNNER_LABELS = ($Contract.runner_labels -join ',')
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Contract.canonical_runner_label) -and [string]::IsNullOrWhiteSpace($env:LVIE_CANONICAL_RUNNER_LABEL)) {
+        $env:LVIE_CANONICAL_RUNNER_LABEL = $Contract.canonical_runner_label
+    }
     if (-not [string]::IsNullOrWhiteSpace($ContractPath) -and [string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_CONTRACT_PATH)) {
         $env:LVIE_RUNNER_CONTRACT_PATH = $ContractPath
     }
 }
+

@@ -15,8 +15,9 @@
 .PARAMETER VIPBPath
     Relative path to the VIPB file to update.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW major version year (e.g., 2021).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER LabVIEWMinorRevision
     Minor revision number of LabVIEW (e.g., 0 for 21.0).
@@ -43,7 +44,7 @@
     JSON string representing the VIPB display information to update.
 
 .EXAMPLE
-    .\build_vip.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
+    .\build_vip.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -LabVIEWVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
 #>
 
 param (
@@ -53,9 +54,9 @@ param (
     [string]$WorktreeRoot,
     [switch]$SkipWorktreeRootCheck,
 
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [ValidateRange(2000, 2100)]
-    [int]$MinimumSupportedLVVersion,
+    [int]$LabVIEWVersion,
 
     [ValidateRange(0, 99)]
     [int]$LabVIEWMinorRevision = 0,
@@ -93,12 +94,12 @@ catch {
 $preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $ResolvedRepoRoot `
         -WorktreeRoot $WorktreeRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWVersion $LabVIEWVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$false `
@@ -118,6 +119,29 @@ $vipOutputDir = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
     Join-Path -Path $artifactRoot -ChildPath "builds/VI Package"
 }
 New-Item -ItemType Directory -Path $vipOutputDir -Force | Out-Null
+
+# 1c) Resolve VIPB output folder + package name to pre-clean existing VIP
+$vipbOutputDir = $null
+$packageFileName = $null
+try {
+    $vipbXml = [xml](Get-Content -Raw -Path $ResolvedVIPBPath)
+    $general = $vipbXml.VI_Package_Builder_Settings.Library_General_Settings
+    if ($general) {
+        $packageFileName = $general.Package_File_Name
+        $outputFolder = $general.Library_Output_Folder
+        if (-not [string]::IsNullOrWhiteSpace($outputFolder)) {
+            $vipbRoot = Split-Path -Path $ResolvedVIPBPath -Parent
+            $vipbOutputDir = if ([System.IO.Path]::IsPathRooted($outputFolder)) {
+                $outputFolder
+            } else {
+                Join-Path -Path $vipbRoot -ChildPath $outputFolder
+            }
+            $vipbOutputDir = [System.IO.Path]::GetFullPath($vipbOutputDir)
+        }
+    }
+} catch {
+    Write-Warning ("Failed to parse VIPB output folder: {0}" -f $_.Exception.Message)
+}
 
 # 2) Create release notes if needed and resolve the paths
 if (-not (Test-Path $ReleaseNotesFile)) {
@@ -147,7 +171,7 @@ $LogDirectory = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
 New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
 
 # 3) Calculate the LabVIEW version string
-$lvNumericMajor    = $MinimumSupportedLVVersion - 2000
+$lvNumericMajor    = $LabVIEWVersion - 2000
 $lvNumericVersion  = "$($lvNumericMajor).$LabVIEWMinorRevision"
 if ($SupportedBitness -eq "64") {
     $VIP_LVVersion_A = "$lvNumericVersion (64-bit)"
@@ -213,9 +237,27 @@ else {
 # Re-convert to a JSON string with a comfortable nesting depth
 $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
 
-# 5) Construct reusable g-cli arguments
+# 5a) Pre-clean existing VIP in the configured output folder to avoid VIPM error 10
+$vipBaseName = if (-not [string]::IsNullOrWhiteSpace($packageFileName)) {
+    $packageFileName
+} else {
+    [System.IO.Path]::GetFileNameWithoutExtension($ResolvedVIPBPath)
+}
+$vipVersion = "$Major.$Minor.$Patch.$Build"
+$vipName = "{0}-{1}.vip" -f $vipBaseName, $vipVersion
+$outputDirToClean = if (-not [string]::IsNullOrWhiteSpace($vipbOutputDir)) { $vipbOutputDir } else { $vipOutputDir }
+if (-not (Test-Path -Path $outputDirToClean)) {
+    New-Item -ItemType Directory -Path $outputDirToClean -Force | Out-Null
+}
+$vipFullPath = Join-Path -Path $outputDirToClean -ChildPath $vipName
+if (Test-Path -Path $vipFullPath) {
+    Write-Host ("Removing existing VIP to avoid overwrite error: {0}" -f $vipFullPath)
+    Remove-Item -Path $vipFullPath -Force -ErrorAction SilentlyContinue
+}
+
+# 6) Construct reusable g-cli arguments
 $gcliArgs = @(
-    "--lv-ver", $MinimumSupportedLVVersion.ToString(),
+    "--lv-ver", $LabVIEWVersion.ToString(),
     "--arch", $SupportedBitness,
     "--connect-timeout", "120000",
     "--kill",
@@ -232,7 +274,7 @@ $prettyCommand = "g-cli " + ($gcliArgs -join ' ')
 Write-Output "Base build command:"
 Write-Output $prettyCommand
 
-# 6) Execute the command once with log capture
+# 7) Execute the command once with log capture
 $logFile = Join-Path -Path $LogDirectory -ChildPath "gcli-build.log"
 Write-Host "Starting g-cli build. Logs: $logFile"
 

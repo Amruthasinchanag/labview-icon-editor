@@ -12,9 +12,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$VIPBPath,
 
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [ValidateRange(2000, 2100)]
-    [int]$MinimumSupportedLVVersion,
+    [int]$LabVIEWVersion,
 
     [ValidateRange(0, 99)]
     [int]$LabVIEWMinorRevision = 0,
@@ -136,7 +136,7 @@ function Write-Status {
     $Payload | ConvertTo-Json -Depth 6 | Set-Content -Path $Path -Encoding ascii
 }
 
-function Copy-VipmLogs {
+function Copy-VipmLog {
     param([string]$LogDirectory)
 
     $candidates = @()
@@ -224,7 +224,7 @@ while ($attempt -lt $maxAttemptsValue) {
         '-SupportedBitness', $SupportedBitness,
         '-RepoRoot', $resolvedRepoRoot,
         '-VIPBPath', $VIPBPath,
-        '-MinimumSupportedLVVersion', $MinimumSupportedLVVersion.ToString(),
+        '-LabVIEWVersion', $LabVIEWVersion.ToString(),
         '-LabVIEWMinorRevision', $LabVIEWMinorRevision.ToString(),
         '-Major', $Major.ToString(),
         '-Minor', $Minor.ToString(),
@@ -282,7 +282,7 @@ if (-not $success -and (Test-Path -Path $gcliLog)) {
 
 $vipmLogsCopied = $false
 if (-not $success) {
-    $vipmLogsCopied = Copy-VipmLogs -LogDirectory $logDirectory
+    $vipmLogsCopied = Copy-VipmLog -LogDirectory $logDirectory
 }
 
 $status = @{
@@ -309,3 +309,4 @@ if (-not $success) {
         Write-Error ("VIP build failed with exit code {0}." -f $lastExitCode)
     }
 }
+

@@ -10,6 +10,15 @@
 .PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
 
+.PARAMETER LabVIEWBitness
+    Bitness to run: both, 32, 64, or installed (auto-detect).
+
+.PARAMETER AllowVersionMismatch
+    Allow LabVIEW version mismatches against .lvversion (not recommended).
+
+.PARAMETER DryRun
+    Validate version contract and installed LabVIEW bitness without running jobs.
+
 .PARAMETER MaxAttempts
     Maximum number of attempts.
 
@@ -32,7 +41,7 @@
     Upper bound for process timeout.
 
 .PARAMETER EnsureCleanState
-    Revert dev mode before Verify IE Paths.
+    Revert dev mode before enabling it for Verify IE Paths.
 
 .PARAMETER UseWorktree
     Create a worktree under the configured root and run parity from there.
@@ -65,6 +74,14 @@ param(
     [AllowNull()]
     [AllowEmptyString()]
     [string]$LabVIEWVersion = '',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('both', '32', '64', 'installed')]
+    [string]$LabVIEWBitness = 'both',
+
+    [switch]$AllowVersionMismatch,
+
+    [switch]$DryRun,
 
     [Parameter(Mandatory = $false)]
     [ValidateRange(1, 100)]
@@ -135,7 +152,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Ensure-CsvHeader {
+function Initialize-CsvHeader {
     param(
         [string]$Path,
         [string]$Header
@@ -207,16 +224,22 @@ if ($UseWorktree) {
     $runRepoRoot = & $worktreeScript -Ref HEAD -Name $suffix -WorktreeRoot $resolvedWorktreeRoot
     Write-Host ("Using worktree: {0}" -f $runRepoRoot)
 }
+
+$assertScript = Join-Path $runRepoRoot 'Tooling\Assert-LabVIEWVersion.ps1'
+if (Test-Path -Path $assertScript) {
+    & $assertScript -RepoRoot $runRepoRoot -ExpectedVersion $LabVIEWVersion -AllowMismatch:$AllowVersionMismatch -Context 'ci-local-auto'
+}
+
 $preflight = $null
 $artifactRootResolved = $null
 if (Get-Command Invoke-Preflight -ErrorAction SilentlyContinue) {
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $runRepoRoot `
         -WorktreeRoot $resolvedWorktreeRoot `
         -LabVIEWVersion $LabVIEWVersion `
-        -LabVIEWBitness 'both' `
+        -LabVIEWBitness $LabVIEWBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$false `
         -ScriptPath $relativeScript `
@@ -232,10 +255,25 @@ if (Get-Command Invoke-Preflight -ErrorAction SilentlyContinue) {
     $env:LVIE_WORKTREE_ROOT = $resolvedWorktreeRoot
 }
 
+if ($DryRun) {
+    & $runScript `
+        -LabVIEWVersion $LabVIEWVersion `
+        -LabVIEWBitness $LabVIEWBitness `
+        -AllowVersionMismatch:$AllowVersionMismatch `
+        -DryRun `
+        -RepoRoot $runRepoRoot `
+        -WorktreeRoot $resolvedWorktreeRoot `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -RunId $RunId `
+        -ArtifactRoot $ArtifactRoot `
+        -CleanRoom:$CleanRoom
+    return
+}
+
 $logRoot = if ($artifactRootResolved) { Join-Path $artifactRootResolved 'agent-logs' } else { Join-Path $repoRoot 'TestResults/agent-logs' }
 New-Item -Path $logRoot -ItemType Directory -Force | Out-Null
 $historyPath = Join-Path $logRoot 'auto-run-history.csv'
-Ensure-CsvHeader -Path $historyPath -Header 'timestamp,attempt,status,duration_seconds,connect_timeout_ms,process_timeout_ms'
+Initialize-CsvHeader -Path $historyPath -Header 'timestamp,attempt,status,duration_seconds,connect_timeout_ms,process_timeout_ms'
 
 $attemptConnectTimeout = $ConnectTimeoutMs
 $attemptProcessTimeout = $ProcessTimeoutMs
@@ -252,6 +290,8 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         $attemptRunId = if ($preflight -and $preflight.RunId) { \"{0}-{1}\" -f $preflight.RunId, $attemptLabel } else { $null }
         & $runScript `
             -LabVIEWVersion $LabVIEWVersion `
+            -LabVIEWBitness $LabVIEWBitness `
+            -AllowVersionMismatch:$AllowVersionMismatch `
             -EnsureCleanState:$EnsureCleanState `
             -ConnectTimeoutMs $attemptConnectTimeout `
             -ProcessTimeoutMs $attemptProcessTimeout `
@@ -284,3 +324,5 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
 if ($preflight -and $preflight.CleanRoomAfter) {
     Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
 }
+
+

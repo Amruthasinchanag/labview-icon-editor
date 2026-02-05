@@ -38,7 +38,7 @@ $preflight = $null
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
@@ -115,3 +115,4 @@ finally {
 if ($exitCode -ne 0) {
     exit $exitCode
 }
+

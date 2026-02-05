@@ -6,8 +6,9 @@
     Invokes RevertDevelopmentMode.ps1 to restore packaged sources. Intended
     to leave the system in a disabled state after iteration runs.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     LabVIEW bitness to target ("32" or "64"). Defaults to "64".
@@ -42,7 +43,8 @@ param(
     [Parameter(Mandatory = $false)]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -85,7 +87,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Write-Log {
+function Write-DevModeLog {
     param(
         [string]$Message
     )
@@ -102,12 +104,12 @@ $preflight = $null
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
         -WorktreeRoot $WorktreeRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWVersion $LabVIEWVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$AutoWorktree `
@@ -123,10 +125,10 @@ if (Test-Path -Path $preflightScript) {
     $artifactRootResolved = $preflight.ArtifactRoot
 }
 $versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -150,12 +152,12 @@ if (-not (Test-Path -Path $revertScript)) {
 }
 
 $scriptArgs = @{
-    MinimumSupportedLVVersion = $labviewYear
+    LabVIEWVersion            = $labviewYear
     SupportedBitness          = $SupportedBitness
     RepoRoot              = $repoRoot
 }
 
-Write-Log ("start version={0} bitness={1} log={2}" -f $labviewYear, $SupportedBitness, $logPathResolved)
+Write-DevModeLog ("start version={0} bitness={1} log={2}" -f $labviewYear, $SupportedBitness, $logPathResolved)
 
 try {
     & $revertScript @scriptArgs
@@ -163,12 +165,14 @@ try {
         throw "Dev mode disable failed with exit code $LASTEXITCODE."
     }
     $exitCodeValue = if ($LASTEXITCODE -eq $null) { 'null' } else { [string]$LASTEXITCODE }
-    Write-Log ("finish exit_code={0}" -f $exitCodeValue)
+    Write-DevModeLog ("finish exit_code={0}" -f $exitCodeValue)
 } catch {
-    Write-Log ("error message={0}" -f $($_.Exception.Message))
+    Write-DevModeLog ("error message={0}" -f $($_.Exception.Message))
     throw
 } finally {
     if ($preflight -and $preflight.CleanRoomAfter) {
         Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
     }
 }
+
+

@@ -8,46 +8,46 @@
     and optionally cleans known output folders before/after a run.
 #>
 
-function Convert-BoundParametersToArgs {
+function Convert-BoundParametersToArgumentList {
     param(
         [hashtable]$BoundParameters
     )
 
-    $args = @()
+    $argList = @()
     if (-not $BoundParameters) {
-        return $args
+        return $argList
     }
 
     foreach ($key in $BoundParameters.Keys) {
         $value = $BoundParameters[$key]
         if ($value -is [System.Management.Automation.SwitchParameter]) {
             if ($value.IsPresent) {
-                $args += "-$key"
+                $argList += "-$key"
             } else {
-                $args += "-${key}:`$false"
+                $argList += "-${key}:`$false"
             }
             continue
         }
 
         if ($value -is [bool]) {
-            $args += "-$key"
-            $args += $value.ToString().ToLowerInvariant()
+            $argList += "-$key"
+            $argList += $value.ToString().ToLowerInvariant()
             continue
         }
 
         if ($value -is [array]) {
             foreach ($entry in $value) {
-                $args += "-$key"
-                $args += [string]$entry
+                $argList += "-$key"
+                $argList += [string]$entry
             }
             continue
         }
 
-        $args += "-$key"
-        $args += [string]$value
+        $argList += "-$key"
+        $argList += [string]$value
     }
 
-    return $args
+    return $argList
 }
 
 function Resolve-RepoRoot {
@@ -91,6 +91,17 @@ function New-RunId {
     return "{0}-{1}" -f $timestamp, $suffix
 }
 
+function Test-TruthyEnv {
+    param([string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $false
+    }
+
+    $normalized = $Value.Trim().ToLowerInvariant()
+    return ($normalized -notin @('0', 'false', 'no'))
+}
+
 function Resolve-ArtifactRoot {
     param(
         [string]$WorktreeRoot,
@@ -110,7 +121,7 @@ function Resolve-ArtifactRoot {
     return (Join-Path -Path $base -ChildPath $RunId)
 }
 
-function Get-CleanRoomTargets {
+function Get-CleanRoomTargetList {
     param(
         [string]$RepoRoot
     )
@@ -140,7 +151,7 @@ function Invoke-PreflightCleanup {
 
     Write-Host ("Clean-room ({0}): removing known output folders." -f $Phase)
 
-    foreach ($target in (Get-CleanRoomTargets -RepoRoot $RepoRoot)) {
+    foreach ($target in (Get-CleanRoomTargetList -RepoRoot $RepoRoot)) {
         if ([string]::IsNullOrWhiteSpace($target)) { continue }
         if (Test-Path -Path $target) {
             try {
@@ -249,7 +260,7 @@ function Invoke-Preflight {
         $contractPath = Resolve-RunnerContractPath -ContractPath $env:LVIE_RUNNER_CONTRACT_PATH -RunnerRoot $env:LVIE_RUNNER_ROOT -WorkRoot $env:LVIE_RUNNER_WORK_ROOT
         $contract = Get-RunnerContract -ContractPath $contractPath -RunnerRoot $env:LVIE_RUNNER_ROOT -WorkRoot $env:LVIE_RUNNER_WORK_ROOT
         if ($contract) {
-            Apply-RunnerContract -Contract $contract -ContractPath $contractPath
+            Set-RunnerContractEnvironment -Contract $contract -ContractPath $contractPath
         } elseif ($env:LVIE_REQUIRE_RUNNER_CONTRACT -eq '1') {
             throw "Runner contract not found. Run Tooling\\Setup-Runner.ps1 to create $contractPath."
         }
@@ -270,14 +281,58 @@ function Invoke-Preflight {
 
     if (-not $underRoot -and -not $skipGuard) {
         if ($AutoWorktree -and $ScriptPath) {
-            $invokeInWorktree = Join-Path $resolvedRepoRoot 'Tooling\Invoke-InWorktree.ps1'
-            if (-not (Test-Path -Path $invokeInWorktree)) {
-                throw "Invoke-InWorktree.ps1 not found at $invokeInWorktree"
+            $newWorktreeScript = Join-Path $resolvedRepoRoot 'Tooling\New-CIWorktree.ps1'
+            if (-not (Test-Path -Path $newWorktreeScript)) {
+                throw "New-CIWorktree.ps1 not found at $newWorktreeScript"
             }
 
             $relativeScript = Get-RepoRelativePath -RepoRoot $resolvedRepoRoot -Path $ScriptPath
             Write-Host ("RepoRoot '{0}' is not under worktree root '{1}'. Re-invoking from worktree..." -f $resolvedRepoRoot, $resolvedWorktreeRoot)
-            & $invokeInWorktree -RepoRoot $resolvedRepoRoot -ScriptPath $relativeScript -ScriptArguments $ScriptArguments -WorktreeRoot $resolvedWorktreeRoot
+            $env:LVIE_WORKTREE_ROOT = $resolvedWorktreeRoot
+
+            $envName = $env:LVIE_WORKTREE_NAME
+            $envPrefix = $env:LVIE_WORKTREE_NAME_PREFIX
+            $noRepoPrefix = Test-TruthyEnv -Value $env:LVIE_WORKTREE_NO_REPO_PREFIX
+            $worktreeRef = if ([string]::IsNullOrWhiteSpace($env:LVIE_WORKTREE_REF)) { 'HEAD' } else { $env:LVIE_WORKTREE_REF }
+
+            $suffix = if ([string]::IsNullOrWhiteSpace($envName)) {
+                $prefix = if ([string]::IsNullOrWhiteSpace($envPrefix)) { 'ci-guard' } else { $envPrefix.Trim() }
+                "{0}-{1}" -f $prefix, (Get-Date -Format 'yyyyMMdd-HHmmss')
+            } else {
+                $envName.Trim()
+            }
+
+            $worktreeArgs = @(
+                '-Ref', $worktreeRef,
+                '-Name', $suffix,
+                '-WorktreeRoot', $resolvedWorktreeRoot
+            )
+            if ($noRepoPrefix) {
+                $worktreeArgs += '-NoRepoNamePrefix'
+            }
+
+            $worktreePath = & $newWorktreeScript @worktreeArgs
+            Write-Host ("Using worktree: {0}" -f $worktreePath)
+
+            Push-Location -Path $worktreePath
+            try {
+                $scriptFull = if ([System.IO.Path]::IsPathRooted($relativeScript)) {
+                    $relativeScript
+                } else {
+                    Join-Path $worktreePath $relativeScript
+                }
+
+                if (-not (Test-Path -Path $scriptFull)) {
+                    throw "Script not found at $scriptFull"
+                }
+
+                & pwsh -NoProfile -File $scriptFull @ScriptArguments
+                if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+                    throw "Command failed with exit code $LASTEXITCODE."
+                }
+            } finally {
+                Pop-Location
+            }
             return [pscustomobject]@{
                 Reinvoked = $true
                 RepoRoot = $resolvedRepoRoot
@@ -360,3 +415,6 @@ function Invoke-Preflight {
         CleanRoomAfter      = $CleanRoom
     }
 }
+
+
+

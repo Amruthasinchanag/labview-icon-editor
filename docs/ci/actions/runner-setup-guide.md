@@ -107,6 +107,25 @@ Additionally, **you can pass metadata fields** (like **organization** or **repos
 1. **Install LabVIEW 2021 (21.0), 32-bit and 64-bit**  
    - Confirm both are present on your Windows machine.  
    - Apply `.github/actions/apply-vipc/runner_dependencies.vipc` to each if needed.
+   - **Version contract**: CI treats `.lvversion` as the single source of truth. The runner sanity step validates that the installed LabVIEW version matches `.lvversion` and fails fast if it does not.
+   - **Registry probe logic** (Windows): the runner sanity check looks for installs in:
+     - `C:\Program Files\National Instruments\LabVIEW <Year>` (64-bit)
+     - `C:\Program Files (x86)\National Instruments\LabVIEW <Year>` (32-bit)
+     - Registry keys:
+       - `HKLM:\SOFTWARE\National Instruments\LabVIEW <Year>`
+       - `HKLM:\SOFTWARE\WOW6432Node\National Instruments\LabVIEW <Year>`
+     - It checks `Path`, `InstallDir`, or `InstallPath` values for a valid install root.
+   - If you install to a custom path, ensure the registry keys above are present so the runner can locate LabVIEW.
+   - **Runner ACL preflight (no-LabVIEW dev mode)**:
+     - When `LVIE_FORCE_NO_LABVIEW_DEVMODE=1` is set, runner sanity also checks write access to:
+       - `vi.lib`
+       - `vi.lib\LabVIEW Icon API` (if present)
+       - `resource\plugins`
+       - `LabVIEW.ini`
+     - If the runner service account cannot write to these paths, dev-mode enable/revert will fail on that bitness.
+     - You can override the check with `LVIE_RUNNER_ACL_CHECK=0` (not recommended).
+     - You can enable auto-fix with `LVIE_RUNNER_ACL_AUTOFIX=1` to grant **Modify** permissions to the current runner identity.
+     - Auto-fix requires elevated rights on the runner machine; otherwise pre-grant access manually (for example with `icacls`).
 
 2. **Install PowerShell 7+ and Git**  
    - Reboot if newly installed so environment variables are recognized.

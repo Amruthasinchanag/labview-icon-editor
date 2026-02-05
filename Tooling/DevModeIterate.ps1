@@ -7,8 +7,9 @@
     Set_Development_Mode.ps1 and RevertDevelopmentMode.ps1. The underlying
     scripts parse g-cli output for dev-mode error codes.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     LabVIEW bitness to target ("32" or "64"). Defaults to "64".
@@ -55,7 +56,7 @@
     If set, purge known output folders before and after the run.
 
 .EXAMPLE
-    .\Tooling\DevModeIterate.ps1 -Iterations 3 -MinimumSupportedLVVersion 2021 -SupportedBitness 64
+    .\Tooling\DevModeIterate.ps1 -Iterations 3 -LabVIEWVersion 2021 -SupportedBitness 64
 
 .EXAMPLE
     .\Tooling\DevModeIterate.ps1 -Iterations 1 -ModeSequence enable,enable,disable -ContinueOnDevModeFailure -CaptureTranscript
@@ -65,7 +66,8 @@ param(
     [Parameter(Mandatory = $false)]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '',
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion = '',
 
     [Parameter(Mandatory = $false)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -136,12 +138,12 @@ $preflight = $null
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
         -WorktreeRoot $WorktreeRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWVersion $LabVIEWVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$AutoWorktree `
@@ -157,10 +159,10 @@ if (Test-Path -Path $preflightScript) {
     $artifactRootResolved = $preflight.ArtifactRoot
 }
 $versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -190,7 +192,7 @@ if (-not (Test-Path -Path $revertScript)) {
 }
 
 $scriptArgs = @{
-    MinimumSupportedLVVersion = $labviewYear
+    LabVIEWVersion            = $labviewYear
     SupportedBitness          = $SupportedBitness
     RepoRoot              = $repoRoot
 }
@@ -306,7 +308,7 @@ try {
             if (-not [string]::IsNullOrWhiteSpace($result.ExceptionMessage)) {
                 $hasFailure = $true
                 $failureMessage = $result.ExceptionMessage
-            } elseif ($result.ExitCode -ne 0 -and $result.ExitCode -ne $null) {
+            } elseif ($result.ExitCode -ne 0 -and $null -ne $result.ExitCode) {
                 $hasFailure = $true
                 $failureMessage = "Dev mode $mode failed with exit code $exitCodeValue."
             }
@@ -353,3 +355,4 @@ try {
         Invoke-PreflightCleanup -RepoRoot $preflight.RepoRoot -Phase 'after'
     }
 }
+

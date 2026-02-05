@@ -32,7 +32,7 @@ function Resolve-RunnerRoot {
     throw "Runner root not provided and could not be inferred. Pass -RunnerRoot."
 }
 
-function Normalize-Path {
+function Resolve-NormalizedPath {
     param([string]$Path)
 
     $full = [System.IO.Path]::GetFullPath($Path)
@@ -43,7 +43,7 @@ function Normalize-Path {
 }
 
 $runnerRoot = Resolve-RunnerRoot -Override $RunnerRoot
-$runnerRoot = Normalize-Path -Path $runnerRoot
+$runnerRoot = Resolve-NormalizedPath -Path $runnerRoot
 
 $workBase = if ((Split-Path -Leaf $runnerRoot) -ieq '_work') {
     $runnerRoot
@@ -56,7 +56,7 @@ $resolvedWorktreeRoot = if (-not [string]::IsNullOrWhiteSpace($WorktreeRoot)) {
 } else {
     Join-Path $workBase 'lvie\w'
 }
-$resolvedWorktreeRoot = Normalize-Path -Path $resolvedWorktreeRoot
+$resolvedWorktreeRoot = Resolve-NormalizedPath -Path $resolvedWorktreeRoot
 
 New-Item -Path $resolvedWorktreeRoot -ItemType Directory -Force | Out-Null
 [Environment]::SetEnvironmentVariable('LVIE_WORKTREE_ROOT', $resolvedWorktreeRoot, $Scope)
@@ -64,7 +64,7 @@ New-Item -Path $resolvedWorktreeRoot -ItemType Directory -Force | Out-Null
 $artifactRoot = $null
 if ($SetArtifactRoot.IsPresent) {
     $artifactRoot = Join-Path $workBase 'lvie\artifacts'
-    $artifactRoot = Normalize-Path -Path $artifactRoot
+    $artifactRoot = Resolve-NormalizedPath -Path $artifactRoot
     New-Item -Path $artifactRoot -ItemType Directory -Force | Out-Null
     [Environment]::SetEnvironmentVariable('LVIE_ARTIFACT_ROOT', $artifactRoot, $Scope)
 }
@@ -75,3 +75,4 @@ if ($artifactRoot) {
 }
 
 Write-Host "Restart the runner service after updating Machine/User environment variables."
+

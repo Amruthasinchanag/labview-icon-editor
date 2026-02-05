@@ -12,6 +12,15 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$settings = [pscustomobject]@{
+    Repo              = $Repo
+    Ref               = $Ref
+    LabVIEWVersion    = $LabVIEWVersion
+    PollSeconds       = $PollSeconds
+    TimeoutMinutes    = $TimeoutMinutes
+    RunTimeoutMinutes = $RunTimeoutMinutes
+}
+
 function Assert-GhReady {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
         throw 'GitHub CLI (gh) not found in PATH.'
@@ -26,20 +35,21 @@ function Assert-GhReady {
 function Start-DevModeRun {
     param(
         [string]$Mode,
-        [string]$SequenceId
+        [string]$SequenceId,
+        [pscustomobject]$Settings
     )
 
-    $args = @(
+    $ghArgs = @(
         'workflow', 'run', 'Toggle Development Mode',
-        '--repo', $Repo,
-        '--ref', $Ref,
+        '--repo', $Settings.Repo,
+        '--ref', $Settings.Ref,
         '-f', "mode=$Mode",
-        '-f', "labview_version=$LabVIEWVersion",
+        '-f', "labview_version=$($Settings.LabVIEWVersion)",
         '-f', "sequence_id=$SequenceId"
     )
 
     Write-Host ("Starting workflow: mode={0}" -f $Mode)
-    & gh @args | Out-Null
+    & gh @ghArgs | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to dispatch workflow for mode=$Mode."
     }
@@ -47,10 +57,11 @@ function Start-DevModeRun {
 
 function Get-RunSummary {
     param(
-        [long]$RunId
+        [long]$RunId,
+        [pscustomobject]$Settings
     )
 
-    $run = & gh run view --repo $Repo $RunId --json status,conclusion 2>$null | ConvertFrom-Json
+    $run = & gh run view --repo $Settings.Repo $RunId --json status,conclusion 2>$null | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or -not $run) {
         return $null
     }
@@ -62,10 +73,11 @@ function Wait-ForRunCompletion {
     param(
         [long]$RunId,
         [string]$Mode,
-        [string[]]$AllowFailureModes
+        [string[]]$AllowFailureModes,
+        [pscustomobject]$Settings
     )
 
-    $deadline = (Get-Date).ToUniversalTime().AddMinutes($RunTimeoutMinutes)
+    $deadline = (Get-Date).ToUniversalTime().AddMinutes($Settings.RunTimeoutMinutes)
     $lastStatus = $null
     $allowFailure = $false
 
@@ -77,9 +89,9 @@ function Wait-ForRunCompletion {
     }
 
     do {
-        $run = Get-RunSummary -RunId $RunId
+        $run = Get-RunSummary -RunId $RunId -Settings $Settings
         if (-not $run) {
-            Start-Sleep -Seconds $PollSeconds
+            Start-Sleep -Seconds $Settings.PollSeconds
             continue
         }
 
@@ -101,7 +113,7 @@ function Wait-ForRunCompletion {
             return
         }
 
-        Start-Sleep -Seconds $PollSeconds
+        Start-Sleep -Seconds $Settings.PollSeconds
     } while ((Get-Date).ToUniversalTime() -lt $deadline)
 
     throw "Timed out waiting for workflow run completion (mode=$Mode, run id $RunId)."
@@ -109,13 +121,14 @@ function Wait-ForRunCompletion {
 
 function Get-RunBySequenceId {
     param(
-        [string]$SequenceId
+        [string]$SequenceId,
+        [pscustomobject]$Settings
     )
 
     $runs = & gh run list `
-        --repo $Repo `
+        --repo $Settings.Repo `
         --workflow 'Toggle Development Mode' `
-        --branch $Ref `
+        --branch $Settings.Ref `
         --event workflow_dispatch `
         --limit 20 `
         --json databaseId,createdAt,status,conclusion,displayTitle 2>$null | ConvertFrom-Json
@@ -129,19 +142,23 @@ function Get-RunBySequenceId {
 }
 
 function Wait-ForActiveRunToFinish {
+    param(
+        [pscustomobject]$Settings
+    )
+
     $activeRun = & gh run list `
-        --repo $Repo `
+        --repo $Settings.Repo `
         --workflow 'Toggle Development Mode' `
-        --branch $Ref `
+        --branch $Settings.Ref `
         --status in_progress `
         --limit 1 `
         --json databaseId 2>$null | ConvertFrom-Json
 
     if (-not $activeRun -or -not $activeRun.databaseId) {
         $activeRun = & gh run list `
-            --repo $Repo `
+            --repo $Settings.Repo `
             --workflow 'Toggle Development Mode' `
-            --branch $Ref `
+            --branch $Settings.Ref `
             --status queued `
             --limit 1 `
             --json databaseId 2>$null | ConvertFrom-Json
@@ -149,7 +166,7 @@ function Wait-ForActiveRunToFinish {
 
     if ($activeRun -and $activeRun.databaseId) {
         Write-Host "Active run detected ($($activeRun.databaseId)). Waiting for completion..."
-        Wait-ForRunCompletion -RunId $activeRun.databaseId -Mode 'active' -AllowFailureModes @()
+        Wait-ForRunCompletion -RunId $activeRun.databaseId -Mode 'active' -AllowFailureModes @() -Settings $Settings
     }
 }
 
@@ -157,18 +174,19 @@ function Wait-ForRun {
     param(
         [string]$SequenceId,
         [string]$Mode,
-        [string[]]$AllowFailureModes
+        [string[]]$AllowFailureModes,
+        [pscustomobject]$Settings
     )
 
-    $deadline = (Get-Date).ToUniversalTime().AddMinutes($TimeoutMinutes)
+    $deadline = (Get-Date).ToUniversalTime().AddMinutes($Settings.TimeoutMinutes)
     do {
-        $run = Get-RunBySequenceId -SequenceId $SequenceId
+        $run = Get-RunBySequenceId -SequenceId $SequenceId -Settings $Settings
         if ($run) {
             Write-Host ("Workflow run found: {0} (sequence_id={1})" -f $run.databaseId, $SequenceId)
             if ($run.status -eq 'completed') {
                 if ($run.conclusion -ne 'success') {
                     Write-Host "Run failed; fetching logs..."
-                    & gh run view --repo $Repo $run.databaseId --log
+                    & gh run view --repo $Settings.Repo $run.databaseId --log
                     if ($AllowFailureModes -contains $Mode) {
                         Write-Warning "Allowing failure for mode=$Mode (run id $($run.databaseId))."
                         return
@@ -178,12 +196,12 @@ function Wait-ForRun {
                 return
             }
 
-            Wait-ForRunCompletion -RunId $run.databaseId -Mode $Mode -AllowFailureModes $AllowFailureModes
+            Wait-ForRunCompletion -RunId $run.databaseId -Mode $Mode -AllowFailureModes $AllowFailureModes -Settings $Settings
             return
         }
 
         Write-Host ("Waiting for workflow run (mode={0}, sequence_id={1})..." -f $Mode, $SequenceId)
-        Start-Sleep -Seconds $PollSeconds
+        Start-Sleep -Seconds $Settings.PollSeconds
     } while ((Get-Date).ToUniversalTime() -lt $deadline)
 
     throw "Timed out waiting for workflow run (mode=$Mode, sequence_id=$SequenceId)."
@@ -228,12 +246,12 @@ Write-Host ("Sequence group: {0}" -f $sequenceGroup)
 
 $sequenceIndex = 0
 foreach ($mode in $normalizedModes) {
-    Wait-ForActiveRunToFinish
+    Wait-ForActiveRunToFinish -Settings $settings
     $sequenceIndex += 1
     $sequenceId = "{0}-{1:D2}-{2}" -f $sequenceGroup, $sequenceIndex, $mode
 
     Write-Host ("Dispatching mode={0} with sequence_id={1}" -f $mode, $sequenceId)
-    Start-DevModeRun -Mode $mode -SequenceId $sequenceId
-    Wait-ForRun -SequenceId $sequenceId -Mode $mode -AllowFailureModes $normalizedAllowFailures
+    Start-DevModeRun -Mode $mode -SequenceId $sequenceId -Settings $settings
+    Wait-ForRun -SequenceId $sequenceId -Mode $mode -AllowFailureModes $normalizedAllowFailures -Settings $settings
 }
 

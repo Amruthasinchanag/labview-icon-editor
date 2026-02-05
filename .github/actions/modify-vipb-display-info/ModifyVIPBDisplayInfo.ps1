@@ -17,8 +17,9 @@
 .PARAMETER VIPBPath
     Relative path to the VIPB file to modify.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW major version year (e.g., 2021).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER LabVIEWMinorRevision
     Minor revision number of LabVIEW (e.g., 0 for 21.0).
@@ -45,7 +46,7 @@
     JSON string representing the VIPB display information to update.
 
 .EXAMPLE
-    .\ModifyVIPBDisplayInfo.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
+    .\ModifyVIPBDisplayInfo.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -LabVIEWVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
 #>
 param (
     [string]$SupportedBitness,
@@ -54,9 +55,9 @@ param (
     [string]$WorktreeRoot,
     [switch]$SkipWorktreeRootCheck,
 
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [ValidateRange(2000, 2100)]
-    [int]$MinimumSupportedLVVersion,
+    [int]$LabVIEWVersion,
 
     [ValidateRange(0, 99)]
     [int]$LabVIEWMinorRevision = 0,
@@ -91,12 +92,12 @@ catch {
 $preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $ResolvedRepoRoot `
         -WorktreeRoot $WorktreeRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWVersion $LabVIEWVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$false `
@@ -128,7 +129,7 @@ catch {
 }
 
 # 3) Calculate the LabVIEW version string
-$lvNumericMajor    = $MinimumSupportedLVVersion - 2000
+$lvNumericMajor    = $LabVIEWVersion - 2000
 $lvNumericVersion  = "$($lvNumericMajor).$LabVIEWMinorRevision"
 if ($SupportedBitness -eq "64") {
     $VIP_LVVersion_A = "$lvNumericVersion (64-bit)"

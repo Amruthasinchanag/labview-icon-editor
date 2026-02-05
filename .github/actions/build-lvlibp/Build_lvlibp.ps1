@@ -6,8 +6,9 @@
     Invokes the LabVIEW build specification "Editor Packed Library" through
     g-cli, embedding the provided version information and commit identifier.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Bitness of the LabVIEW environment ("32" or "64").
@@ -31,13 +32,13 @@
     Commit hash or identifier recorded in the build.
 
 .EXAMPLE
-    .\Build_lvlibp.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RepoRoot "C:\labview-icon-editor" -Major 1 -Minor 0 -Patch 0 -Build 0 -Commit "Placeholder"
+    .\Build_lvlibp.ps1 -LabVIEWVersion "2021" -SupportedBitness "64" -RepoRoot "C:\labview-icon-editor" -Major 1 -Minor 0 -Patch 0 -Build 0 -Commit "Placeholder"
 #>
 param(
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion = '2021',
+    [string]$LabVIEWVersion = '2021',
     [string]$SupportedBitness,
     [string]$RepoRoot,
     [string]$WorktreeRoot,
@@ -46,7 +47,9 @@ param(
     [Int32]$Minor,
     [Int32]$Patch,
     [Int32]$Build,
-    [string]$Commit
+    [string]$Commit,
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 
 Write-Output "PPL Version: $Major.$Minor.$Patch.$Build"
@@ -59,12 +62,12 @@ if ($resolvedRepoRoot) {
     $preflightScript = Join-Path -Path $resolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
     if (Test-Path -Path $preflightScript) {
         . $preflightScript
-        $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+        $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
         $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $resolvedRepoRoot -Path $PSCommandPath } else { $null }
         $preflight = Invoke-Preflight `
             -RepoRoot $resolvedRepoRoot `
             -WorktreeRoot $WorktreeRoot `
-            -LabVIEWVersion $MinimumSupportedLVVersion `
+            -LabVIEWVersion $LabVIEWVersion `
             -LabVIEWBitness $SupportedBitness `
             -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
             -AutoWorktree:$false `
@@ -78,12 +81,12 @@ if ($resolvedRepoRoot) {
     }
 }
 
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if ($RepoRoot) {
     $versionHelper = Join-Path -Path $RepoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
     if (Test-Path -Path $versionHelper) {
         . $versionHelper
-        $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $RepoRoot
+        $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $RepoRoot
         $labviewYear = $versionInfo.Year
     }
 }
@@ -91,19 +94,52 @@ if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
 }
 
-# Construct the command
-$script = @"
-g-cli --lv-ver $labviewYear --arch $SupportedBitness lvbuildspec -- -v "$Major.$Minor.$Patch.$Build" -p "$RepoRoot\lv_icon_editor.lvproj" -b "Editor Packed Library"
-"@
-Write-Output "Executing the following command:"
-Write-Output $script
+function Invoke-CloseLabVIEWSafely {
+    param(
+        [string]$Version,
+        [string]$Bitness
+    )
 
-# Execute the command
-Invoke-Expression $script
+    $closeScript = Join-Path -Path $RepoRoot -ChildPath '.github\actions\close-labview\Close_LabVIEW.ps1'
+    if (Test-Path -Path $closeScript) {
+        try {
+            & $closeScript -LabVIEWVersion $Version -SupportedBitness $Bitness | Out-Null
+        } catch {
+            Write-Warning ("Close_LabVIEW.ps1 failed: {0}" -f $_.Exception.Message)
+        }
+        return
+    }
+
+    try {
+        & g-cli --lv-ver $Version --arch $Bitness QuitLabVIEW | Out-Null
+    } catch {
+        Write-Warning ("Failed to close LabVIEW: {0}" -f $_.Exception.Message)
+    }
+}
+
+$gcliArgs = @(
+    '--lv-ver', $labviewYear,
+    '--arch', $SupportedBitness
+)
+if ($ConnectTimeoutMs -gt 0) {
+    $gcliArgs += @('--connect-timeout', $ConnectTimeoutMs)
+}
+$gcliArgs += @(
+    'lvbuildspec',
+    '--',
+    '-v', "$Major.$Minor.$Patch.$Build",
+    '-p', "$RepoRoot\lv_icon_editor.lvproj",
+    '-b', 'Editor Packed Library'
+)
+
+Write-Output "Executing the following command:"
+Write-Output ("g-cli {0}" -f ($gcliArgs -join ' '))
+
+& g-cli @gcliArgs
 
 # Check the exit code
 if ($LASTEXITCODE -ne 0) {
-    g-cli --lv-ver $labviewYear --arch $SupportedBitness QuitLabVIEW
+    Invoke-CloseLabVIEWSafely -Version $labviewYear -Bitness $SupportedBitness
     Write-Host "Build failed with exit code $LASTEXITCODE."
     exit 1
 } else {

@@ -9,8 +9,9 @@
       - Non-zero exit if g-cli fails or if any test fails
       - Requires an explicit LabVIEW project path (-ProjectPath).
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Bitness for LabVIEW (e.g., "64").
@@ -25,6 +26,9 @@
 .PARAMETER SkipGcli
     Skip running g-cli and only parse an existing report (useful for local testing).
 
+.PARAMETER ConnectTimeoutMs
+    g-cli connect timeout in milliseconds (0 disables the timeout).
+
 .NOTES
     PowerShell 7.5+ assumed for cross-platform support.
     This script *requires* that g-cli and LabVIEW be compatible with the OS.
@@ -34,11 +38,11 @@
 param(
     [Parameter(Mandatory = $true, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $true, ParameterSetName = 'ReportOnly')]
-    [Alias('LabVIEWVersion')]
+    [Alias('MinimumSupportedLVVersion')]
     [AllowNull()]
     [AllowEmptyString()]
     [string]
-    $MinimumSupportedLVVersion,
+    $LabVIEWVersion,
 
     [Parameter(Mandatory = $true, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $true, ParameterSetName = 'ReportOnly')]
@@ -65,7 +69,11 @@ param(
 
     [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
     [Parameter(Mandatory = $false, ParameterSetName = 'ReportOnly')]
-    [switch]$SkipWorktreeRootCheck
+    [switch]$SkipWorktreeRootCheck,
+
+    [Parameter(Mandatory = $false, ParameterSetName = 'Run')]
+    [ValidateRange(0, 600000)]
+    [int]$ConnectTimeoutMs = 0
 )
 
 # Script-level variables to track exit states and results
@@ -90,12 +98,12 @@ $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
 if (Test-Path -Path $preflightScript) {
     . $preflightScript
-    $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
     $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRoot -Path $PSCommandPath } else { $null }
     $preflight = Invoke-Preflight `
         -RepoRoot $repoRoot `
         -WorktreeRoot $WorktreeRoot `
-        -LabVIEWVersion $MinimumSupportedLVVersion `
+        -LabVIEWVersion $LabVIEWVersion `
         -LabVIEWBitness $SupportedBitness `
         -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
         -AutoWorktree:$false `
@@ -107,10 +115,10 @@ if (Test-Path -Path $preflightScript) {
     $repoRoot = $preflight.RepoRoot
 }
 $versionHelper = Join-Path $repoRoot 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -406,9 +414,16 @@ function MainSequence {
     $previousNativePreference = $PSNativeCommandUseErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
     try {
-        & g-cli --lv-ver $labviewYear --arch $SupportedBitness lunit -- -r "$ReportPath" "$AbsoluteProjectPath"
-    }
-    finally {
+        $gcliArgs = @(
+            '--lv-ver', $labviewYear,
+            '--arch', $SupportedBitness
+        )
+        if ($ConnectTimeoutMs -gt 0) {
+            $gcliArgs += @('--connect-timeout', $ConnectTimeoutMs)
+        }
+        $gcliArgs += @('lunit', '--', '-r', "$ReportPath", "$AbsoluteProjectPath")
+        & g-cli @gcliArgs
+    } finally {
         $PSNativeCommandUseErrorActionPreference = $previousNativePreference
     }
 

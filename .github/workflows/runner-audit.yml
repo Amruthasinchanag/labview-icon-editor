@@ -1,0 +1,28 @@
+name: Runner Audit
+
+permissions:
+  actions: read
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 4 * * *"
+
+concurrency:
+  group: runner-audit-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Runner sanity
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Check-Runner.ps1" -SafeDirectoryScope System
+      - name: Validate runner contract
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\Validate-RunnerContract.ps1"

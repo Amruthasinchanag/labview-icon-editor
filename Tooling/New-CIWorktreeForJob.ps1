@@ -82,7 +82,7 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 }
 
-function Normalize-PathString {
+function Resolve-NormalizedPath {
     param([string]$Path)
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
@@ -97,7 +97,7 @@ function Normalize-PathString {
     return $full
 }
 
-function Get-RegisteredWorktreePaths {
+function Get-RegisteredWorktreePathList {
     param([string]$RepoRoot)
 
     $paths = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
@@ -113,7 +113,7 @@ function Get-RegisteredWorktreePaths {
         }
     }
     catch {
-        # If git fails, leave the set empty and allow cleanup to be conservative.
+        Write-Verbose ("Failed to enumerate git worktrees. {0}" -f $_.Exception.Message)
     }
 
     return $paths
@@ -136,7 +136,7 @@ function Invoke-WorktreeRetentionCleanup {
     }
 
     $cutoff = (Get-Date).AddDays(-$RetentionDays)
-    $registered = Get-RegisteredWorktreePaths -RepoRoot $RepoRoot
+    $registered = Get-RegisteredWorktreePathList -RepoRoot $RepoRoot
 
     Get-ChildItem -Path $Root -Directory -Force | Where-Object {
         $_.Name -like 'ci-*' -and
@@ -195,6 +195,11 @@ function Resolve-LabVIEWVersionInfo {
 
 $repoRoot = Resolve-RepoRoot -BasePath $RepoRoot
 
+$assertScript = Join-Path $repoRoot 'Tooling/Assert-LabVIEWVersion.ps1'
+if (Test-Path -Path $assertScript) {
+    & $assertScript -RepoRoot $repoRoot -Context 'ci-worktree'
+}
+
 $jobName = $JobName
 if ([string]::IsNullOrWhiteSpace($jobName)) {
     $jobName = $env:GITHUB_JOB
@@ -238,7 +243,7 @@ $root = [System.IO.Path]::GetFullPath($root)
 if (-not $rootIsExplicit) {
     New-Item -Path $root -ItemType Directory -Force | Out-Null
 }
-$root = Normalize-PathString -Path $root
+$root = Resolve-NormalizedPath -Path $root
 
 $hashBytes = [System.Text.Encoding]::UTF8.GetBytes($jobName)
 $jobHash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA1]::Create().ComputeHash($hashBytes)).Replace('-', '').Substring(0, 8)
@@ -251,7 +256,7 @@ $name = if ($variantToken) {
 }
 
 $targetPath = Join-Path $root $name
-$targetPath = Normalize-PathString -Path $targetPath
+$targetPath = Resolve-NormalizedPath -Path $targetPath
 
 $ensureScript = Join-Path $repoRoot 'Tooling/Ensure-WorktreeRoot.ps1'
 if (-not (Test-Path -Path $ensureScript)) {
@@ -286,14 +291,14 @@ if (Test-Path -Path $targetPath) {
         git -C $repoRoot worktree remove --force $targetPath 2>$null | Out-Null
     }
     catch {
-        # Ignore; directory may not be registered as a worktree.
+        Write-Verbose ("Worktree removal failed for {0}. {1}" -f $targetPath, $_.Exception.Message)
     }
 
     try {
         git -C $repoRoot worktree prune 2>$null | Out-Null
     }
     catch {
-        # Ignore; prune can fail if the main worktree is busy.
+        Write-Verbose ("Worktree prune failed for {0}. {1}" -f $repoRoot, $_.Exception.Message)
     }
 
     if (Test-Path -Path $targetPath) {
@@ -302,14 +307,14 @@ if (Test-Path -Path $targetPath) {
 }
 
 $worktree = & $worktreeScript -Ref $ref -Path $targetPath -WorktreeRoot $root
-$worktree = Normalize-PathString -Path $worktree
+$worktree = Resolve-NormalizedPath -Path $worktree
 
 if (-not (Test-Path -Path $worktree)) {
     throw "Worktree path does not exist after creation: $worktree"
 }
 
 $projectPath = Join-Path $worktree $ProjectFile
-$projectPath = Normalize-PathString -Path $projectPath
+$projectPath = Resolve-NormalizedPath -Path $projectPath
 
 if (-not (Test-Path -Path $projectPath)) {
     throw "Project file not found at $projectPath"
@@ -330,3 +335,5 @@ if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_ENV)) {
 Write-Host ("Worktree created: {0}" -f $worktree)
 Write-Host ("LabVIEW version: {0} (year {1}, minor {2})" -f $lvInfo.Raw, $lvInfo.Year, $lvInfo.MinorRevision)
 Write-Output $worktree
+
+

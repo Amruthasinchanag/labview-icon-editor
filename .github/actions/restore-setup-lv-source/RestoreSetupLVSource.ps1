@@ -8,8 +8,9 @@
     LabVIEW token. LabVIEW is closed after the VI executes so subsequent
     steps load the changes.
 
-.PARAMETER MinimumSupportedLVVersion
+.PARAMETER LabVIEWVersion
     LabVIEW version year (e.g., 2021) or numeric version (e.g., 21.0).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER SupportedBitness
     Bitness of the LabVIEW environment ("32" or "64").
@@ -25,14 +26,15 @@
     Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
 
 .EXAMPLE
-    .\RestoreSetupLVSource.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64"
+    .\RestoreSetupLVSource.ps1 -LabVIEWVersion "2021" -SupportedBitness "64"
 #>
 
 param(
     [Parameter(Mandatory = $true)]
     [AllowNull()]
     [AllowEmptyString()]
-    [string]$MinimumSupportedLVVersion,
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion,
 
     [Parameter(Mandatory = $true)]
     [ValidateSet('32', '64', IgnoreCase = $true)]
@@ -106,12 +108,14 @@ function Get-LabVIEWInstallRoot {
     return $null
 }
 
+$connectTimeoutPattern = 'Timed out waiting for app to connect to g-cli'
+
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
 $versionHelper = Join-Path -Path $repoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
-$labviewYear = $MinimumSupportedLVVersion
+$labviewYear = $LabVIEWVersion
 if (Test-Path -Path $versionHelper) {
     . $versionHelper
-    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $MinimumSupportedLVVersion -RepoRoot $repoRoot
+    $versionInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $repoRoot
     $labviewYear = $versionInfo.Year
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
@@ -136,8 +140,31 @@ if (-not (Test-Path -Path $viPath)) {
     throw "RestoreSetupLVSource.vi not found at $viPath"
 }
 
-if (-not (Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness)) {
+$installRoot = Get-LabVIEWInstallRoot -Version $labviewYear -Bitness $SupportedBitness
+if (-not $installRoot) {
     throw "LabVIEW $labviewYear ($SupportedBitness-bit) install not found."
+}
+
+# Fast-path: avoid launching LabVIEW when the install already reflects the "reverted" state.
+# This keeps local runs snappy and avoids long g-cli connect timeouts for no-op restores.
+$installPaths = @{
+    IconApiFolder = Join-Path $installRoot 'vi.lib\LabVIEW Icon API'
+    IconApiZip    = Join-Path $installRoot 'vi.lib\LabVIEW Icon API.zip'
+    Lvlibp        = Join-Path $installRoot 'resource\plugins\lv_icon.lvlibp'
+    Ship          = Join-Path $installRoot 'resource\plugins\lv_icon.ship'
+}
+
+$hasLvlibp = Test-Path -Path $installPaths.Lvlibp
+$hasShip = Test-Path -Path $installPaths.Ship
+$hasIconFolder = Test-Path -Path $installPaths.IconApiFolder
+$hasIconZip = Test-Path -Path $installPaths.IconApiZip
+Write-Host ("Install state (LV{0} {1}-bit): lv_icon.lvlibp={2} lv_icon.ship={3} icon_api_folder={4} icon_api_zip={5}" -f `
+        $labviewYear, $SupportedBitness, $hasLvlibp, $hasShip, $hasIconFolder, $hasIconZip)
+
+if ($hasLvlibp -and -not $hasShip -and $hasIconFolder -and -not $hasIconZip) {
+    Write-Host "RestoreSetupLVSource: already reverted; skipping g-cli call."
+    $global:LASTEXITCODE = 0
+    return
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
@@ -170,6 +197,10 @@ try {
     $allOutput = @($result.OutputLines + $result.ErrorLines)
     $combinedOutput = $allOutput -join "`n"
     $ignoreExitCode = $false
+    if ($combinedOutput -match $connectTimeoutPattern) {
+        throw "GCLI_CONNECT_TIMEOUT: $connectTimeoutPattern"
+    }
+
     if ($combinedOutput -match '-593451') {
         $missingPaths = @()
         if (Get-Command Get-DevModeMissingPathsFromOutput -ErrorAction SilentlyContinue) {
@@ -199,7 +230,7 @@ try {
     } else {
         try {
             Write-Host "Closing LabVIEW $labviewYear ($SupportedBitness-bit)..."
-            & $closeScript -MinimumSupportedLVVersion $labviewYear -SupportedBitness $SupportedBitness
+            & $closeScript -LabVIEWVersion $labviewYear -SupportedBitness $SupportedBitness
             if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
                 $closeFailure = "Close_LabVIEW.ps1 failed with exit code $LASTEXITCODE."
             }

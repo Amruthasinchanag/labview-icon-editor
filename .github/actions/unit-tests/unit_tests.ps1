@@ -66,7 +66,7 @@ try {
     $preflightScript = Join-Path -Path $repoRootResolved -ChildPath 'Tooling\Invoke-Preflight.ps1'
     if (Test-Path -Path $preflightScript) {
         . $preflightScript
-        $scriptArgs = Convert-BoundParametersToArgs -BoundParameters $PSBoundParameters
+        $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
         $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $repoRootResolved -Path $PSCommandPath } else { $null }
         $preflight = Invoke-Preflight `
             -RepoRoot $repoRootResolved `
@@ -112,20 +112,20 @@ try {
     $RunUnitTests = Join-Path $ActionsPath "run-unit-tests/RunUnitTests.ps1"
     $ProjectPath = Join-Path $RepoRoot 'lv_icon_editor.lvproj'
     Execute-Script $RunUnitTests `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 32 -ProjectPath `"$ProjectPath`""
+        "-LabVIEWVersion 2021 -SupportedBitness 32 -ProjectPath `"$ProjectPath`""
 
     # Close LabVIEW
     $CloseLabVIEW = Join-Path $ActionsPath "close-labview/Close_LabVIEW.ps1"
     Execute-Script $CloseLabVIEW `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 32"
+        "-LabVIEWVersion 2021 -SupportedBitness 32"
 
     # Run Unit Tests
     Execute-Script $RunUnitTests `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64 -ProjectPath `"$ProjectPath`""
+        "-LabVIEWVersion 2021 -SupportedBitness 64 -ProjectPath `"$ProjectPath`""
 
 	# Close LabVIEW
     Execute-Script $CloseLabVIEW `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
+        "-LabVIEWVersion 2021 -SupportedBitness 64"
 		
     Write-Host "All scripts executed successfully!" -ForegroundColor Green
 } catch {
