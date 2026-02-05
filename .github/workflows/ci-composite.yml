@@ -191,6 +191,7 @@ jobs:
       LVIE_REQUIRED_LABVIEW_VERSION: ${{ needs.version-gate.outputs.raw }}
       LVIE_REQUIRED_LABVIEW_VERSION_YEAR: ${{ needs.version-gate.outputs.year }}
       LVIE_REQUIRED_LABVIEW_MINOR_REVISION: ${{ needs.version-gate.outputs.minor }}
+      LVIE_VERIFY_IEPATHS_STRICT: '1'
     strategy:
       fail-fast: false
       matrix:
