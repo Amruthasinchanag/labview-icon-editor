@@ -30,6 +30,10 @@
 .PARAMETER UseLabVIEW
     Use LabVIEW + g-cli to toggle development mode.
 
+.PARAMETER AllowFallbackToNoLabVIEW
+    When UseLabVIEW is set, allow fallback to the no-LabVIEW path if the
+    LabVIEW toggle fails.
+
 .PARAMETER SnapshotRoot
     Optional snapshot root to pass to DevModeSnapshot.ps1.
 
@@ -72,6 +76,9 @@ param(
 
     [Parameter(Mandatory = $false)]
     [switch]$UseLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AllowFallbackToNoLabVIEW,
 
     [Parameter(Mandatory = $false)]
     [string]$SnapshotRoot,
@@ -168,6 +175,7 @@ if (-not $SkipSnapshot) {
 $toggleRecord = [ordered]@{
     Mode             = $Mode
     UseLabVIEW       = [bool]$UseLabVIEW
+    AllowFallback    = [bool]$AllowFallbackToNoLabVIEW
     LabVIEWYear      = $labviewYear
     SupportedBitness = $bitnesses
     RepoRoot         = $resolvedRepoRoot
@@ -178,9 +186,16 @@ $toggleRecord = [ordered]@{
 $toggleSuccess = $false
 $restoreAttempted = $false
 $restoreSucceeded = $false
+$labviewAttempted = $false
+$labviewSucceeded = $false
+$labviewError = $null
+$fallbackAttempted = $false
+$fallbackSucceeded = $false
+$fallbackError = $null
 
 try {
     if ($UseLabVIEW) {
+        $labviewAttempted = $true
         $scriptPath = if ($Mode -eq 'enable') {
             Join-Path $resolvedRepoRoot '.github\actions\set-development-mode\Set_Development_Mode.ps1'
         } else {
@@ -201,9 +216,52 @@ try {
             '-UseLabVIEW',
             '-SkipToggle'
         )
-        & pwsh @scriptArgs
-        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-            throw "Dev mode $Mode (LabVIEW) failed with exit code $LASTEXITCODE."
+        try {
+            & pwsh @scriptArgs
+            if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+                throw "Dev mode $Mode (LabVIEW) failed with exit code $LASTEXITCODE."
+            }
+            $labviewSucceeded = $true
+        } catch {
+            $labviewError = $_
+        }
+
+        if ($labviewError) {
+            if ($AllowFallbackToNoLabVIEW) {
+                $fallbackAttempted = $true
+                Write-Warning ("Dev mode {0} failed via LabVIEW; attempting no-LabVIEW fallback." -f $Mode)
+                $fallbackScript = if ($Mode -eq 'enable') {
+                    Join-Path $resolvedRepoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
+                } else {
+                    Join-Path $resolvedRepoRoot 'Tooling\Revert-DevelopmentMode-NoLabVIEW.ps1'
+                }
+                if (-not (Test-Path -Path $fallbackScript)) {
+                    throw "Dev mode fallback script not found at $fallbackScript"
+                }
+                $fallbackArgs = @(
+                    '-NoProfile',
+                    '-File', $fallbackScript,
+                    '-LabVIEWVersion', $labviewYear,
+                    '-SupportedBitness'
+                ) + $bitnesses + @(
+                    '-RepoRoot', $resolvedRepoRoot
+                )
+                try {
+                    & pwsh @fallbackArgs
+                    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+                        throw "Dev mode $Mode (no LabVIEW fallback) failed with exit code $LASTEXITCODE."
+                    }
+                    $fallbackSucceeded = $true
+                    $toggleSuccess = $true
+                } catch {
+                    $fallbackError = $_
+                    throw
+                }
+            } else {
+                throw $labviewError
+            }
+        } else {
+            $toggleSuccess = $true
         }
     } else {
         $scriptPath = if ($Mode -eq 'enable') {
@@ -226,8 +284,8 @@ try {
         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
             throw "Dev mode $Mode (no LabVIEW) failed with exit code $LASTEXITCODE."
         }
+        $toggleSuccess = $true
     }
-    $toggleSuccess = $true
 } catch {
     $toggleRecord.Error = $_.Exception.Message
     if ($RestoreOnFailure -and -not [string]::IsNullOrWhiteSpace($snapshotRootResolved)) {
@@ -251,6 +309,16 @@ try {
     $toggleRecord.Success = $toggleSuccess
     $toggleRecord.RestoreAttempted = $restoreAttempted
     $toggleRecord.RestoreSucceeded = $restoreSucceeded
+    $toggleRecord.LabVIEWAttempted = $labviewAttempted
+    $toggleRecord.LabVIEWSucceeded = $labviewSucceeded
+    if ($labviewError) {
+        $toggleRecord.LabVIEWError = $labviewError.Exception.Message
+    }
+    $toggleRecord.FallbackAttempted = $fallbackAttempted
+    $toggleRecord.FallbackSucceeded = $fallbackSucceeded
+    if ($fallbackError) {
+        $toggleRecord.FallbackError = $fallbackError.Exception.Message
+    }
     $toggleRecord.EndUtc = (Get-Date).ToUniversalTime().ToString('o')
     $logPath = Resolve-LogPath -ResolvedRepoRoot $resolvedRepoRoot -SnapshotRootResolved $snapshotRootResolved
     $toggleRecord | ConvertTo-Json -Depth 7 | Set-Content -Path $logPath -Encoding utf8

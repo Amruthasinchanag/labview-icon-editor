@@ -152,6 +152,7 @@ jobs:
           }
 
           $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
+          $scriptArgs.UseLabVIEW = $true
 
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs
@@ -195,6 +196,7 @@ jobs:
           }
 
           $scriptArgs.RepoRoot = $env:GITHUB_WORKSPACE
+          $scriptArgs.UseLabVIEW = $true
 
           if ($mode -eq 'enable') {
             & ./.github/actions/set-development-mode/Set_Development_Mode.ps1 @scriptArgs

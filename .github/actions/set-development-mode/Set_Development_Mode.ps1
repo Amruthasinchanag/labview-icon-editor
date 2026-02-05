@@ -26,6 +26,10 @@
 #        Use LabVIEW + g-cli to toggle development mode. Defaults to using the
 #        no-LabVIEW path when omitted.
 #
+#    .PARAMETER AllowFallbackToNoLabVIEW
+#        When UseLabVIEW is set, allow fallback to the no-LabVIEW path if the
+#        LabVIEW toggle fails.
+#
 #    .PARAMETER SkipToggle
 #        Skip the snapshot-enabled Toggle-DevMode entrypoint.
 #
@@ -70,6 +74,9 @@ param(
 
     [Parameter(Mandatory = $false)]
     [switch]$UseLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AllowFallbackToNoLabVIEW,
 
     [Parameter(Mandatory = $false)]
     [switch]$SkipToggle,
@@ -144,6 +151,9 @@ if (-not $SkipToggle) {
     }
     if ($UseLabVIEW) {
         $toggleParams.UseLabVIEW = $true
+    }
+    if ($AllowFallbackToNoLabVIEW) {
+        $toggleParams.AllowFallbackToNoLabVIEW = $true
     }
     if ($SkipSnapshot) {
         $toggleParams.SkipSnapshot = $true

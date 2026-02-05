@@ -528,7 +528,9 @@ function Invoke-EnableDevModeWithRecovery {
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $connectTimeoutMsValue `
-            -ProcessTimeoutMs $processTimeoutMsValue
+            -ProcessTimeoutMs $processTimeoutMsValue `
+            -UseLabVIEW `
+            -AllowFallbackToNoLabVIEW
     }
 
     if (-not $result.Error) {
@@ -545,7 +547,9 @@ function Invoke-EnableDevModeWithRecovery {
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $connectTimeoutMsValue `
-            -ProcessTimeoutMs $processTimeoutMsValue
+            -ProcessTimeoutMs $processTimeoutMsValue `
+            -UseLabVIEW `
+            -AllowFallbackToNoLabVIEW
     }
     if ($revertResult.Error) {
         Write-Warning ("Dev mode recovery failed during revert: {0}" -f $revertResult.Error.Exception.Message)
@@ -559,7 +563,9 @@ function Invoke-EnableDevModeWithRecovery {
             -SupportedBitness $Bitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $connectTimeoutMsValue `
-            -ProcessTimeoutMs $processTimeoutMsValue
+            -ProcessTimeoutMs $processTimeoutMsValue `
+            -UseLabVIEW `
+            -AllowFallbackToNoLabVIEW
     }
     if ($retry.Error) {
         Write-Warning ("Dev mode recovery failed on retry: {0}" -f $retry.Error.Exception.Message)
@@ -929,7 +935,9 @@ try {
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
+                    -ProcessTimeoutMs $ProcessTimeoutMs `
+                    -UseLabVIEW `
+                    -AllowFallbackToNoLabVIEW | Out-Null
             }
 
             $missingPath = Join-Path $repoRoot '.github/actions/missing-in-project/missing_files.txt'
@@ -963,7 +971,9 @@ try {
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
+                    -ProcessTimeoutMs $ProcessTimeoutMs `
+                    -UseLabVIEW `
+                    -AllowFallbackToNoLabVIEW | Out-Null
             }
         }
     }
@@ -997,7 +1007,9 @@ try {
                     -SupportedBitness $bitness `
                     -RepoRoot $repoRoot `
                     -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs | Out-Null
+                    -ProcessTimeoutMs $ProcessTimeoutMs `
+                    -UseLabVIEW `
+                    -AllowFallbackToNoLabVIEW | Out-Null
             }
 
             $currentFile = Join-Path $repoRoot 'resource/plugins/lv_icon.lvlibp'
