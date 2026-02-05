@@ -133,6 +133,105 @@ function Resolve-PathValue {
     }
 }
 
+function Get-RepoIconApiZipPath {
+    param(
+        [string]$RepoRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+        return $null
+    }
+
+    $candidate = Join-Path $RepoRoot 'Tooling\assets\LabVIEW Icon API.zip'
+    if (Test-Path -Path $candidate) {
+        return $candidate
+    }
+
+    return $null
+}
+
+function Resolve-IconApiFolderLayout {
+    param(
+        [string]$IconApiDir
+    )
+
+    if (-not (Test-Path -Path $IconApiDir)) {
+        return $false
+    }
+
+    $changed = $false
+    $current = $IconApiDir
+    while (Test-Path -Path $current) {
+        $entries = @(Get-ChildItem -LiteralPath $current -Force)
+        if ($entries.Count -eq 1 -and $entries[0].PSIsContainer -and $entries[0].Name -eq 'LabVIEW Icon API') {
+            $inner = $entries[0].FullName
+            $parent = Split-Path -Parent $current
+            $temp = Join-Path $parent ("LabVIEW Icon API.__tmp_{0}" -f ([guid]::NewGuid().ToString('N')))
+            Move-Item -LiteralPath $inner -Destination $temp -Force
+            Remove-Item -LiteralPath $current -Recurse -Force
+            Move-Item -LiteralPath $temp -Destination $current -Force
+            $changed = $true
+            continue
+        }
+        break
+    }
+
+    return $changed
+}
+
+function Resolve-IconApiExtractRoot {
+    param(
+        [string]$ExtractRoot
+    )
+
+    $current = $ExtractRoot
+    while (Test-Path -Path $current) {
+        $entries = @(Get-ChildItem -LiteralPath $current -Force)
+        if ($entries.Count -eq 1 -and $entries[0].PSIsContainer -and $entries[0].Name -eq 'LabVIEW Icon API') {
+            $current = $entries[0].FullName
+            continue
+        }
+        break
+    }
+
+    return $current
+}
+
+function Restore-IconApiFolderFromZip {
+    param(
+        [string]$ZipPath,
+        [string]$DestinationDir
+    )
+
+    if (-not (Test-Path -Path $ZipPath)) {
+        throw "Icon API zip not found at $ZipPath"
+    }
+
+    $tempRoot = Join-Path $env:TEMP ("lvie-icon-api-extract-{0}" -f ([guid]::NewGuid().ToString('N')))
+    New-Item -Path $tempRoot -ItemType Directory -Force | Out-Null
+    try {
+        Expand-Archive -Path $ZipPath -DestinationPath $tempRoot -Force
+        $resolvedRoot = Resolve-IconApiExtractRoot -ExtractRoot $tempRoot
+        $destParent = Split-Path -Parent $DestinationDir
+        if (-not (Test-Path -Path $destParent)) {
+            New-Item -Path $destParent -ItemType Directory -Force | Out-Null
+        }
+        if (Test-Path -Path $DestinationDir) {
+            Remove-Item -LiteralPath $DestinationDir -Recurse -Force
+        }
+        if ((Split-Path -Leaf $resolvedRoot) -eq 'LabVIEW Icon API') {
+            Move-Item -LiteralPath $resolvedRoot -Destination $destParent -Force
+        } else {
+            New-Item -Path $DestinationDir -ItemType Directory -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path $resolvedRoot '*') -Destination $DestinationDir -Recurse -Force
+        }
+    } finally {
+        if (Test-Path -Path $tempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        }
+    }
+}
+
 function Get-IniLibraryPathList {
     param(
         [string]$IniPath
@@ -310,6 +409,7 @@ function Disable-DevModeNoLabVIEW {
     $iniPath = Join-Path $installRoot 'LabVIEW.ini'
     $entry.installRoot = $installRoot
     $entry.iniPath = $iniPath
+    $repoIconApiZip = Get-RepoIconApiZipPath -RepoRoot $RepoRoot
 
     Write-Host ("Revert dev mode (no LabVIEW): LV{0} {1}-bit" -f $LabVIEWYear, $Bitness)
     Write-Host ("Install root: {0}" -f $installRoot)
@@ -324,20 +424,33 @@ function Disable-DevModeNoLabVIEW {
             return $entry
         }
 
+        $zipSource = $null
+        $removeZipAfter = $false
         if (Test-Path -Path $iconApiZip) {
-            if (Test-Path -Path $iconApiDir) {
-                Remove-Item -Path $iconApiDir -Recurse -Force
-                $entry.changes += [ordered]@{ operation = 'remove-icon-api-dir'; status = 'changed'; path = $iconApiDir }
+            $zipSource = $iconApiZip
+            $removeZipAfter = $true
+        } elseif (-not (Test-Path -Path $iconApiDir) -and $repoIconApiZip) {
+            Write-Warning ("Icon API folder and zip missing; restoring from repo copy at {0}." -f $repoIconApiZip)
+            $zipSource = $repoIconApiZip
+        }
+
+        if ($zipSource) {
+            Restore-IconApiFolderFromZip -ZipPath $zipSource -DestinationDir $iconApiDir
+            if ($removeZipAfter -and (Test-Path -Path $iconApiZip)) {
+                Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
             }
-            $parent = Split-Path -Path $iconApiDir -Parent
-            Expand-Archive -Path $iconApiZip -DestinationPath $parent -Force
-            Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
-            $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'changed'; source = $iconApiZip; destination = $iconApiDir }
+            $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'changed'; source = $zipSource; destination = $iconApiDir }
         } elseif (-not (Test-Path -Path $iconApiDir)) {
             Write-Warning ("Icon API folder and zip not found under {0}." -f (Join-Path $installRoot 'vi.lib'))
             $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'missing'; path = $iconApiDir }
         } else {
             $entry.changes += [ordered]@{ operation = 'unzip-icon-api'; status = 'skipped'; path = $iconApiDir }
+        }
+
+        if (Test-Path -Path $iconApiDir) {
+            if (Resolve-IconApiFolderLayout -IconApiDir $iconApiDir) {
+                $entry.changes += [ordered]@{ operation = 'flatten-icon-api-folder'; status = 'changed'; path = $iconApiDir }
+            }
         }
 
         if (Test-Path -Path $shipPath) {

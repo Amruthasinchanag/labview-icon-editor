@@ -133,6 +133,52 @@ function Resolve-PathValue {
     }
 }
 
+function Get-RepoIconApiZipPath {
+    param(
+        [string]$RepoRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
+        return $null
+    }
+
+    $candidate = Join-Path $RepoRoot 'Tooling\assets\LabVIEW Icon API.zip'
+    if (Test-Path -Path $candidate) {
+        return $candidate
+    }
+
+    return $null
+}
+
+function Resolve-IconApiFolderLayout {
+    param(
+        [string]$IconApiDir
+    )
+
+    if (-not (Test-Path -Path $IconApiDir)) {
+        return $false
+    }
+
+    $changed = $false
+    $current = $IconApiDir
+    while (Test-Path -Path $current) {
+        $entries = @(Get-ChildItem -LiteralPath $current -Force)
+        if ($entries.Count -eq 1 -and $entries[0].PSIsContainer -and $entries[0].Name -eq 'LabVIEW Icon API') {
+            $inner = $entries[0].FullName
+            $parent = Split-Path -Parent $current
+            $temp = Join-Path $parent ("LabVIEW Icon API.__tmp_{0}" -f ([guid]::NewGuid().ToString('N')))
+            Move-Item -LiteralPath $inner -Destination $temp -Force
+            Remove-Item -LiteralPath $current -Recurse -Force
+            Move-Item -LiteralPath $temp -Destination $current -Force
+            $changed = $true
+            continue
+        }
+        break
+    }
+
+    return $changed
+}
+
 function Get-IniLibraryPathList {
     param(
         [string]$IniPath
@@ -315,6 +361,7 @@ function Enable-DevModeNoLabVIEW {
     $iniPath = Join-Path $installRoot 'LabVIEW.ini'
     $entry.installRoot = $installRoot
     $entry.iniPath = $iniPath
+    $repoIconApiZip = Get-RepoIconApiZipPath -RepoRoot $RepoRoot
 
     Write-Host ("Enable dev mode (no LabVIEW): LV{0} {1}-bit" -f $LabVIEWYear, $Bitness)
     Write-Host ("Install root: {0}" -f $installRoot)
@@ -329,7 +376,16 @@ function Enable-DevModeNoLabVIEW {
             return $entry
         }
 
+        if (-not (Test-Path -Path $iconApiDir) -and -not (Test-Path -Path $iconApiZip) -and $repoIconApiZip) {
+            Write-Warning ("Icon API folder and zip missing; restoring zip from repo copy at {0}." -f $repoIconApiZip)
+            Copy-Item -LiteralPath $repoIconApiZip -Destination $iconApiZip -Force
+            $entry.changes += [ordered]@{ operation = 'restore-icon-api-zip'; status = 'changed'; source = $repoIconApiZip; destination = $iconApiZip }
+        }
+
         if (Test-Path -Path $iconApiDir) {
+            if (Resolve-IconApiFolderLayout -IconApiDir $iconApiDir) {
+                $entry.changes += [ordered]@{ operation = 'flatten-icon-api-folder'; status = 'changed'; path = $iconApiDir }
+            }
             Write-Host "Zipping LabVIEW Icon API folder."
             if (Test-Path -Path $iconApiZip) {
                 Remove-Item -Path $iconApiZip -Force -ErrorAction SilentlyContinue
