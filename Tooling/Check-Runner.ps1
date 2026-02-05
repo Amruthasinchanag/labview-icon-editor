@@ -151,11 +151,22 @@ function Grant-ModifyAccess {
         [switch]$Recurse
     )
 
-    if ($Recurse.IsPresent) {
-        & icacls $Path /grant "$Identity:(OI)(CI)M" /T | Out-Null
-    } else {
-        & icacls $Path /grant "$Identity:M" | Out-Null
+    if ([string]::IsNullOrWhiteSpace($Identity)) {
+        throw "Identity is required to grant permissions."
     }
+
+    $grantValue = if ($Recurse.IsPresent) {
+        "{0}:(OI)(CI)M" -f $Identity
+    } else {
+        "{0}:M" -f $Identity
+    }
+
+    $icaclsArgs = @($Path, '/grant', $grantValue)
+    if ($Recurse.IsPresent) {
+        $icaclsArgs += '/T'
+    }
+
+    & icacls @icaclsArgs | Out-Null
 }
 
 $resolvedWorkRoot = if ($WorkRoot) { $WorkRoot } else { $env:LVIE_RUNNER_WORK_ROOT }
