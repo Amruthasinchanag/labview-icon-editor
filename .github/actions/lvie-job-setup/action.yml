@@ -72,6 +72,9 @@ runs:
     - name: Acquire LabVIEW runner lock
       if: ${{ inputs.acquire_lock == 'true' }}
       shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        LVIE_RUNNER_LOCK_GITHUB_CHECK: 1
       run: |
         pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\Tooling\RunnerLock.ps1" -Mode Acquire
     - name: Create short-path worktree

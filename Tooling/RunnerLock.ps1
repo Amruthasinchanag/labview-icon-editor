@@ -325,10 +325,23 @@ if ($Mode -eq 'Acquire') {
             $ageSeconds = $ageSecondsRaw
             $ageSecondsForChecks = $ageSecondsRaw
             if ($ageSecondsRaw -lt 0) {
-                $ageSeconds = 0
-                $ageSecondsForChecks = $gitHubMinAgeSecondsValue
-                Write-Warning ("Runner lock clock skew detected (age {0}s). " +
-                    "Treating lock as at least {1}s old for GitHub checks." -f $ageSecondsRaw, $gitHubMinAgeSecondsValue)
+                $ageSecondsRawOriginal = $ageSecondsRaw
+                $fallbackAcquiredAtUtc = $null
+                if (Test-Path -Path $lockPath) {
+                    $fallbackAcquiredAtUtc = (Get-Item -Path $lockPath).CreationTimeUtc
+                }
+                if ($fallbackAcquiredAtUtc -and $fallbackAcquiredAtUtc -le [DateTime]::UtcNow) {
+                    $acquiredAtUtc = $fallbackAcquiredAtUtc
+                    $leaseExpiresAtUtc = $acquiredAtUtc.AddSeconds($leaseSecondsValue)
+                    $ageSecondsRaw = [int]([DateTime]::UtcNow - $acquiredAtUtc).TotalSeconds
+                    $ageSeconds = [Math]::Max(0, $ageSecondsRaw)
+                    $ageSecondsForChecks = [Math]::Max($gitHubMinAgeSecondsValue, $ageSeconds)
+                    Write-Warning ("Runner lock clock skew detected (age {0}s). Using lock creation time {1:o} for age/lease calculations." -f $ageSecondsRawOriginal, $acquiredAtUtc)
+                } else {
+                    $ageSeconds = 0
+                    $ageSecondsForChecks = $gitHubMinAgeSecondsValue
+                    Write-Warning ("Runner lock clock skew detected (age {0}s). Treating lock as at least {1}s old for GitHub checks." -f $ageSecondsRawOriginal, $gitHubMinAgeSecondsValue)
+                }
             }
             $ownerSameRun = $false
             if ($metadata -and $metadata.run_id -and $env:GITHUB_RUN_ID) {
@@ -355,6 +368,10 @@ if ($Mode -eq 'Acquire') {
                             }
                         } elseif ($runStatus.status_code -eq 404) {
                             $staleReason = 'GitHub run not found'
+                        } else {
+                            $statusCode = if ($runStatus.status_code) { $runStatus.status_code } else { 'unknown' }
+                            $statusError = if ($runStatus.error) { $runStatus.error } else { 'unknown error' }
+                            Write-Warning ("Runner lock GitHub check failed (status={0} error={1})." -f $statusCode, $statusError)
                         }
                     }
                 }
