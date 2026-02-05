@@ -8,6 +8,7 @@ env:
   LVIE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
   LVIE_EXPECTED_RUNNER_LABEL: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   LVIE_CANONICAL_RUNNER_LABEL: self-hosted-windows-lv
+  LVIE_FORCE_NO_LABVIEW_DEVMODE: 1
 
 concurrency:
   group: labview-${{ github.repository }}-${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}

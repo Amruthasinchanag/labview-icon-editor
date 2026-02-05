@@ -83,6 +83,15 @@ function Resolve-RepoRoot {
     return (Resolve-Path -Path (Join-Path $PSScriptRoot '..') -ErrorAction Stop).Path
 }
 
+function Test-ForceNoLabVIEWDevMode {
+    $value = $env:LVIE_FORCE_NO_LABVIEW_DEVMODE
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $false
+    }
+    $normalized = $value.Trim().ToLowerInvariant()
+    return ($normalized -notin @('0', 'false', 'no'))
+}
+
 function Set-EnvValue {
     param(
         [hashtable]$Store,
@@ -205,11 +214,15 @@ try {
             throw "REPO_ROOT is required to revert dev mode. Create a worktree or pass -SkipWorktree:$false."
         }
         try {
-            & "$repoRootResolved\.github\actions\revert-development-mode\RevertDevelopmentMode.ps1" `
-                -MinimumSupportedLVVersion $lvVersion `
-                -SupportedBitness $Bitness `
-                -RepoRoot $worktreePath `
-                -UseLabVIEW
+            $revertParams = @{
+                MinimumSupportedLVVersion = $lvVersion
+                SupportedBitness          = $Bitness
+                RepoRoot                  = $worktreePath
+            }
+            if (-not (Test-ForceNoLabVIEWDevMode)) {
+                $revertParams.UseLabVIEW = $true
+            }
+            & "$repoRootResolved\.github\actions\revert-development-mode\RevertDevelopmentMode.ps1" @revertParams
         } catch {
             Write-Warning ("Revert dev mode failed: {0}" -f $_.Exception.Message)
         }

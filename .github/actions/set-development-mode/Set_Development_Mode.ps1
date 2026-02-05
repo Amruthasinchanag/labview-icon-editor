@@ -107,6 +107,15 @@ Write-Host "Close_LabVIEW script: $CloseScript"
 
 $ErrorActionPreference = 'Stop'
 
+function Test-ForceNoLabVIEWDevMode {
+    $value = $env:LVIE_FORCE_NO_LABVIEW_DEVMODE
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $false
+    }
+    $normalized = $value.Trim().ToLowerInvariant()
+    return ($normalized -notin @('0', 'false', 'no'))
+}
+
 function Resolve-RepoRoot {
     param(
         [string]$PathOverride
@@ -132,6 +141,13 @@ if (Test-Path -Path $versionHelper) {
 }
 if ([string]::IsNullOrWhiteSpace($labviewYear)) {
     $labviewYear = '2021'
+}
+
+if (Test-ForceNoLabVIEWDevMode) {
+    if ($UseLabVIEW) {
+        Write-Host 'LVIE_FORCE_NO_LABVIEW_DEVMODE=1; ignoring UseLabVIEW.'
+    }
+    $UseLabVIEW = $false
 }
 
 if (-not $SkipToggle) {

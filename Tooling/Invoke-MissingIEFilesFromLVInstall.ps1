@@ -572,7 +572,8 @@ function Write-VerifyIEPathsSummaryLine {
 
 $strictState = Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_STRICT' -Fallback $false
 $autoRevert = $AutoRevertIfEnabled -or (Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_AUTO_REVERT' -Fallback $false)
-$preferNoLabVIEW = $EnableDevModeNoLabVIEW -or (Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_NO_LABVIEW' -Fallback $false)
+$forceNoLabVIEW = Resolve-BoolFromEnv -Name 'LVIE_FORCE_NO_LABVIEW_DEVMODE' -Fallback $false
+$preferNoLabVIEW = $forceNoLabVIEW -or $EnableDevModeNoLabVIEW -or (Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_NO_LABVIEW' -Fallback $false)
 $preState = Get-IEInstallState -LabVIEWInstallRoot $installRoot
 Write-Host ("Install state (pre): {0}" -f (Format-IEInstallState -State $preState))
 Write-VerifyIEPathsSummaryLine ("Verify IE Paths pre-state ({0} {1}-bit): {2}" -f $labviewYear, $SupportedBitness, (Format-IEInstallState -State $preState))

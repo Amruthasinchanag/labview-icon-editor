@@ -3,6 +3,9 @@ name: Test Missing‑In‑Project Action on Windows
 permissions:
   actions: read
 
+env:
+  LVIE_FORCE_NO_LABVIEW_DEVMODE: 1
+
 concurrency:
   group: labview-${{ github.repository }}-${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   cancel-in-progress: false

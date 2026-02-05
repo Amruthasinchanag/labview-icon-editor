@@ -201,7 +201,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$script:PreferNoLabVIEWDevMode = -not $UseLabVIEWDevMode
+
+function Test-ForceNoLabVIEWDevMode {
+    $value = $env:LVIE_FORCE_NO_LABVIEW_DEVMODE
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return $false
+    }
+    $normalized = $value.Trim().ToLowerInvariant()
+    return ($normalized -notin @('0', 'false', 'no'))
+}
+
+$forceNoLabVIEW = Test-ForceNoLabVIEWDevMode
+if ($forceNoLabVIEW -and $UseLabVIEWDevMode) {
+    Write-Host 'LVIE_FORCE_NO_LABVIEW_DEVMODE=1; ignoring -UseLabVIEWDevMode.'
+}
+$script:PreferNoLabVIEWDevMode = $forceNoLabVIEW -or (-not $UseLabVIEWDevMode)
 
 function Initialize-CsvHeader {
     param(
