@@ -634,6 +634,8 @@ jobs:
     # Chain after 32-bit PPL build (which depends on 64-bit PPL build).
     needs: [run-metadata, version-gate, build-ppl-x86, version]
     runs-on: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
+    outputs:
+      vip_status_exists: ${{ steps.vip-status.outputs.exists }}
     env:
       LVIE_WORKTREE_ROOT: '${{ github.workspace }}\..\..\lvie\w'
       LVIE_VIPM_TIMEOUT_SECONDS: 900
@@ -758,6 +760,13 @@ jobs:
             -ReleaseNotesFile "$env:REPO_ROOT\\Tooling\\deployment\\release_notes.md" `
             -DisplayInformationJSON $displayInformationJson `
             -VipmTimeoutSeconds $env:LVIE_VIPM_TIMEOUT_SECONDS
+      - name: Check VIP build status file
+        id: vip-status
+        shell: pwsh
+        run: |
+          $statusPath = Join-Path $env:REPO_ROOT 'builds/status/vip-build.json'
+          $exists = Test-Path -Path $statusPath
+          "exists=$($exists.ToString().ToLowerInvariant())" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
       - name: Upload VIP build status
         if: always()
         uses: actions/upload-artifact@v4
@@ -885,8 +894,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download VIP build status (if available)
-        if: always()
-        continue-on-error: true
+        if: ${{ needs.build-vip.outputs.vip_status_exists == 'true' }}
         uses: actions/download-artifact@v4
         with:
           name: vip-build-status
