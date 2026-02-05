@@ -222,6 +222,7 @@ jobs:
             -StatusFileTimeoutMs 60000 `
             -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths" `
             -EnableDevMode `
+            -AllowFallbackToNoLabVIEW `
             -AutoRevertIfEnabled
       - name: Upload VerifyIEPaths status (on failure)
         if: failure()

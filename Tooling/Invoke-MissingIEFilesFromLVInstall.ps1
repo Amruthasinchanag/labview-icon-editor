@@ -584,7 +584,8 @@ if (($preState.MixedState -or $preState.DevModeEnabled) -and $autoRevert) {
         -RepoRoot $repoRoot `
         -ConnectTimeoutMs $ConnectTimeoutMs `
         -ProcessTimeoutMs $ProcessTimeoutMs `
-        -UseLabVIEW
+        -UseLabVIEW `
+        -AllowFallbackToNoLabVIEW:$AllowFallbackToNoLabVIEW
 
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         throw "Dev mode auto-revert failed with exit code $LASTEXITCODE."
