@@ -538,18 +538,18 @@ function Invoke-EnableDevModeWithRecovery {
         "Enable dev mode ($Context, $Bitness-bit)"
     }
     $result = Invoke-CheckedWithResult -Label $label -Action {
-        $setArgs = @(
-            '-LabVIEWVersion', $LabVIEWVersion,
-            '-SupportedBitness', $Bitness,
-            '-RepoRoot', $repoRoot,
-            '-ConnectTimeoutMs', $connectTimeoutMsValue,
-            '-ProcessTimeoutMs', $processTimeoutMsValue
-        )
-        if (-not $script:PreferNoLabVIEWDevMode) {
-            $setArgs += '-UseLabVIEW'
-            $setArgs += '-AllowFallbackToNoLabVIEW'
+        $setParams = @{
+            LabVIEWVersion   = $LabVIEWVersion
+            SupportedBitness = $Bitness
+            RepoRoot         = $repoRoot
+            ConnectTimeoutMs = $connectTimeoutMsValue
+            ProcessTimeoutMs = $processTimeoutMsValue
         }
-        & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') @setArgs
+        if (-not $script:PreferNoLabVIEWDevMode) {
+            $setParams.UseLabVIEW = $true
+            $setParams.AllowFallbackToNoLabVIEW = $true
+        }
+        & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') @setParams
     }
 
     if (-not $result.Error) {
@@ -561,18 +561,18 @@ function Invoke-EnableDevModeWithRecovery {
     Write-Host ("--- Dev mode recovery: revert + retry ({0}) ---" -f $contextLabel)
     Write-Warning ("Enable dev mode error: {0}" -f $result.Error.Exception.Message)
     $revertResult = Invoke-CheckedWithResult -Label "Revert dev mode before retry ($Bitness-bit)" -Action {
-        $revertArgs = @(
-            '-LabVIEWVersion', $LabVIEWVersion,
-            '-SupportedBitness', $Bitness,
-            '-RepoRoot', $repoRoot,
-            '-ConnectTimeoutMs', $connectTimeoutMsValue,
-            '-ProcessTimeoutMs', $processTimeoutMsValue
-        )
-        if (-not $script:PreferNoLabVIEWDevMode) {
-            $revertArgs += '-UseLabVIEW'
-            $revertArgs += '-AllowFallbackToNoLabVIEW'
+        $revertParams = @{
+            LabVIEWVersion   = $LabVIEWVersion
+            SupportedBitness = $Bitness
+            RepoRoot         = $repoRoot
+            ConnectTimeoutMs = $connectTimeoutMsValue
+            ProcessTimeoutMs = $processTimeoutMsValue
         }
-        & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') @revertArgs
+        if (-not $script:PreferNoLabVIEWDevMode) {
+            $revertParams.UseLabVIEW = $true
+            $revertParams.AllowFallbackToNoLabVIEW = $true
+        }
+        & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') @revertParams
     }
     if ($revertResult.Error) {
         Write-Warning ("Dev mode recovery failed during revert: {0}" -f $revertResult.Error.Exception.Message)
@@ -581,18 +581,18 @@ function Invoke-EnableDevModeWithRecovery {
     }
 
     $retry = Invoke-CheckedWithResult -Label "Enable dev mode retry ($Bitness-bit)" -Action {
-        $setArgs = @(
-            '-LabVIEWVersion', $LabVIEWVersion,
-            '-SupportedBitness', $Bitness,
-            '-RepoRoot', $repoRoot,
-            '-ConnectTimeoutMs', $connectTimeoutMsValue,
-            '-ProcessTimeoutMs', $processTimeoutMsValue
-        )
-        if (-not $script:PreferNoLabVIEWDevMode) {
-            $setArgs += '-UseLabVIEW'
-            $setArgs += '-AllowFallbackToNoLabVIEW'
+        $setParams = @{
+            LabVIEWVersion   = $LabVIEWVersion
+            SupportedBitness = $Bitness
+            RepoRoot         = $repoRoot
+            ConnectTimeoutMs = $connectTimeoutMsValue
+            ProcessTimeoutMs = $processTimeoutMsValue
         }
-        & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') @setArgs
+        if (-not $script:PreferNoLabVIEWDevMode) {
+            $setParams.UseLabVIEW = $true
+            $setParams.AllowFallbackToNoLabVIEW = $true
+        }
+        & (Join-Path $repoRoot '.github/actions/set-development-mode/Set_Development_Mode.ps1') @setParams
     }
     if ($retry.Error) {
         Write-Warning ("Dev mode recovery failed on retry: {0}" -f $retry.Error.Exception.Message)
