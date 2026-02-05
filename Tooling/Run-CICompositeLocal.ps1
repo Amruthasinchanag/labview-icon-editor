@@ -499,7 +499,8 @@ function Invoke-VerifyIEPath {
             -ProcessTimeoutMs $processTimeoutMsValue `
             -StatusFileTimeoutMs $statusTimeoutMsValue `
             -StatusFileArchiveDirectory $verifyArchiveValue `
-            -EnableDevModeNoLabVIEW `
+            -EnableDevMode `
+            -AllowFallbackToNoLabVIEW `
             -IgnoreGcliExitCode
     }
 }

@@ -26,6 +26,10 @@
     When enabled, missing paths that are expected in dev mode (LabVIEW Icon API and lv_icon.lvlibp)
     are treated as success; other missing paths still fail the check.
 
+.PARAMETER AllowFallbackToNoLabVIEW
+    When EnableDevMode is set, allow fallback to the no-LabVIEW path if the
+    LabVIEW toggle fails.
+
 .PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
@@ -100,6 +104,9 @@ param(
 
     [Parameter(Mandatory = $false)]
     [switch]$EnableDevModeNoLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AllowFallbackToNoLabVIEW,
 
     [Parameter(Mandatory = $false)]
     [string]$StatusFileName = 'missing_IE_paths.txt',
@@ -272,6 +279,69 @@ function Test-IEDevModeEnabled {
     $hasIconZip = Test-Path -Path $installPaths.IconApiZip
 
     return ($hasShip -and (-not $hasLvlibp) -and (-not $hasIconFolder) -and $hasIconZip)
+}
+
+function Resolve-BoolFromEnv {
+    param(
+        [string]$Name,
+        [bool]$Fallback = $false
+    )
+
+    if (-not (Test-Path "Env:$Name")) {
+        return $Fallback
+    }
+
+    $raw = (Get-Item "Env:$Name").Value
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        return $Fallback
+    }
+
+    switch ($raw.Trim().ToLowerInvariant()) {
+        '1' { return $true }
+        'true' { return $true }
+        'yes' { return $true }
+        'on' { return $true }
+        '0' { return $false }
+        'false' { return $false }
+        'no' { return $false }
+        'off' { return $false }
+        default { return $Fallback }
+    }
+}
+
+function Get-IEInstallState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LabVIEWInstallRoot
+    )
+
+    $paths = [ordered]@{
+        IconApiFolder = Join-Path $LabVIEWInstallRoot 'vi.lib\LabVIEW Icon API'
+        IconApiZip    = Join-Path $LabVIEWInstallRoot 'vi.lib\LabVIEW Icon API.zip'
+        Lvlibp        = Join-Path $LabVIEWInstallRoot 'resource\plugins\lv_icon.lvlibp'
+        Ship          = Join-Path $LabVIEWInstallRoot 'resource\plugins\lv_icon.ship'
+    }
+
+    $state = [ordered]@{
+        InstallRoot     = $LabVIEWInstallRoot
+        HasIconApiFolder = Test-Path -Path $paths.IconApiFolder
+        HasIconApiZip    = Test-Path -Path $paths.IconApiZip
+        HasLvlibp        = Test-Path -Path $paths.Lvlibp
+        HasShip          = Test-Path -Path $paths.Ship
+    }
+    $state.DevModeEnabled = ($state.HasShip -and (-not $state.HasLvlibp) -and (-not $state.HasIconApiFolder) -and $state.HasIconApiZip)
+    $state.MixedState = (($state.HasShip -and $state.HasLvlibp) -or ($state.HasIconApiFolder -and $state.HasIconApiZip))
+    return $state
+}
+
+function Format-IEInstallState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$State
+    )
+
+    return ("lv_icon.lvlibp={0}; lv_icon.ship={1}; icon_api_folder={2}; icon_api_zip={3}; dev_mode={4}; mixed_state={5}" -f `
+            $State.HasLvlibp, $State.HasShip, $State.HasIconApiFolder, $State.HasIconApiZip, $State.DevModeEnabled, $State.MixedState)
 }
 
 function Wait-VerifyIEPathsStatusFile {
@@ -477,6 +547,35 @@ if (-not $installRoot) {
     throw "LabVIEW $labviewYear ($SupportedBitness-bit) install not found."
 }
 
+$summaryPath = $env:GITHUB_STEP_SUMMARY
+function Write-VerifyIEPathsSummaryLine {
+    param([string]$Line)
+    if ([string]::IsNullOrWhiteSpace($summaryPath)) {
+        return
+    }
+    $Line | Out-File -FilePath $summaryPath -Append -Encoding utf8
+}
+
+$strictState = Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_STRICT' -Fallback $false
+$preState = Get-IEInstallState -LabVIEWInstallRoot $installRoot
+Write-Host ("Install state (pre): {0}" -f (Format-IEInstallState -State $preState))
+Write-VerifyIEPathsSummaryLine ("Verify IE Paths pre-state ({0} {1}-bit): {2}" -f $labviewYear, $SupportedBitness, (Format-IEInstallState -State $preState))
+
+if ($preState.MixedState) {
+    $message = "Install appears to be in a mixed dev-mode state before VerifyIEPaths."
+    if ($strictState) {
+        throw $message
+    }
+    Write-Warning $message
+}
+if ($devModeRequested -and $preState.DevModeEnabled) {
+    $message = "Dev mode appears enabled before VerifyIEPaths; previous runs may have left the runner in dev mode."
+    if ($strictState) {
+        throw $message
+    }
+    Write-Warning $message
+}
+
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
     throw "g-cli.exe not found in PATH."
 }
@@ -507,7 +606,9 @@ if ($devModeRequested) {
             -SupportedBitness $SupportedBitness `
             -RepoRoot $repoRoot `
             -ConnectTimeoutMs $ConnectTimeoutMs `
-            -ProcessTimeoutMs $ProcessTimeoutMs
+            -ProcessTimeoutMs $ProcessTimeoutMs `
+            -UseLabVIEW `
+            -AllowFallbackToNoLabVIEW:$AllowFallbackToNoLabVIEW
     }
 
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
@@ -517,6 +618,10 @@ if ($devModeRequested) {
     if (-not (Test-IEDevModeEnabled -LabVIEWInstallRoot $installRoot)) {
         Write-Warning ("Development mode did not appear enabled (LV{0} {1}-bit). VerifyIEPaths may not behave as expected." -f $labviewYear, $SupportedBitness)
     }
+
+    $postEnableState = Get-IEInstallState -LabVIEWInstallRoot $installRoot
+    Write-Host ("Install state (post-enable): {0}" -f (Format-IEInstallState -State $postEnableState))
+    Write-VerifyIEPathsSummaryLine ("Verify IE Paths post-enable ({0} {1}-bit): {2}" -f $labviewYear, $SupportedBitness, (Format-IEInstallState -State $postEnableState))
 }
 
 $gCliArgs = @(
@@ -560,6 +665,11 @@ try {
             $statusInfo = Get-VerifyIEPathsStatus -StatusFilePath $statusPath -SuccessPattern $StatusSuccessPattern -FailurePattern $StatusFailurePattern
             Write-Host ("VerifyIEPaths status file: {0}" -f $statusInfo.Path)
             Write-Host ("VerifyIEPaths status: {0}" -f $statusInfo.RawStatus)
+            Write-VerifyIEPathsSummaryLine ("Verify IE Paths status: {0}" -f $statusInfo.RawStatus)
+            if ($statusInfo.MissingPaths -and $statusInfo.MissingPaths.Count -gt 0) {
+                $missingSummary = $statusInfo.MissingPaths -join ', '
+                Write-VerifyIEPathsSummaryLine ("Verify IE Paths missing paths: {0}" -f $missingSummary)
+            }
 
             if ($statusInfo.IsFailure -and -not $IgnoreStatusFailure) {
                 $missing = if ($statusInfo.MissingPaths -and $statusInfo.MissingPaths.Count -gt 0) {
@@ -604,6 +714,7 @@ try {
                 throw $message
             }
             Write-Warning $message
+            Write-VerifyIEPathsSummaryLine $message
         }
     } finally {
         if (-not [string]::IsNullOrWhiteSpace($statusPath) -and (Test-Path -Path $statusPath)) {
