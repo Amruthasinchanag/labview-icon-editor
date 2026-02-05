@@ -51,8 +51,7 @@ runs:
         & "$repoRoot\\.github\\actions\\revert-development-mode\\RevertDevelopmentMode.ps1" `
           -MinimumSupportedLVVersion $labviewVersion `
           -SupportedBitness $bitness `
-          -RepoRoot "$repoRoot" `
-          -UseLabVIEW
+          -RepoRoot "$repoRoot"
     - name: Close LabVIEW
       if: ${{ inputs.close_labview == 'true' }}
       shell: pwsh

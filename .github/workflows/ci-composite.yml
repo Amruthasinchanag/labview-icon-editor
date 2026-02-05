@@ -221,8 +221,7 @@ jobs:
             -ProcessTimeoutMs 300000 `
             -StatusFileTimeoutMs 60000 `
             -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths" `
-            -EnableDevMode `
-            -AllowFallbackToNoLabVIEW `
+            -EnableDevModeNoLabVIEW `
             -AutoRevertIfEnabled
       - name: Upload VerifyIEPaths status (on failure)
         if: failure()
@@ -398,8 +397,7 @@ jobs:
           & ".github\\actions\\set-development-mode\\Set_Development_Mode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT" `
-            -UseLabVIEW
+            -RepoRoot "$env:REPO_ROOT"
       - name: Resolve LabVIEW project path
         id: proj
         shell: pwsh
@@ -485,8 +483,7 @@ jobs:
           & ".github/actions/set-development-mode/Set_Development_Mode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness ${{ matrix.bitness }} `
-            -RepoRoot "$env:REPO_ROOT" `
-            -UseLabVIEW
+            -RepoRoot "$env:REPO_ROOT"
       - name: Run Unit Tests (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -537,8 +534,7 @@ jobs:
           & ".github/actions/set-development-mode/Set_Development_Mode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness 32 `
-            -RepoRoot "$env:REPO_ROOT" `
-            -UseLabVIEW
+            -RepoRoot "$env:REPO_ROOT"
       - name: Build PPL (LV 32-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -598,8 +594,7 @@ jobs:
           & ".github/actions/set-development-mode/Set_Development_Mode.ps1" `
             -MinimumSupportedLVVersion $env:LABVIEW_VERSION_YEAR `
             -SupportedBitness 64 `
-            -RepoRoot "$env:REPO_ROOT" `
-            -UseLabVIEW
+            -RepoRoot "$env:REPO_ROOT"
       - name: Build PPL (LV 64-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}

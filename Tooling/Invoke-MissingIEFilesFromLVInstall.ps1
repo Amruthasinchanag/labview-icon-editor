@@ -572,6 +572,7 @@ function Write-VerifyIEPathsSummaryLine {
 
 $strictState = Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_STRICT' -Fallback $false
 $autoRevert = $AutoRevertIfEnabled -or (Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_AUTO_REVERT' -Fallback $false)
+$preferNoLabVIEW = $EnableDevModeNoLabVIEW -or (Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_NO_LABVIEW' -Fallback $false)
 $preState = Get-IEInstallState -LabVIEWInstallRoot $installRoot
 Write-Host ("Install state (pre): {0}" -f (Format-IEInstallState -State $preState))
 Write-VerifyIEPathsSummaryLine ("Verify IE Paths pre-state ({0} {1}-bit): {2}" -f $labviewYear, $SupportedBitness, (Format-IEInstallState -State $preState))
@@ -585,14 +586,23 @@ if (($preState.MixedState -or $preState.DevModeEnabled) -and $autoRevert) {
         throw "RevertDevelopmentMode.ps1 not found at $revertScript"
     }
 
-    & $revertScript `
-        -LabVIEWVersion $labviewYear `
-        -SupportedBitness $SupportedBitness `
-        -RepoRoot $repoRoot `
-        -ConnectTimeoutMs $ConnectTimeoutMs `
-        -ProcessTimeoutMs $ProcessTimeoutMs `
-        -UseLabVIEW `
-        -AllowFallbackToNoLabVIEW:$AllowFallbackToNoLabVIEW
+    if ($preferNoLabVIEW) {
+        & $revertScript `
+            -LabVIEWVersion $labviewYear `
+            -SupportedBitness $SupportedBitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs
+    } else {
+        & $revertScript `
+            -LabVIEWVersion $labviewYear `
+            -SupportedBitness $SupportedBitness `
+            -RepoRoot $repoRoot `
+            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ProcessTimeoutMs $ProcessTimeoutMs `
+            -UseLabVIEW `
+            -AllowFallbackToNoLabVIEW:$AllowFallbackToNoLabVIEW
+    }
 
     if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
         throw "Dev mode auto-revert failed with exit code $LASTEXITCODE."
@@ -626,7 +636,7 @@ if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
 $gCliPath = (Get-Command g-cli -ErrorAction SilentlyContinue).Source
 
 if ($devModeRequested) {
-    if ($EnableDevModeNoLabVIEW) {
+    if ($preferNoLabVIEW) {
         $devModeScript = Join-Path $repoRoot 'Tooling\Set-DevelopmentMode-NoLabVIEW.ps1'
         if (-not (Test-Path -Path $devModeScript)) {
             throw "Set-DevelopmentMode-NoLabVIEW.ps1 not found at $devModeScript"
