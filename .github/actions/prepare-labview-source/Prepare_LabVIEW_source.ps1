@@ -149,19 +149,34 @@ $installPaths = @{
     IconApiZip    = Join-Path $installRoot 'vi.lib\LabVIEW Icon API.zip'
     Lvlibp        = Join-Path $installRoot 'resource\plugins\lv_icon.lvlibp'
     Ship          = Join-Path $installRoot 'resource\plugins\lv_icon.ship'
+    IconEditorDir = Join-Path $installRoot 'resource\plugins\NIIconEditor'
+    IconEditorLib = Join-Path $installRoot 'resource\plugins\lv_IconEditor.lvlib'
+    IconEditorVi  = Join-Path $installRoot 'resource\plugins\lv_icon.vi'
 }
 
 $hasLvlibp = Test-Path -Path $installPaths.Lvlibp
 $hasShip = Test-Path -Path $installPaths.Ship
 $hasIconFolder = Test-Path -Path $installPaths.IconApiFolder
 $hasIconZip = Test-Path -Path $installPaths.IconApiZip
+$hasIconEditorDir = Test-Path -Path $installPaths.IconEditorDir
+$hasIconEditorLib = Test-Path -Path $installPaths.IconEditorLib
+$hasIconEditorVi = Test-Path -Path $installPaths.IconEditorVi
 Write-Host ("Install state (LV{0} {1}-bit): lv_icon.lvlibp={2} lv_icon.ship={3} icon_api_folder={4} icon_api_zip={5}" -f `
         $labviewYear, $SupportedBitness, $hasLvlibp, $hasShip, $hasIconFolder, $hasIconZip)
 
-if ($hasShip -and -not $hasLvlibp -and -not $hasIconFolder -and $hasIconZip) {
-    Write-Host "Prepare_LabVIEW_source: development mode already enabled; skipping g-cli call."
+$devModeEnabled = ($hasShip -and -not $hasLvlibp -and -not $hasIconFolder -and $hasIconZip)
+$missingDevModePaths = @()
+if (-not $hasIconEditorDir) { $missingDevModePaths += 'resource\plugins\NIIconEditor' }
+if (-not $hasIconEditorLib) { $missingDevModePaths += 'resource\plugins\lv_IconEditor.lvlib' }
+if (-not $hasIconEditorVi) { $missingDevModePaths += 'resource\plugins\lv_icon.vi' }
+
+if ($devModeEnabled -and $missingDevModePaths.Count -eq 0) {
+    Write-Host "Prepare_LabVIEW_source: development mode already enabled and required icon editor sources present; skipping g-cli call."
     $global:LASTEXITCODE = 0
     return
+}
+if ($devModeEnabled -and $missingDevModePaths.Count -gt 0) {
+    Write-Warning ("Prepare_LabVIEW_source: dev mode enabled but required icon editor sources are missing: {0}. Running PrepareIESource." -f ($missingDevModePaths -join ', '))
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
