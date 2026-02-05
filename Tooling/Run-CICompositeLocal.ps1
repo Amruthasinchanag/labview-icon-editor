@@ -497,25 +497,25 @@ function Invoke-VerifyIEPath {
     $verifyArchiveValue = $VerifyArchive
 
     return Invoke-CheckedWithResult -Label "Verify IE Paths gate ($Bitness-bit)" -Action {
-        $verifyArgs = @(
-            '-LabVIEWVersion', $LabVIEWVersion,
-            '-SupportedBitness', $Bitness,
-            '-RepoRoot', $repoRoot,
-            '-ConnectTimeoutMs', $connectTimeoutMsValue,
-            '-ProcessTimeoutMs', $processTimeoutMsValue,
-            '-StatusFileTimeoutMs', $statusTimeoutMsValue,
-            '-StatusFileArchiveDirectory', $verifyArchiveValue,
-            '-AutoRevertIfEnabled',
-            '-IgnoreGcliExitCode'
-        )
+        $verifyParams = @{
+            LabVIEWVersion             = $LabVIEWVersion
+            SupportedBitness           = $Bitness
+            RepoRoot                   = $repoRoot
+            ConnectTimeoutMs           = $connectTimeoutMsValue
+            ProcessTimeoutMs           = $processTimeoutMsValue
+            StatusFileTimeoutMs        = $statusTimeoutMsValue
+            StatusFileArchiveDirectory = $verifyArchiveValue
+            AutoRevertIfEnabled        = $true
+            IgnoreGcliExitCode         = $true
+        }
         if ($script:PreferNoLabVIEWDevMode) {
-            $verifyArgs += '-EnableDevModeNoLabVIEW'
+            $verifyParams.EnableDevModeNoLabVIEW = $true
         } else {
-            $verifyArgs += '-EnableDevMode'
-            $verifyArgs += '-AllowFallbackToNoLabVIEW'
+            $verifyParams.EnableDevMode = $true
+            $verifyParams.AllowFallbackToNoLabVIEW = $true
         }
 
-        & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') @verifyArgs
+        & (Join-Path $repoRoot 'Tooling/Invoke-MissingIEFilesFromLVInstall.ps1') @verifyParams
     }
 }
 
