@@ -221,7 +221,8 @@ jobs:
             -ProcessTimeoutMs 300000 `
             -StatusFileTimeoutMs 60000 `
             -StatusFileArchiveDirectory "$env:RUNNER_TEMP\\verify-iepaths" `
-            -EnableDevMode
+            -EnableDevMode `
+            -AutoRevertIfEnabled
       - name: Upload VerifyIEPaths status (on failure)
         if: failure()
         uses: actions/upload-artifact@v4

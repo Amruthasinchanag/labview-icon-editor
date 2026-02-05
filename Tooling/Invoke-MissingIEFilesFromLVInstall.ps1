@@ -30,6 +30,10 @@
     When EnableDevMode is set, allow fallback to the no-LabVIEW path if the
     LabVIEW toggle fails.
 
+.PARAMETER AutoRevertIfEnabled
+    When enabled, automatically revert dev mode if the install appears to be
+    in dev mode (or mixed state) before running VerifyIEPaths.
+
 .PARAMETER RepoRoot
     Optional path to the repository root. If omitted, resolved relative to
     this script's location.
@@ -107,6 +111,9 @@ param(
 
     [Parameter(Mandatory = $false)]
     [switch]$AllowFallbackToNoLabVIEW,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$AutoRevertIfEnabled,
 
     [Parameter(Mandatory = $false)]
     [string]$StatusFileName = 'missing_IE_paths.txt',
@@ -557,9 +564,37 @@ function Write-VerifyIEPathsSummaryLine {
 }
 
 $strictState = Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_STRICT' -Fallback $false
+$autoRevert = $AutoRevertIfEnabled -or (Resolve-BoolFromEnv -Name 'LVIE_VERIFY_IEPATHS_AUTO_REVERT' -Fallback $false)
 $preState = Get-IEInstallState -LabVIEWInstallRoot $installRoot
 Write-Host ("Install state (pre): {0}" -f (Format-IEInstallState -State $preState))
 Write-VerifyIEPathsSummaryLine ("Verify IE Paths pre-state ({0} {1}-bit): {2}" -f $labviewYear, $SupportedBitness, (Format-IEInstallState -State $preState))
+
+if (($preState.MixedState -or $preState.DevModeEnabled) -and $autoRevert) {
+    Write-Host "Pre-run install state indicates dev mode or mixed state; reverting before VerifyIEPaths."
+    Write-VerifyIEPathsSummaryLine "Verify IE Paths auto-revert: pre-state indicated dev mode or mixed state; attempting revert."
+
+    $revertScript = Join-Path $repoRoot '.github\actions\revert-development-mode\RevertDevelopmentMode.ps1'
+    if (-not (Test-Path -Path $revertScript)) {
+        throw "RevertDevelopmentMode.ps1 not found at $revertScript"
+    }
+
+    & $revertScript `
+        -LabVIEWVersion $labviewYear `
+        -SupportedBitness $SupportedBitness `
+        -RepoRoot $repoRoot `
+        -ConnectTimeoutMs $ConnectTimeoutMs `
+        -ProcessTimeoutMs $ProcessTimeoutMs `
+        -UseLabVIEW
+
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw "Dev mode auto-revert failed with exit code $LASTEXITCODE."
+    }
+
+    $postRevertState = Get-IEInstallState -LabVIEWInstallRoot $installRoot
+    Write-Host ("Install state (post-revert): {0}" -f (Format-IEInstallState -State $postRevertState))
+    Write-VerifyIEPathsSummaryLine ("Verify IE Paths post-revert ({0} {1}-bit): {2}" -f $labviewYear, $SupportedBitness, (Format-IEInstallState -State $postRevertState))
+    $preState = $postRevertState
+}
 
 if ($preState.MixedState) {
     $message = "Install appears to be in a mixed dev-mode state before VerifyIEPaths."

@@ -501,6 +501,7 @@ function Invoke-VerifyIEPath {
             -StatusFileArchiveDirectory $verifyArchiveValue `
             -EnableDevMode `
             -AllowFallbackToNoLabVIEW `
+            -AutoRevertIfEnabled `
             -IgnoreGcliExitCode
     }
 }
