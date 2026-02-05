@@ -40,7 +40,9 @@ function Get-EnvValue {
 function Resolve-IntSetting {
     param(
         [string]$Name,
-        [int]$Fallback
+        [int]$Fallback,
+        [int]$Minimum = [int]::MinValue,
+        [int]$Maximum = [int]::MaxValue
     )
 
     $raw = Get-EnvValue -Name $Name
@@ -50,6 +52,10 @@ function Resolve-IntSetting {
 
     $value = 0
     if ([int]::TryParse($raw, [ref]$value)) {
+        if ($value -lt $Minimum -or $value -gt $Maximum) {
+            Write-Warning "Ignoring out-of-range $Name value '$raw'; using $Fallback."
+            return $Fallback
+        }
         return $value
     }
 
@@ -232,31 +238,31 @@ function Format-LockOwner {
 $timeoutSecondsValue = if ($PSBoundParameters.ContainsKey('TimeoutSeconds')) {
     $TimeoutSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_TIMEOUT_SECONDS' -Fallback $TimeoutSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_TIMEOUT_SECONDS' -Fallback $TimeoutSeconds -Minimum 30 -Maximum 86400
 }
 
 $leaseSecondsValue = if ($PSBoundParameters.ContainsKey('LeaseSeconds')) {
     $LeaseSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_LEASE_SECONDS' -Fallback $LeaseSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_LEASE_SECONDS' -Fallback $LeaseSeconds -Minimum 300 -Maximum 86400
 }
 
 $staleAfterSecondsValue = if ($PSBoundParameters.ContainsKey('StaleAfterSeconds')) {
     $StaleAfterSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_STALE_SECONDS' -Fallback $StaleAfterSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_STALE_SECONDS' -Fallback $StaleAfterSeconds -Minimum 300 -Maximum 604800
 }
 
 $gitHubMinAgeSecondsValue = if ($PSBoundParameters.ContainsKey('GitHubMinAgeSeconds')) {
     $GitHubMinAgeSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_MIN_AGE_SECONDS' -Fallback $GitHubMinAgeSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_MIN_AGE_SECONDS' -Fallback $GitHubMinAgeSeconds -Minimum 30 -Maximum 3600
 }
 
 $gitHubCheckIntervalSecondsValue = if ($PSBoundParameters.ContainsKey('GitHubCheckIntervalSeconds')) {
     $GitHubCheckIntervalSeconds
 } else {
-    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_CHECK_INTERVAL_SECONDS' -Fallback $GitHubCheckIntervalSeconds
+    Resolve-IntSetting -Name 'LVIE_RUNNER_LOCK_GITHUB_CHECK_INTERVAL_SECONDS' -Fallback $GitHubCheckIntervalSeconds -Minimum 15 -Maximum 3600
 }
 
 $gitHubCheckEnabled = -not $DisableGitHubStaleCheck.IsPresent
@@ -315,7 +321,15 @@ if ($Mode -eq 'Acquire') {
             $owner = Format-LockOwner -Metadata $metadata
             $acquiredAtUtc = Resolve-AcquiredAtUtc -Metadata $metadata -LockPath $lockPath
             $leaseExpiresAtUtc = Resolve-LeaseExpiresAtUtc -Metadata $metadata -AcquiredAtUtc $acquiredAtUtc -LeaseSecondsValue $leaseSecondsValue
-            $ageSeconds = [int]([DateTime]::UtcNow - $acquiredAtUtc).TotalSeconds
+            $ageSecondsRaw = [int]([DateTime]::UtcNow - $acquiredAtUtc).TotalSeconds
+            $ageSeconds = $ageSecondsRaw
+            $ageSecondsForChecks = $ageSecondsRaw
+            if ($ageSecondsRaw -lt 0) {
+                $ageSeconds = 0
+                $ageSecondsForChecks = $gitHubMinAgeSecondsValue
+                Write-Warning ("Runner lock clock skew detected (age {0}s). " +
+                    "Treating lock as at least {1}s old for GitHub checks." -f $ageSecondsRaw, $gitHubMinAgeSecondsValue)
+            }
             $ownerSameRun = $false
             if ($metadata -and $metadata.run_id -and $env:GITHUB_RUN_ID) {
                 $ownerSameRun = ($metadata.run_id -eq $env:GITHUB_RUN_ID)
@@ -329,7 +343,7 @@ if ($Mode -eq 'Acquire') {
 
             if (-not $ownerSameRun -and $gitHubCheckEnabled -and $metadata -and $metadata.run_id -and $metadata.repository) {
                 $now = (Get-Date).ToUniversalTime()
-                if ($ageSeconds -ge $gitHubMinAgeSecondsValue -and $now -ge $nextGitHubCheck) {
+                if ($ageSecondsForChecks -ge $gitHubMinAgeSecondsValue -and $now -ge $nextGitHubCheck) {
                     $runStatus = Get-GitHubRunStatus -Repository $metadata.repository -RunId $metadata.run_id
                     $nextGitHubCheck = $now.AddSeconds($gitHubCheckIntervalSecondsValue)
                     if ($runStatus) {
