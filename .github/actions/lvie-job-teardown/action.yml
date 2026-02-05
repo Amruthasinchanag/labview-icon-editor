@@ -73,7 +73,7 @@ runs:
           -MinimumSupportedLVVersion $labviewVersion `
           -SupportedBitness $bitness
     - name: Cleanup worktree
-      if: ${{ inputs.cleanup_worktree == 'true' }}
+      if: ${{ inputs.cleanup_worktree == 'true' && always() }}
       shell: pwsh
       run: |
         if (-not [string]::IsNullOrWhiteSpace($env:REPO_ROOT)) {
@@ -81,7 +81,7 @@ runs:
           git -C "$env:GITHUB_WORKSPACE" worktree prune
         }
     - name: Release LabVIEW runner lock
-      if: ${{ inputs.release_lock == 'true' }}
+      if: ${{ inputs.release_lock == 'true' && always() }}
       shell: pwsh
       run: |
         pwsh -NoProfile -File "$env:GITHUB_WORKSPACE\\Tooling\\RunnerLock.ps1" -Mode Release

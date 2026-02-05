@@ -170,13 +170,15 @@ if (-not $hasIconEditorDir) { $missingDevModePaths += 'resource\plugins\NIIconEd
 if (-not $hasIconEditorLib) { $missingDevModePaths += 'resource\plugins\lv_IconEditor.lvlib' }
 if (-not $hasIconEditorVi) { $missingDevModePaths += 'resource\plugins\lv_icon.vi' }
 
+if ($missingDevModePaths.Count -gt 0) {
+    $missingJoined = $missingDevModePaths -join ', '
+    throw "LabVIEW install is missing required Icon Editor resources: $missingJoined. Dev mode cannot be enabled; repair/reinstall the LabVIEW Icon Editor components."
+}
+
 if ($devModeEnabled -and $missingDevModePaths.Count -eq 0) {
     Write-Host "Prepare_LabVIEW_source: development mode already enabled and required icon editor sources present; skipping g-cli call."
     $global:LASTEXITCODE = 0
     return
-}
-if ($devModeEnabled -and $missingDevModePaths.Count -gt 0) {
-    Write-Warning ("Prepare_LabVIEW_source: dev mode enabled but required icon editor sources are missing: {0}. Running PrepareIESource." -f ($missingDevModePaths -join ', '))
 }
 
 if (-not (Get-Command g-cli -ErrorAction SilentlyContinue)) {
