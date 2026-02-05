@@ -104,7 +104,7 @@ function Set-EnvValue {
     }
 }
 
-function Restore-EnvValues {
+function Restore-EnvState {
     param([hashtable]$Store)
     foreach ($entry in $Store.GetEnumerator()) {
         if ($null -eq $entry.Value) {
@@ -246,5 +246,5 @@ finally {
         }
     }
 
-    Restore-EnvValues -Store $envBackup
+    Restore-EnvState -Store $envBackup
 }
