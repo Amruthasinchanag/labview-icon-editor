@@ -62,6 +62,9 @@
 .PARAMETER StatusFileTimeoutMs
     Timeout in milliseconds to wait for the status file to appear.
 
+.PARAMETER DevModeConnectTimeoutMs
+    g-cli connect timeout in milliseconds for PrepareIESource.vi when dev mode is enabled.
+
 .PARAMETER ProcessTimeoutMs
     Maximum time to wait for g-cli to finish in milliseconds (0 disables the timeout).
 
@@ -102,6 +105,10 @@ param(
     [Parameter(Mandatory = $false)]
     [ValidateRange(0, 600000)]
     [int]$ConnectTimeoutMs = 120000,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 600000)]
+    [int]$DevModeConnectTimeoutMs = 15000,
 
     [Parameter(Mandatory = $false)]
     [switch]$EnableDevMode,
@@ -641,7 +648,7 @@ if ($devModeRequested) {
             -LabVIEWVersion $labviewYear `
             -SupportedBitness $SupportedBitness `
             -RepoRoot $repoRoot `
-            -ConnectTimeoutMs $ConnectTimeoutMs `
+            -ConnectTimeoutMs $DevModeConnectTimeoutMs `
             -ProcessTimeoutMs $ProcessTimeoutMs `
             -UseLabVIEW `
             -AllowFallbackToNoLabVIEW:$AllowFallbackToNoLabVIEW
