@@ -957,14 +957,18 @@ try {
                     Write-Warning ("Failed to close LabVIEW after missing-in-project: {0}" -f $_.Exception.Message)
                 }
                 Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
-                & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                    -LabVIEWVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness `
-                    -RepoRoot $repoRoot `
-                    -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs `
-                    -UseLabVIEW `
-                    -AllowFallbackToNoLabVIEW | Out-Null
+                $revertParams = @{
+                    LabVIEWVersion   = $LabVIEWVersion
+                    SupportedBitness = $bitness
+                    RepoRoot         = $repoRoot
+                    ConnectTimeoutMs = $ConnectTimeoutMs
+                    ProcessTimeoutMs = $ProcessTimeoutMs
+                }
+                if (-not $script:PreferNoLabVIEWDevMode) {
+                    $revertParams.UseLabVIEW = $true
+                    $revertParams.AllowFallbackToNoLabVIEW = $true
+                }
+                & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') @revertParams | Out-Null
             }
 
             $missingPath = Join-Path $repoRoot '.github/actions/missing-in-project/missing_files.txt'
@@ -993,14 +997,18 @@ try {
                     Write-Warning ("Failed to close LabVIEW after unit tests: {0}" -f $_.Exception.Message)
                 }
                 Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
-                & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                    -LabVIEWVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness `
-                    -RepoRoot $repoRoot `
-                    -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs `
-                    -UseLabVIEW `
-                    -AllowFallbackToNoLabVIEW | Out-Null
+                $revertParams = @{
+                    LabVIEWVersion   = $LabVIEWVersion
+                    SupportedBitness = $bitness
+                    RepoRoot         = $repoRoot
+                    ConnectTimeoutMs = $ConnectTimeoutMs
+                    ProcessTimeoutMs = $ProcessTimeoutMs
+                }
+                if (-not $script:PreferNoLabVIEWDevMode) {
+                    $revertParams.UseLabVIEW = $true
+                    $revertParams.AllowFallbackToNoLabVIEW = $true
+                }
+                & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') @revertParams | Out-Null
             }
         }
     }
@@ -1029,14 +1037,18 @@ try {
                     Write-Warning ("Failed to close LabVIEW after PPL build: {0}" -f $_.Exception.Message)
                 }
                 Wait-ForIdle -RunHistoryPath $script:RunHistoryPath
-                & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') `
-                    -LabVIEWVersion $LabVIEWVersion `
-                    -SupportedBitness $bitness `
-                    -RepoRoot $repoRoot `
-                    -ConnectTimeoutMs $ConnectTimeoutMs `
-                    -ProcessTimeoutMs $ProcessTimeoutMs `
-                    -UseLabVIEW `
-                    -AllowFallbackToNoLabVIEW | Out-Null
+                $revertParams = @{
+                    LabVIEWVersion   = $LabVIEWVersion
+                    SupportedBitness = $bitness
+                    RepoRoot         = $repoRoot
+                    ConnectTimeoutMs = $ConnectTimeoutMs
+                    ProcessTimeoutMs = $ProcessTimeoutMs
+                }
+                if (-not $script:PreferNoLabVIEWDevMode) {
+                    $revertParams.UseLabVIEW = $true
+                    $revertParams.AllowFallbackToNoLabVIEW = $true
+                }
+                & (Join-Path $repoRoot '.github/actions/revert-development-mode/RevertDevelopmentMode.ps1') @revertParams | Out-Null
             }
 
             $currentFile = Join-Path $repoRoot 'resource/plugins/lv_icon.lvlibp'
