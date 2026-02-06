@@ -9,17 +9,18 @@
 .PARAMETER SupportedBitness
     LabVIEW bitness for the build ("32" or "64").
 
-.PARAMETER RelativePath
+.PARAMETER RepoRoot
     Path to the repository root.
 
 .PARAMETER VIPBPath
     Relative path to the VIPB file to update.
 
-.PARAMETER MinimumSupportedLVVersion
-    Minimum LabVIEW version supported by the package.
+.PARAMETER LabVIEWVersion
+    LabVIEW major version year (e.g., 2021).
+    Alias: MinimumSupportedLVVersion.
 
 .PARAMETER LabVIEWMinorRevision
-    Minor revision number of LabVIEW (0 or 3).
+    Minor revision number of LabVIEW (e.g., 0 for 21.0).
 
 .PARAMETER Major
     Major version component for the package.
@@ -43,18 +44,22 @@
     JSON string representing the VIPB display information to update.
 
 .EXAMPLE
-    .\build_vip.ps1 -SupportedBitness "64" -RelativePath "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -MinimumSupportedLVVersion 2021 -LabVIEWMinorRevision 3 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
+    .\build_vip.ps1 -SupportedBitness "64" -RepoRoot "C:\repo" -VIPBPath "Tooling\deployment\NI Icon editor.vipb" -LabVIEWVersion 2021 -LabVIEWMinorRevision 0 -Major 1 -Minor 0 -Patch 0 -Build 2 -Commit "abcd123" -ReleaseNotesFile "Tooling\deployment\release_notes.md" -DisplayInformationJSON '{"Package Version":{"major":1,"minor":0,"patch":0,"build":2}}'
 #>
 
 param (
     [string]$SupportedBitness,
-    [string]$RelativePath,
+    [string]$RepoRoot,
     [string]$VIPBPath,
+    [string]$WorktreeRoot,
+    [switch]$SkipWorktreeRootCheck,
 
-    [int]$MinimumSupportedLVVersion,
+    [Alias('MinimumSupportedLVVersion')]
+    [ValidateRange(2000, 2100)]
+    [int]$LabVIEWVersion,
 
-    [ValidateSet("0","3")]
-    [string]$LabVIEWMinorRevision = "0",
+    [ValidateRange(0, 99)]
+    [int]$LabVIEWMinorRevision = 0,
 
     [int]$Major,
     [int]$Minor,
@@ -63,23 +68,79 @@ param (
     [string]$Commit,
     [string]$ReleaseNotesFile,
 
-    [Parameter(Mandatory=$true)]
-    [string]$DisplayInformationJSON
+    [string]$DisplayInformationJSON,
+    [string]$DisplayInformationJsonPath,
+
+    [ValidateRange(60, 3600)]
+    [int]$VipmTimeoutSeconds = 300
 )
 
 # 1) Resolve paths
 try {
-    $ResolvedRelativePath = Resolve-Path -Path $RelativePath -ErrorAction Stop
-    $ResolvedVIPBPath = Join-Path -Path $ResolvedRelativePath -ChildPath $VIPBPath -ErrorAction Stop
+    $ResolvedRepoRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    $ResolvedVIPBPath = Join-Path -Path $ResolvedRepoRoot -ChildPath $VIPBPath -ErrorAction Stop
 }
 catch {
     $errorObject = [PSCustomObject]@{
-        error      = "Error resolving paths. Ensure RelativePath and VIPBPath are valid."
+        error      = "Error resolving paths. Ensure RepoRoot and VIPBPath are valid."
         exception  = $_.Exception.Message
         stackTrace = $_.Exception.StackTrace
     }
     $errorObject | ConvertTo-Json -Depth 10
     exit 1
+}
+
+# 1a) Worktree preflight (optional for local runs)
+$preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
+if (Test-Path -Path $preflightScript) {
+    . $preflightScript
+    $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
+    $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
+    $preflight = Invoke-Preflight `
+        -RepoRoot $ResolvedRepoRoot `
+        -WorktreeRoot $WorktreeRoot `
+        -LabVIEWVersion $LabVIEWVersion `
+        -LabVIEWBitness $SupportedBitness `
+        -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+        -AutoWorktree:$false `
+        -ScriptPath $relativeScript `
+        -ScriptArguments $scriptArgs
+    if ($preflight.Reinvoked) {
+        return
+    }
+    $ResolvedRepoRoot = $preflight.RepoRoot
+}
+
+# 1b) Ensure VI Package output directory exists to avoid VIPM prompts
+$artifactRoot = $env:LVIE_ARTIFACT_ROOT
+$vipOutputDir = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
+    Join-Path -Path $ResolvedRepoRoot -ChildPath "builds/VI Package"
+} else {
+    Join-Path -Path $artifactRoot -ChildPath "builds/VI Package"
+}
+New-Item -ItemType Directory -Path $vipOutputDir -Force | Out-Null
+
+# 1c) Resolve VIPB output folder + package name to pre-clean existing VIP
+$vipbOutputDir = $null
+$packageFileName = $null
+try {
+    $vipbXml = [xml](Get-Content -Raw -Path $ResolvedVIPBPath)
+    $general = $vipbXml.VI_Package_Builder_Settings.Library_General_Settings
+    if ($general) {
+        $packageFileName = $general.Package_File_Name
+        $outputFolder = $general.Library_Output_Folder
+        if (-not [string]::IsNullOrWhiteSpace($outputFolder)) {
+            $vipbRoot = Split-Path -Path $ResolvedVIPBPath -Parent
+            $vipbOutputDir = if ([System.IO.Path]::IsPathRooted($outputFolder)) {
+                $outputFolder
+            } else {
+                Join-Path -Path $vipbRoot -ChildPath $outputFolder
+            }
+            $vipbOutputDir = [System.IO.Path]::GetFullPath($vipbOutputDir)
+        }
+    }
+} catch {
+    Write-Warning ("Failed to parse VIPB output folder: {0}" -f $_.Exception.Message)
 }
 
 # 2) Create release notes if needed and resolve the paths
@@ -102,11 +163,15 @@ catch {
 }
 
 # 3a) Ensure build log directory exists for troubleshooting
-$LogDirectory = Join-Path -Path $ResolvedRelativePath -ChildPath "builds/logs"
+$LogDirectory = if ([string]::IsNullOrWhiteSpace($artifactRoot)) {
+    Join-Path -Path $ResolvedRepoRoot -ChildPath "builds/logs"
+} else {
+    Join-Path -Path $artifactRoot -ChildPath "builds/logs"
+}
 New-Item -ItemType Directory -Path $LogDirectory -Force | Out-Null
 
 # 3) Calculate the LabVIEW version string
-$lvNumericMajor    = $MinimumSupportedLVVersion - 2000
+$lvNumericMajor    = $LabVIEWVersion - 2000
 $lvNumericVersion  = "$($lvNumericMajor).$LabVIEWMinorRevision"
 if ($SupportedBitness -eq "64") {
     $VIP_LVVersion_A = "$lvNumericVersion (64-bit)"
@@ -116,13 +181,35 @@ else {
 }
 Write-Output "Building VI Package for LabVIEW $VIP_LVVersion_A..."
 
-# 4) Parse and update the DisplayInformationJSON
+# 4) Resolve and parse DisplayInformation JSON
+$resolvedDisplayJson = $DisplayInformationJSON
+if ([string]::IsNullOrWhiteSpace($resolvedDisplayJson) -and -not [string]::IsNullOrWhiteSpace($DisplayInformationJsonPath)) {
+    if (-not (Test-Path -Path $DisplayInformationJsonPath)) {
+        $errorObject = [PSCustomObject]@{
+            error      = "DisplayInformationJsonPath '$DisplayInformationJsonPath' does not exist."
+        }
+        $errorObject | ConvertTo-Json -Depth 10
+        exit 1
+    }
+    $resolvedDisplayJson = Get-Content -Raw -Path $DisplayInformationJsonPath
+}
+if ([string]::IsNullOrWhiteSpace($resolvedDisplayJson) -and -not [string]::IsNullOrWhiteSpace($env:DISPLAY_INFORMATION_JSON)) {
+    $resolvedDisplayJson = $env:DISPLAY_INFORMATION_JSON
+}
+if ([string]::IsNullOrWhiteSpace($resolvedDisplayJson)) {
+    $errorObject = [PSCustomObject]@{
+        error = "DisplayInformationJSON was not provided. Pass -DisplayInformationJSON, -DisplayInformationJsonPath, or set DISPLAY_INFORMATION_JSON."
+    }
+    $errorObject | ConvertTo-Json -Depth 10
+    exit 1
+}
+
 try {
-    $jsonObj = $DisplayInformationJSON | ConvertFrom-Json
+    $jsonObj = $resolvedDisplayJson | ConvertFrom-Json
 }
 catch {
     $errorObject = [PSCustomObject]@{
-        error      = "Failed to parse DisplayInformationJSON into valid JSON."
+        error      = "Failed to parse DisplayInformation JSON."
         exception  = $_.Exception.Message
         stackTrace = $_.Exception.StackTrace
     }
@@ -150,9 +237,27 @@ else {
 # Re-convert to a JSON string with a comfortable nesting depth
 $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
 
-# 5) Construct reusable g-cli arguments
+# 5a) Pre-clean existing VIP in the configured output folder to avoid VIPM error 10
+$vipBaseName = if (-not [string]::IsNullOrWhiteSpace($packageFileName)) {
+    $packageFileName
+} else {
+    [System.IO.Path]::GetFileNameWithoutExtension($ResolvedVIPBPath)
+}
+$vipVersion = "$Major.$Minor.$Patch.$Build"
+$vipName = "{0}-{1}.vip" -f $vipBaseName, $vipVersion
+$outputDirToClean = if (-not [string]::IsNullOrWhiteSpace($vipbOutputDir)) { $vipbOutputDir } else { $vipOutputDir }
+if (-not (Test-Path -Path $outputDirToClean)) {
+    New-Item -ItemType Directory -Path $outputDirToClean -Force | Out-Null
+}
+$vipFullPath = Join-Path -Path $outputDirToClean -ChildPath $vipName
+if (Test-Path -Path $vipFullPath) {
+    Write-Host ("Removing existing VIP to avoid overwrite error: {0}" -f $vipFullPath)
+    Remove-Item -Path $vipFullPath -Force -ErrorAction SilentlyContinue
+}
+
+# 6) Construct reusable g-cli arguments
 $gcliArgs = @(
-    "--lv-ver", $MinimumSupportedLVVersion.ToString(),
+    "--lv-ver", $LabVIEWVersion.ToString(),
     "--arch", $SupportedBitness,
     "--connect-timeout", "120000",
     "--kill",
@@ -162,63 +267,56 @@ $gcliArgs = @(
     "--buildspec", $ResolvedVIPBPath,
     "-v", "$Major.$Minor.$Patch.$Build",
     "--release-notes", $ResolvedReleaseNotesFile,
-    "--timeout", "300"
+    "--timeout", $VipmTimeoutSeconds.ToString()
 )
 
 $prettyCommand = "g-cli " + ($gcliArgs -join ' ')
 Write-Output "Base build command:"
 Write-Output $prettyCommand
 
-# 6) Execute the commands with retries and log capture
-$maxAttempts = 3
-$retryDelaySeconds = 15
-$success = $false
-$attemptLogs = @()
+# 7) Execute the command once with log capture
+$logFile = Join-Path -Path $LogDirectory -ChildPath "gcli-build.log"
+Write-Host "Starting g-cli build. Logs: $logFile"
 
-for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-    $logFile = Join-Path -Path $LogDirectory -ChildPath ("gcli-build-attempt-{0}.log" -f $attempt)
-    $attemptLogs += $logFile
-    Write-Host "Starting g-cli build attempt $attempt of $maxAttempts. Logs: $logFile"
-
-    try {
-        & g-cli @gcliArgs 2>&1 | Tee-Object -FilePath $logFile
-    }
-    catch {
-        $_ | Out-String | Tee-Object -FilePath $logFile -Append | Out-Null
-        $LASTEXITCODE = 1
-    }
-
-    if ($LASTEXITCODE -eq 0) {
-        $success = $true
-        break
-    }
-
-    if ($attempt -lt $maxAttempts) {
-        Write-Warning "g-cli attempt $attempt failed with exit code $LASTEXITCODE. Retrying in $retryDelaySeconds seconds..."
-        Start-Sleep -Seconds $retryDelaySeconds
-    }
+try {
+    & g-cli @gcliArgs 2>&1 | Tee-Object -FilePath $logFile
+}
+catch {
+    $_ | Out-String | Tee-Object -FilePath $logFile -Append | Out-Null
+    $LASTEXITCODE = 1
 }
 
-if (-not $success) {
-    for ($i = 0; $i -lt $attemptLogs.Count; $i++) {
-        $log = $attemptLogs[$i]
-        if (Test-Path $log) {
-            Write-Host ("---- g-cli build log attempt {0} ({1}) ----" -f ($i + 1), $log)
-            Get-Content -Path $log | ForEach-Object { Write-Host $_ }
-            Write-Host ("---- end g-cli build log attempt {0} ----" -f ($i + 1))
-        }
-        else {
-            Write-Host ("g-cli build log for attempt {0} not found at {1}" -f ($i + 1), $log)
-        }
+if ($LASTEXITCODE -ne 0) {
+    if (Test-Path $logFile) {
+        Write-Host ("---- g-cli build log ({0}) ----" -f $logFile)
+        Get-Content -Path $logFile | ForEach-Object { Write-Host $_ }
+        Write-Host ("---- end g-cli build log ----")
+    }
+    else {
+        Write-Host ("g-cli build log not found at {0}" -f $logFile)
     }
 
     $errorObject = [PSCustomObject]@{
-        error      = "g-cli failed after $maxAttempts attempt(s)."
-        exitCode   = $LASTEXITCODE
-        logs       = $attemptLogs
+        error    = "g-cli build failed."
+        exitCode = $LASTEXITCODE
+        log      = $logFile
     }
     $errorObject | ConvertTo-Json -Depth 10
     exit 1
 }
 
 Write-Host "Successfully built VI package: $ResolvedVIPBPath"
+
+if (-not [string]::IsNullOrWhiteSpace($artifactRoot)) {
+    try {
+        $vipCandidates = Get-ChildItem -Path $ResolvedRepoRoot -Recurse -Filter *.vip -ErrorAction SilentlyContinue
+        $latestVip = $vipCandidates | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1
+        if ($latestVip) {
+            $targetPath = Join-Path $vipOutputDir $latestVip.Name
+            Copy-Item -Path $latestVip.FullName -Destination $targetPath -Force
+            Write-Host ("Copied .vip to artifact root: {0}" -f $targetPath)
+        }
+    } catch {
+        Write-Warning ("Failed to copy .vip to artifact root: {0}" -f $_.Exception.Message)
+    }
+}

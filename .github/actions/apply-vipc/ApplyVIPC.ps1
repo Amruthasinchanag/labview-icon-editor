@@ -4,36 +4,64 @@
     This version includes additional debug/verbose output.
 
 .EXAMPLE
-    .\applyvipc.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RelativePath "C:\release\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\runner_dependencies.vipc" -VIP_LVVersion "2021" -Verbose
+    .\applyvipc.ps1 -LabVIEWVersion "2021" -SupportedBitness "64" -RepoRoot "C:\release\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\runner_dependencies.vipc" -VIP_LVVersion "2021" -Verbose
 #>
 
 [CmdletBinding()]  # Enables -Verbose and other common parameters
 Param (
-    [string]$MinimumSupportedLVVersion,
-    [string]$VIP_LVVersion,
+    [AllowNull()]
+    [AllowEmptyString()]
+    [Alias('MinimumSupportedLVVersion')]
+    [string]$LabVIEWVersion = '2021',
+    [AllowNull()]
+    [AllowEmptyString()]
+    [string]$VIP_LVVersion = '2021',
+    [ValidateSet('32', '64')]
     [string]$SupportedBitness,
-    [string]$RelativePath,
-    [string]$VIPCPath
+    [string]$RepoRoot,
+    [string]$VIPCPath,
+    [string]$WorktreeRoot,
+    [switch]$SkipWorktreeRootCheck
 )
 
 Write-Verbose "Script Name: $($MyInvocation.MyCommand.Definition)"
 Write-Verbose "Parameters provided:"
-Write-Verbose " - MinimumSupportedLVVersion: $MinimumSupportedLVVersion"
+Write-Verbose " - LabVIEWVersion:            $LabVIEWVersion"
 Write-Verbose " - VIP_LVVersion:             $VIP_LVVersion"
 Write-Verbose " - SupportedBitness:          $SupportedBitness"
-Write-Verbose " - RelativePath:              $RelativePath"
+Write-Verbose " - RepoRoot:              $RepoRoot"
 Write-Verbose " - VIPCPath:                  $VIPCPath"
 
 # -------------------------
 # 1) Resolve Paths & Validate
 # -------------------------
 try {
-    Write-Verbose "Attempting to resolve the 'RelativePath'..."
-    $ResolvedRelativePath = Resolve-Path -Path $RelativePath -ErrorAction Stop
-    Write-Verbose "ResolvedRelativePath: $ResolvedRelativePath"
+    Write-Verbose "Attempting to resolve the 'RepoRoot'..."
+    $ResolvedRepoRoot = (Resolve-Path -Path $RepoRoot -ErrorAction Stop).Path
+    Write-Verbose "ResolvedRepoRoot: $ResolvedRepoRoot"
+
+    $preflightScript = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\Invoke-Preflight.ps1'
+    if (Test-Path -Path $preflightScript) {
+        . $preflightScript
+        $scriptArgs = Convert-BoundParametersToArgumentList -BoundParameters $PSBoundParameters
+        $relativeScript = if ($PSCommandPath) { Get-RepoRelativePath -RepoRoot $ResolvedRepoRoot -Path $PSCommandPath } else { $null }
+        $preflight = Invoke-Preflight `
+            -RepoRoot $ResolvedRepoRoot `
+            -WorktreeRoot $WorktreeRoot `
+            -LabVIEWVersion $LabVIEWVersion `
+            -LabVIEWBitness $SupportedBitness `
+            -SkipWorktreeRootCheck:$SkipWorktreeRootCheck `
+            -AutoWorktree:$false `
+            -ScriptPath $relativeScript `
+            -ScriptArguments $scriptArgs
+        if ($preflight.Reinvoked) {
+            return
+        }
+        $ResolvedRepoRoot = $preflight.RepoRoot
+    }
 
     Write-Verbose "Building full path for the .vipc file..."
-    $ResolvedVIPCPath = Join-Path -Path $ResolvedRelativePath -ChildPath $VIPCPath -ErrorAction Stop
+    $ResolvedVIPCPath = Join-Path -Path $ResolvedRepoRoot -ChildPath $VIPCPath -ErrorAction Stop
     Write-Verbose "ResolvedVIPCPath:     $ResolvedVIPCPath"
 
     # Verify that the .vipc file actually exists
@@ -52,7 +80,7 @@ try {
     }
 }
 catch {
-    Write-Error "Error resolving paths. Ensure RelativePath and VIPCPath are valid. Details: $($_.Exception.Message)"
+    Write-Error "Error resolving paths. Ensure RepoRoot and VIPCPath are valid. Details: $($_.Exception.Message)"
     exit 1
 }
 
@@ -60,72 +88,81 @@ catch {
 # 2) Build LabVIEW Version Strings
 # -------------------------
 Write-Verbose "Determining LabVIEW version strings..."
-switch ("$VIP_LVVersion-$SupportedBitness") {
-    "2021-64" { $VIP_LVVersion_A = "21.0 (64-bit)" }
-    "2021-32" { $VIP_LVVersion_A = "21.0" }
-    "2022-64" { $VIP_LVVersion_A = "22.3 (64-bit)" }
-    "2022-32" { $VIP_LVVersion_A = "22.3" }
-    "2023-64" { $VIP_LVVersion_A = "23.3 (64-bit)" }
-    "2023-32" { $VIP_LVVersion_A = "23.3" }
-    "2024-64" { $VIP_LVVersion_A = "24.3 (64-bit)" }
-    "2024-32" { $VIP_LVVersion_A = "24.3" }
-    "2025-64" { $VIP_LVVersion_A = "25.3 (64-bit)" }
-    "2025-32" { $VIP_LVVersion_A = "25.3" }
-    default {
-        Write-Error "Unsupported VIP_LVVersion or SupportedBitness for VIP_LVVersion_A."
-        exit 1
+
+function Get-VipmVersionString {
+    param(
+        [string]$NumericVersion,
+        [string]$Bitness
+    )
+
+    if ($Bitness -eq '64') {
+        return "$NumericVersion (64-bit)"
     }
+    return $NumericVersion
 }
 
-switch ("$MinimumSupportedLVVersion-$SupportedBitness") {
-    "2021-64" { $VIP_LVVersion_B = "21.0 (64-bit)" }
-    "2021-32" { $VIP_LVVersion_B = "21.0" }
-    "2022-64" { $VIP_LVVersion_B = "22.3 (64-bit)" }
-    "2022-32" { $VIP_LVVersion_B = "22.3" }
-    "2023-64" { $VIP_LVVersion_B = "23.3 (64-bit)" }
-    "2023-32" { $VIP_LVVersion_B = "23.3" }
-    "2024-64" { $VIP_LVVersion_B = "24.3 (64-bit)" }
-    "2024-32" { $VIP_LVVersion_B = "24.3" }
-    "2025-64" { $VIP_LVVersion_B = "25.3 (64-bit)" }
-    "2025-32" { $VIP_LVVersion_B = "25.3" }
-    default {
-        Write-Error "Unsupported MinimumSupportedLVVersion or SupportedBitness for VIP_LVVersion_B."
-        exit 1
-    }
+$versionHelper = Join-Path -Path $ResolvedRepoRoot -ChildPath 'Tooling\support\LabVIEWVersion.ps1'
+if (-not (Test-Path -Path $versionHelper)) {
+    throw "LabVIEW version helper not found at $versionHelper"
 }
+. $versionHelper
+
+$minInfo = Get-LabVIEWVersionInfo -VersionInput $LabVIEWVersion -RepoRoot $ResolvedRepoRoot
+$vipInfo = Get-LabVIEWVersionInfo -VersionInput $VIP_LVVersion -RepoRoot $ResolvedRepoRoot
+
+$VIP_LVVersion_B = Get-VipmVersionString -NumericVersion $minInfo.NumericVersion -Bitness $SupportedBitness
+$VIP_LVVersion_A = Get-VipmVersionString -NumericVersion $vipInfo.NumericVersion -Bitness $SupportedBitness
 
 Write-Output "Applying dependencies for LabVIEW $VIP_LVVersion_B..."
 Write-Verbose "VIP_LVVersion_A (for primary LVVersion): $VIP_LVVersion_A"
 Write-Verbose "VIP_LVVersion_B (for minimum LVVersion): $VIP_LVVersion_B"
 
 # -------------------------
-# 3) Construct the Script to Execute
+# 3) Construct the Commands to Execute
 # -------------------------
-Write-Verbose "Constructing the g-cli command script..."
-$script = @"
-g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_B"
-"@
-
-if ($VIP_LVVersion -ne $MinimumSupportedLVVersion) {
-    Write-Verbose "VIP_LVVersion and MinimumSupportedLVVersion differ; adding commands for $VIP_LVVersion..."
-    $script += @"
-g-cli vipc -- -t 3000 -v "$VIP_LVVersion" "$ResolvedVIPCPath"
-"@
+Write-Verbose "Constructing g-cli vipc command list..."
+$vipVersions = @($VIP_LVVersion_B)
+if ($vipInfo.NumericVersion -ne $minInfo.NumericVersion -or $vipInfo.Year -ne $minInfo.Year) {
+    Write-Verbose "VIP_LVVersion and LabVIEWVersion differ; adding commands for $VIP_LVVersion_A..."
+    $vipVersions += $VIP_LVVersion_A
 }
 
 # -------------------------
-# 4) Output the script for debugging
-# -------------------------
-Write-Output "Executing the following commands:"
-Write-Output $script
-Write-Verbose "Full script content (for debugging): `n$script"
-
-# -------------------------
-# 5) Execute the Script & Handle Errors (Try/Catch with Invoke-Expression)
+# 4) Execute the Commands & Handle Errors
 # -------------------------
 try {
-    Write-Verbose "Starting Invoke-Expression to run g-cli commands..."
-    Invoke-Expression $script
+    foreach ($vipVersion in $vipVersions) {
+        $targetLvVer = if ($vipVersion -eq $VIP_LVVersion_A) { $vipInfo.Year } else { $minInfo.Year }
+        $vipcArgs = @(
+            '--lv-ver', $targetLvVer,
+            '--arch', $SupportedBitness,
+            'vipc', '--',
+            '-t', '3000',
+            '-v', $vipVersion,
+            $ResolvedVIPCPath
+        )
+
+        Write-Output ("Executing: g-cli {0}" -f ($vipcArgs -join ' '))
+        $output = & g-cli @vipcArgs 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($output) {
+            $output | ForEach-Object { Write-Host $_ }
+        }
+
+        if ($exitCode -ne 0) {
+            throw "g-cli vipc failed with exit code $exitCode."
+        }
+
+        try {
+            Write-Output ("Closing LabVIEW {0} ({1}-bit) after VIPC apply..." -f $targetLvVer, $SupportedBitness)
+            & g-cli --lv-ver $targetLvVer --arch $SupportedBitness QuitLabVIEW | Out-Null
+        }
+        catch {
+            Write-Warning ("Failed to close LabVIEW {0} ({1}-bit): {2}" -f $targetLvVer, $SupportedBitness, $_.Exception.Message)
+        }
+    }
+
+    $global:LASTEXITCODE = 0
     Write-Host "Successfully applied dependencies to LabVIEW: $VIP_LVVersion_B" `
         " (and potentially $VIP_LVVersion_A if switched)."
 }

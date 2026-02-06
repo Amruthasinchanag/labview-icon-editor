@@ -11,25 +11,24 @@ runs:
     - name: Run RestoreSetupLVSource.ps1
       shell: pwsh
       run: |
+        $lvVersion = "${{ inputs.labview_version }}"
+        if ([string]::IsNullOrWhiteSpace($lvVersion)) {
+          throw "labview_version is required."
+        }
+
         & "${{ github.action_path }}/RestoreSetupLVSource.ps1" \
-          -MinimumSupportedLVVersion ${{ inputs.minimum_supported_lv_version }} \
+          -MinimumSupportedLVVersion $lvVersion \
           -SupportedBitness ${{ inputs.supported_bitness }} \
-          -RelativePath "${{ inputs.relative_path }}" \
-          -LabVIEW_Project "${{ inputs.labview_project }}" \
-          -Build_Spec "${{ inputs.build_spec }}"
+          -RepoRoot "${{ inputs.repo_root }}"
 inputs:
-  minimum_supported_lv_version:
-    description: 'LabVIEW major version'
+  labview_version:
+    description: 'LabVIEW version to target (year or numeric).'
     required: true
   supported_bitness:
     description: '32 or 64'
     required: true
-  relative_path:
+  repo_root:
     description: 'Workspace root path'
-    required: true
-  labview_project:
-    description: 'LabVIEW project name (without extension)'
-    required: true
-  build_spec:
-    description: 'Build specification name'
-    required: true
+    required: false
+
+

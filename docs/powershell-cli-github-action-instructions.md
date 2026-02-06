@@ -104,13 +104,13 @@ For a visual reference, you may consult a **Gitflow diagram** that includes alph
 For **detailed runner configuration**, see **`runner-setup-guide.md`**. Below is a short summary:
 
 1. **Install Prerequisites**
-   - **LabVIEW 2021 SP1** (32-bit and 64-bit) plus **LabVIEW 2023** (as needed for packaging)
+   - **LabVIEW 2021 (21.0), 32-bit and 64-bit**
    - **PowerShell 7+**
    - **Git for Windows**
 2. **Add a Self-Hosted Runner**  
    - Go to **Settings → Actions → Runners**. Follow GitHub’s steps to register a Windows runner on your machine with LabVIEW installed.  
 3. **Label Your Runner**  
-   - For example, use `self-hosted-windows-lv` (or `self-hosted-linux-lv` for Linux). Ensure your workflow’s `runs-on` references these labels.
+   - For example, use `self-hosted-windows-lv-ie` (or `self-hosted-linux-lv` for Linux). Ensure your workflow’s `runs-on` references these labels.
 
 ---
 
@@ -140,9 +140,11 @@ You’ll typically name the workflow file **`development-mode-toggle.yml`**. Its
 #### 4.1.2 Usage
 
 1. **Trigger Manually**  
-   - Go to the **Actions** tab, select the “Development Mode Toggle” workflow, click “Run workflow.”  
+   - Go to the **Actions** tab, select the "Development Mode Toggle" workflow, click "Run workflow."  
    - Choose `enable` or `disable` to run the corresponding PowerShell script (`Set_Development_Mode.ps1` or `RevertDevelopmentMode.ps1`).  
-   - The workflow runs on your self-hosted runner (e.g., labeled `self-hosted-windows-lv`).
+   - LabVIEW version is fixed to **2021** (`labview_version`).  
+   - Choose a bitness (`bitness`, default `64`).  
+   - The workflow runs on your self-hosted runner (e.g., labeled `self-hosted-windows-lv-ie`).  
 
 2. **Important Note for Testing**  
    - With dev mode **enabled**, LabVIEW references local code, so installing the `.vip` may fail or cause conflicts.  
@@ -150,6 +152,8 @@ You’ll typically name the workflow file **`development-mode-toggle.yml`**. Its
 
 3. **Trigger from Another Workflow**  
    - You can call this workflow using `workflow_call`. Pass the input parameter `mode` = `enable` or `disable`.  
+   - Pass `labview_version: 2021` if you include the input (other values are not supported).  
+   - Pass `bitness` (`32` or `64`) to select the LabVIEW bitness.  
    - The same runner used by the calling job is toggled accordingly.
 
 <a name="413-examples-calling-this-workflow"></a>
@@ -163,12 +167,14 @@ on:
 
 jobs:
   call-dev-mode:
-  runs-on: self-hosted-windows-lv
+  runs-on: self-hosted-windows-lv-ie
     steps:
       - name: Invoke Dev Mode Toggle (enable)
         uses: ./.github/workflows/development-mode-toggle.yml
         with:
           mode: enable
+          labview_version: 2021
+          bitness: 64
 ```
 
 **B) Call from Another Repository**  
@@ -179,12 +185,14 @@ on:
 
 jobs:
   remote-dev-mode:
-  runs-on: self-hosted-windows-lv
+  runs-on: self-hosted-windows-lv-ie
     steps:
       - name: Use remote Dev Mode Toggle
         uses: <owner>/<repo>/.github/workflows/development-mode-toggle.yml@main
         with:
           mode: disable
+          labview_version: 2021
+          bitness: 64
 ```
 
 **C) Call from a Fork**  
@@ -195,12 +203,14 @@ on:
 
 jobs:
   forked-workflow-call:
-  runs-on: self-hosted-windows-lv
+  runs-on: self-hosted-windows-lv-ie
     steps:
       - name: Call Dev Mode Toggle from My Fork
         uses: <your-fork>/<repo>/.github/workflows/development-mode-toggle.yml@my-feature-branch
         with:
           mode: enable
+          labview_version: 2021
+          bitness: 64
 ```
 
 <a name="414-customization"></a>
@@ -313,4 +323,5 @@ In order to **enforce** the Gitflow approach “hands-off”:
 - **Gitflow Diagram**: [Atlassian Gitflow Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) or any other standard resource to visualize the overall branching approach (extended with alpha/beta/rc branches).
 
 ---
+
 
