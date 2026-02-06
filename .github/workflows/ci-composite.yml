@@ -9,6 +9,8 @@ env:
   LVIE_EXPECTED_RUNNER_LABEL: ${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
   LVIE_CANONICAL_RUNNER_LABEL: self-hosted-windows-lv
   LVIE_FORCE_NO_LABVIEW_DEVMODE: 1
+  LVIE_RUNNER_ACL_AUTOFIX: 1
+  LVIE_RUNNER_ACL_WARN_ONLY: 1
 
 concurrency:
   group: labview-${{ github.repository }}-${{ vars.LVIE_RUNNER_LABEL || 'self-hosted-windows-lv' }}
@@ -167,6 +169,12 @@ jobs:
             throw "Baseline guard: unable to determine base commit for comparison."
           }
 
+          $baselineInBase = & git ls-tree -r --name-only $baseSha -- $baselinePath
+          if (-not $baselineInBase) {
+            Write-Host ("Baseline guard: baseline missing in base {0}; allowing initial baseline addition." -f $baseSha)
+            exit 0
+          }
+
           $changed = git diff --name-only $baseSha $headSha -- $baselinePath
           if ($changed) {
             throw ("PSScriptAnalyzer baseline change detected in {0}. Use branch prefix 'lint-baseline/' or workflow_dispatch input allow_baseline_update=true." -f $baselinePath)
@@ -207,6 +215,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: ${{ matrix.bitness }}
+          create_worktree: 'true'
       - name: Initialize VerifyIEPaths archive folder
         shell: pwsh
         run: |
@@ -278,6 +287,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: 64
+          create_worktree: 'true'
       - name: Apply VIPC (LV x64)
         if: needs.changes.outputs.vipc == 'true'
         shell: pwsh
@@ -314,6 +324,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: 32
+          create_worktree: 'true'
       - name: Apply VIPC (LV x86)
         if: needs.changes.outputs.vipc == 'true'
         shell: pwsh
@@ -391,6 +402,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: ${{ matrix.bitness }}
+          create_worktree: 'true'
       - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -477,6 +489,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: ${{ matrix.bitness }}
+          create_worktree: 'true'
       - name: Enable Development Mode (LV ${{ matrix.bitness }}-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -528,6 +541,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: 32
+          create_worktree: 'true'
       - name: Enable Development Mode (LV 32-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -588,6 +602,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: 64
+          create_worktree: 'true'
       - name: Enable Development Mode (LV 64-bit)
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}
@@ -654,6 +669,7 @@ jobs:
         with:
           checkout: 'false'
           bitness: 64
+          create_worktree: 'true'
       - name: Generate release notes
         shell: pwsh
         working-directory: ${{ env.REPO_ROOT }}

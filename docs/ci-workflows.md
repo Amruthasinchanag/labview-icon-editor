@@ -27,7 +27,7 @@ Automating your Icon Editor builds and tests:
 - **Allows you to brand** each VI Package build with your organization or repository name for unique identification
 
 **Prerequisites**:
-- LabVIEW 2021 (21.0), 32-bit and 64-bit
+- LabVIEW 2021 SP1 (32-bit and 64-bit) and LabVIEW 2023 (64-bit)
 - PowerShell 7+
 - Git for Windows
 
@@ -109,16 +109,13 @@ Below are the **key GitHub Actions** provided in this repository:
 The [`ci-composite.yml`](../.github/workflows/ci-composite.yml) pipeline breaks the build into several jobs:
 
 - **issue-status** – skips the workflow if the pull request or branch has a `NoCI` label, then queries the **Status** field of the linked GitHub issue’s associated GitHub Project and proceeds only when that field is **In Progress**. Contributors must ensure their issue is added to a project with this Status value. It also requires the source branch name to contain `issue-<number>` (such as `issue-123` or `feature/issue-123`). For pull requests, the job evaluates the PR’s head branch.
-- **verify-ie-paths** – validates the LabVIEW Icon API installation for LabVIEW 2021 (21.0), 32- and 64-bit using `VerifyIEPaths.vi` and fails early if required files are missing. When it fails, the workflow uploads a `missing_IE_paths.txt` artifact that lists the missing paths.
 - **changes** – checks out the repository and detects `.vipc` file changes to determine if dependencies need to be applied.
-- **powershell-lint** – runs PSScriptAnalyzer against repository PowerShell scripts using the shared ruleset and baseline (runs on GitHub-hosted `ubuntu-latest`, so it does not consume self-hosted runner time). Baseline updates are blocked in CI unless the branch name starts with `lint-baseline/` (or `chore/lint-baseline/`) or the workflow is manually dispatched with `allow_baseline_update=true`.
-- **apply-deps** – installs VIPC dependencies for LabVIEW 2021 (21.0), 32- and 64-bit **only when** the `changes` job reports `.vipc` modifications (`if: needs.changes.outputs.vipc == 'true'`).
+- **apply-deps** – installs VIPC dependencies for multiple LabVIEW versions and bitnesses **only when** the `changes` job reports `.vipc` modifications (`if: needs.changes.outputs.vipc == 'true'`).
 - **version** – computes the semantic version and build number using commit count and PR labels.
-- **missing-in-project** – verifies every source file is referenced in the `.lvproj` (inlined in `ci-composite.yml` to avoid reusable workflow skips).
-- **test** – runs LabVIEW unit tests on Windows in LabVIEW 2021 (21.0), 32- and 64-bit.
+- **missing-in-project-check** – verifies every source file is referenced in the `.lvproj`.
+- **test** – runs LabVIEW unit tests on Windows in LabVIEW 2021 (32- and 64-bit).
 - **build-ppl** – uses a matrix to build 32-bit and 64-bit packed libraries, then uses the `rename-file` action to append the bitness to each library’s filename.
 - **build-vi-package** – packages the final VI Package using the built libraries and version information. In `ci-composite.yml` this job passes `supported_bitness: 64`, so it produces only a 64-bit `.vip`.
-- **pipeline-contract** – fails the workflow when required jobs are skipped or cancelled, preventing silent CI gaps.
 
 Both `build-ppl` and `build-vi-package` run a `close-labview` step after their build actions finish but before any steps that rename files or upload artifacts, so it isn't the job's final step.
 
@@ -126,17 +123,12 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
 
 *(The **Run Unit Tests** workflow has been consolidated into the main CI process.)*
 
-**Run traceability**
-- The workflow run name includes the commit SHA and run ID.
-- Each run uploads a `run-manifest` artifact with `run_id`, `run_attempt`, `sha`, and related metadata.
-- Manual dispatch can specify `expected_sha` (and `strict_sha`) to hard-gate the run to a specific commit.
-
 ---
 
 ### 3.3 Setting Up a Self-Hosted Runner
 
 1. **Install Prerequisites**:
-   - LabVIEW 2021 (21.0), 32-bit and 64-bit
+   - LabVIEW 2021 SP1 (32-bit and 64-bit) and LabVIEW 2023 (64-bit)
    - PowerShell 7+
    - Git for Windows
 
@@ -145,9 +137,9 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
 
 3. **Label the Runner**:
    - **Canonical label**: `self-hosted-windows-lv` must always be present.
-   - You can add a fork-specific label (for example `self-hosted-windows-lv-ie`), but keep the canonical label on the same runner.
-   - The workflow uses `LVIE_RUNNER_LABEL` (repo variable) and falls back to `self-hosted-windows-lv`.
-   - If `LVIE_RUNNER_LABEL` is set to a fork-specific label, the runner must still include `self-hosted-windows-lv`.
+   - The workflows use `LVIE_RUNNER_LABEL` (repo variable) and fall back to `self-hosted-windows-lv`.
+   - For forks, set **Settings → Actions → Variables → `LVIE_RUNNER_LABEL`** to match your runner label.
+   - If `LVIE_RUNNER_LABEL` is set to a fork-specific label, keep `self-hosted-windows-lv` on the same runner.
    - Example label set: `self-hosted-windows-lv`, `self-hosted-windows-lv-ie`.
 
 4. **Runner Contract (recommended)**:
@@ -159,26 +151,6 @@ The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct
 5. **Git safe.directory**:
    - `Tooling/Setup-Runner.ps1` configures a scoped safe.directory for the work root.
    - This prevents Git “dubious ownership” errors when the runner service account differs from the checkout owner.
-
-#### Runner Bootstrap (Recommended)
-
-Use the bootstrap script to configure paths, labels, and the runner contract in one step.
-
-**One-command bootstrap (preferred)**
-```
-pwsh -NoProfile -File .\Tooling\Bootstrap-Runner.ps1 `
-  -RunnerRoot C:\actions-runner `
-  -RunnerLabels @('self-hosted-windows-lv','self-hosted-windows-lv-ie') `
-  -Repo <owner>/<repo> `
-  -RegisterRunner `
-  -RestartRunnerService
-```
-
-Notes:
-- If `gh` is installed and authenticated, the script will fetch registration/remove tokens automatically.
-- Otherwise, pass `-RunnerRegistrationToken` and `-RunnerRemoveToken`.
-- Run the bootstrap when the runner is **idle** (no active jobs).
-- The script writes `C:\actions-runner\_work\lvie\runner-bootstrap.json` and updates the runner contract.
 
 ---
 
@@ -200,14 +172,6 @@ Although GitHub Actions primarily run on GitHub-hosted or self-hosted agents, yo
 
 4. **Disable Dev Mode**:  
    - Revert to a normal LabVIEW environment so standard usage or testing can resume.
-
-You can also run a local parity pass of `ci-composite.yml` using the helper script:
-
-```
-pwsh -NoProfile -File .\Tooling\Run-CICompositeLocal.ps1 -LabVIEWVersion 2021 -EnsureCleanState
-```
-
-This runs Verify IE Paths, applies VIPC dependencies, runs missing-in-project checks and unit tests for both bitnesses, builds PPLs, and builds the VI package. Outputs are saved to `TestResults/ci-local`.
 
 ---
 
@@ -258,4 +222,3 @@ This runs Verify IE Paths, applies VIPC dependencies, runs missing-in-project ch
 - If runner paths differ, use `Tooling/Setup-Runner.ps1` to generate the contract and set paths.
 
 By adopting these workflows—**Development Mode Toggle** and **Build VI Package**—you can maintain a **streamlined, consistent** CI/CD process for the Icon Editor while customizing the VI Package with your own **unique** or **fork-specific** branding.
-

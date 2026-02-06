@@ -23,7 +23,7 @@ if (-not (Test-Path -Path $contractHelper)) {
 }
 . $contractHelper
 
-function Resolve-NormalizedPath {
+function Resolve-RunnerPath {
     param([string]$Path)
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
@@ -41,10 +41,10 @@ $workRootResolved = Resolve-RunnerWorkRoot -RunnerRoot $RunnerRoot -WorkRoot $Wo
 if ([string]::IsNullOrWhiteSpace($workRootResolved)) {
     throw "Runner work root could not be resolved. Provide -RunnerRoot or -WorkRoot."
 }
-$workRootResolved = Resolve-NormalizedPath -Path $workRootResolved
+$workRootResolved = Resolve-RunnerPath -Path $workRootResolved
 
 $runnerRootResolved = if (-not [string]::IsNullOrWhiteSpace($RunnerRoot)) {
-    Resolve-NormalizedPath -Path $RunnerRoot
+    Resolve-RunnerPath -Path $RunnerRoot
 } else {
     Split-Path -Parent $workRootResolved
 }
@@ -70,10 +70,35 @@ $logRootResolved = if (-not [string]::IsNullOrWhiteSpace($LogRoot)) {
     Join-Path $workRootResolved 'lvie\logs'
 }
 
-$worktreeRootResolved = Resolve-NormalizedPath -Path $worktreeRootResolved
-$artifactRootResolved = Resolve-NormalizedPath -Path $artifactRootResolved
-$lockRootResolved = Resolve-NormalizedPath -Path $lockRootResolved
-$logRootResolved = Resolve-NormalizedPath -Path $logRootResolved
+$worktreeRootResolved = Resolve-RunnerPath -Path $worktreeRootResolved
+$artifactRootResolved = Resolve-RunnerPath -Path $artifactRootResolved
+$lockRootResolved = Resolve-RunnerPath -Path $lockRootResolved
+$logRootResolved = Resolve-RunnerPath -Path $logRootResolved
+
+$canonicalRunnerLabel = if ([string]::IsNullOrWhiteSpace($CanonicalRunnerLabel)) {
+    'self-hosted-windows-lv'
+} else {
+    $CanonicalRunnerLabel.Trim()
+}
+$primaryRunnerLabel = if (-not [string]::IsNullOrWhiteSpace($RunnerLabel)) {
+    $RunnerLabel.Trim()
+} elseif (-not [string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_LABEL)) {
+    $env:LVIE_RUNNER_LABEL.Trim()
+} else {
+    $canonicalRunnerLabel
+}
+
+$runnerLabelsResolved = @()
+if ($RunnerLabels) {
+    $runnerLabelsResolved += $RunnerLabels
+}
+if (-not [string]::IsNullOrWhiteSpace($primaryRunnerLabel)) {
+    $runnerLabelsResolved += $primaryRunnerLabel
+}
+if (-not [string]::IsNullOrWhiteSpace($canonicalRunnerLabel)) {
+    $runnerLabelsResolved += $canonicalRunnerLabel
+}
+$runnerLabelsResolved = $runnerLabelsResolved | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique
 
 $canonicalRunnerLabel = if ([string]::IsNullOrWhiteSpace($CanonicalRunnerLabel)) {
     'self-hosted-windows-lv'
@@ -166,4 +191,3 @@ try {
 } catch {
     Write-Warning ("Failed to configure git safe.directory: {0}" -f $_.Exception.Message)
 }
-
