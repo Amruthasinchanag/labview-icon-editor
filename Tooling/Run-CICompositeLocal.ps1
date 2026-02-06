@@ -92,6 +92,12 @@
 .PARAMETER CleanRoom
     If set, purge known output folders before and after the run.
 
+.PARAMETER RunnerCliPath
+    Optional path to runner-cli.exe for runner contract validation.
+
+.PARAMETER RequireRunnerCli
+    Require runner-cli for contract validation (default true).
+
 .PARAMETER Major
     Override major version.
 
@@ -183,6 +189,11 @@ param(
     [string]$ArtifactRoot,
 
     [switch]$CleanRoom,
+
+    [Parameter(Mandatory = $false)]
+    [string]$RunnerCliPath,
+
+    [switch]$RequireRunnerCli,
 
     [Parameter(Mandatory = $false)]
     [int]$Major,
@@ -797,7 +808,166 @@ function Write-GCliBuildLogTail {
     Write-Host "---- end g-cli build log ----"
 }
 
+function Resolve-RunnerCliPath {
+    param(
+        [string]$ExplicitPath,
+        [string]$RepoRoot
+    )
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitPath)) {
+        $candidates += $ExplicitPath
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_CLI_PATH)) {
+        $candidates += $env:LVIE_RUNNER_CLI_PATH
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+        $candidates += (Join-Path $env:RUNNER_TEMP 'runner-cli\runner-cli.exe')
+    }
+    if (-not [string]::IsNullOrWhiteSpace($RepoRoot)) {
+        $candidates += (Join-Path $RepoRoot 'Tooling\runner-cli\publish\win-x64\runner-cli.exe')
+        $candidates += (Join-Path $RepoRoot 'Tooling\runner-cli\RunnerCli\bin\Release\net8.0\win-x64\publish\runner-cli.exe')
+        $candidates += (Join-Path $RepoRoot 'Tooling\runner-cli\RunnerCli\bin\Release\net8.0\runner-cli.exe')
+    }
+
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            continue
+        }
+        if (Test-Path -Path $candidate) {
+            return (Resolve-Path -Path $candidate -ErrorAction Stop).Path
+        }
+    }
+
+    return $null
+}
+
+function Initialize-RunnerContractIfNeeded {
+    param(
+        [string]$RepoRoot,
+        [string]$RunnerCliPath,
+        [switch]$RequireRunnerCli
+    )
+
+    $contractHelper = Join-Path $RepoRoot 'Tooling\support\RunnerContract.ps1'
+    if (-not (Test-Path -Path $contractHelper)) {
+        return
+    }
+
+    . $contractHelper
+
+    $contractPath = Resolve-RunnerContractPath -ContractPath $env:LVIE_RUNNER_CONTRACT_PATH -RunnerRoot $env:LVIE_RUNNER_ROOT -WorkRoot $env:LVIE_RUNNER_WORK_ROOT
+    if (-not [string]::IsNullOrWhiteSpace($contractPath) -and (Test-Path -Path $contractPath)) {
+        return
+    }
+
+    $runnerRoot = $env:LVIE_RUNNER_ROOT
+    $workRoot = Resolve-RunnerWorkRoot -RunnerRoot $runnerRoot -WorkRoot $env:LVIE_RUNNER_WORK_ROOT
+    if ([string]::IsNullOrWhiteSpace($workRoot)) {
+        Write-Host 'Runner work root not resolved; skipping runner contract initialization.'
+        return
+    }
+    if ([string]::IsNullOrWhiteSpace($runnerRoot)) {
+        if ((Split-Path -Leaf $workRoot) -ieq '_work') {
+            $runnerRoot = Split-Path -Parent $workRoot
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($runnerRoot)) {
+        Write-Host 'Runner root not resolved; skipping runner contract initialization.'
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($contractPath)) {
+        $contractPath = Join-Path $workRoot 'lvie\runner-contract.json'
+    }
+
+    $cliPath = $null
+    $ensureScript = Join-Path $RepoRoot 'Tooling\Ensure-RunnerCli.ps1'
+    if (Test-Path -Path $ensureScript) {
+        $ensureResult = & $ensureScript -RepoRoot $RepoRoot -RunnerCliPath $RunnerCliPath -Require:$RequireRunnerCli
+        if ($ensureResult -and $ensureResult.Path) {
+            $cliPath = $ensureResult.Path
+        }
+    }
+    if (-not $cliPath) {
+        $cliPath = Resolve-RunnerCliPath -ExplicitPath $RunnerCliPath -RepoRoot $RepoRoot
+    }
+
+    if (-not $cliPath -or -not (Test-Path -Path $cliPath)) {
+        if ($RequireRunnerCli.IsPresent) {
+            throw 'runner-cli not available to initialize runner contract.'
+        }
+        Write-Host 'runner-cli not found; skipping runner contract initialization.'
+        return
+    }
+
+    $runnerLabel = if ([string]::IsNullOrWhiteSpace($env:LVIE_RUNNER_LABEL)) { 'self-hosted-windows-lv' } else { $env:LVIE_RUNNER_LABEL }
+    $canonicalLabel = if ([string]::IsNullOrWhiteSpace($env:LVIE_CANONICAL_RUNNER_LABEL)) { 'self-hosted-windows-lv' } else { $env:LVIE_CANONICAL_RUNNER_LABEL }
+
+    Write-Host ("Initializing runner contract with runner-cli: {0}" -f $cliPath)
+    & $cliPath init-contract `
+        --contract-path $contractPath `
+        --runner-root $runnerRoot `
+        --work-root $workRoot `
+        --runner-label $runnerLabel `
+        --canonical-label $canonicalLabel
+
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+        throw ("runner-cli init-contract failed (exit {0})." -f $LASTEXITCODE)
+    }
+
+    $contract = Get-RunnerContract -ContractPath $contractPath -RunnerRoot $runnerRoot -WorkRoot $workRoot
+    if ($contract) {
+        Set-RunnerContractEnvironment -Contract $contract -ContractPath $contractPath
+    }
+}
+
+function Invoke-RunnerContractValidation {
+    param(
+        [string]$RepoRoot,
+        [string]$RunnerCliPath,
+        [switch]$RequireRunnerCli
+    )
+
+    $contractPath = $env:LVIE_RUNNER_CONTRACT_PATH
+    if ([string]::IsNullOrWhiteSpace($contractPath)) {
+        Write-Host 'Runner contract not set; skipping runner-cli validation.'
+        return
+    }
+    if (-not (Test-Path -Path $contractPath)) {
+        Write-Warning ("Runner contract not found at {0}; skipping validation." -f $contractPath)
+        return
+    }
+
+    $requireEnabled = $RequireRunnerCli.IsPresent -or -not $PSBoundParameters.ContainsKey('RequireRunnerCli')
+    $ensureScript = Join-Path $RepoRoot 'Tooling\Ensure-RunnerCli.ps1'
+    if (Test-Path -Path $ensureScript) {
+        $ensureResult = & $ensureScript -RepoRoot $RepoRoot -RunnerCliPath $RunnerCliPath -Require:$requireEnabled
+        if ($ensureResult -and $ensureResult.Path) {
+            $RunnerCliPath = $ensureResult.Path
+        }
+    }
+
+    $cliPath = Resolve-RunnerCliPath -ExplicitPath $RunnerCliPath -RepoRoot $RepoRoot
+    if ($cliPath -and (Test-Path -Path $cliPath)) {
+        Write-Host ("Validating runner contract with runner-cli: {0}" -f $cliPath)
+        & $cliPath validate-contract --contract-path $contractPath --fail-on-missing-safe-directory
+        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+            throw ("runner-cli validation failed (exit {0})." -f $LASTEXITCODE)
+        }
+        return
+    }
+
+    $validateScript = Join-Path $RepoRoot 'Tooling\Validate-RunnerContract.ps1'
+    if (Test-Path -Path $validateScript) {
+        Write-Host 'runner-cli not found; using PowerShell fallback.'
+        & $validateScript -ContractPath $contractPath -FailOnMissingSafeDirectory
+    }
+}
+
 $repoRoot = Resolve-RepoRoot -PathOverride $RepoRoot
+$requireRunnerCliEnabled = $RequireRunnerCli.IsPresent -or -not $PSBoundParameters.ContainsKey('RequireRunnerCli')
+$requireRunnerCliInit = $RequireRunnerCli.IsPresent
 $artifactRootResolved = $null
 $preflight = $null
 $preflightScript = Join-Path $repoRoot 'Tooling\Invoke-Preflight.ps1'
@@ -817,13 +987,19 @@ if (Test-Path -Path $preflightScript) {
         -RunId $RunId `
         -ArtifactRoot $ArtifactRoot `
         -CleanRoom:$CleanRoom `
-        -RequireGcli
+        -RequireGcli `
+        -RunnerCliPath $RunnerCliPath `
+        -RequireRunnerCli:$requireRunnerCliEnabled
     if ($preflight.Reinvoked) {
         return
     }
     $repoRoot = $preflight.RepoRoot
     $artifactRootResolved = $preflight.ArtifactRoot
 }
+
+Initialize-RunnerContractIfNeeded -RepoRoot $repoRoot -RunnerCliPath $RunnerCliPath -RequireRunnerCli:$requireRunnerCliInit
+
+Invoke-RunnerContractValidation -RepoRoot $repoRoot -RunnerCliPath $RunnerCliPath -RequireRunnerCli:$requireRunnerCliEnabled
 
 $assertScript = Join-Path $repoRoot 'Tooling\Assert-LabVIEWVersion.ps1'
 if (Test-Path -Path $assertScript) {
@@ -856,7 +1032,7 @@ Initialize-CsvHeader -Path $script:RunHistoryPath -Header 'timestamp,status,dura
 Initialize-CsvHeader -Path $script:StepHistoryPath -Header 'timestamp,step,status,duration_seconds'
 $env:LABVIEW_CLOSE_METRICS_PATH = $script:CloseHistoryPath
 $runLog = Join-Path $logRoot "ci-local-$runTimestamp.log"
-$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBitness $LabVIEWBitness -AllowVersionMismatch:$AllowVersionMismatch -DryRun:$DryRun -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -UseLabVIEWDevMode:$UseLabVIEWDevMode -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom"
+$commandLine = "Run-CICompositeLocal.ps1 -LabVIEWVersion $LabVIEWVersion -LabVIEWBitness $LabVIEWBitness -AllowVersionMismatch:$AllowVersionMismatch -DryRun:$DryRun -EnsureCleanState:$EnsureCleanState -SkipVerifyIEPaths:$SkipVerifyIEPaths -SkipVipc:$SkipVipc -SkipMissingInProject:$SkipMissingInProject -SkipUnitTests:$SkipUnitTests -SkipBuildPpl:$SkipBuildPpl -SkipBuildVip:$SkipBuildVip -UseLabVIEWDevMode:$UseLabVIEWDevMode -BumpType $BumpType -ConnectTimeoutMs $ConnectTimeoutMs -ProcessTimeoutMs $ProcessTimeoutMs -StatusFileTimeoutMs $StatusFileTimeoutMs -VipmTimeoutSeconds $VipmTimeoutSeconds -CloseLabVIEWMode $CloseLabVIEWMode -WorktreeRoot $WorktreeRoot -SkipWorktreeRootCheck:$SkipWorktreeRootCheck -AutoWorktree:$AutoWorktree -RunId $RunId -ArtifactRoot $ArtifactRoot -CleanRoom:$CleanRoom -RunnerCliPath $RunnerCliPath -RequireRunnerCli:$requireRunnerCliEnabled"
 $script:TranscriptStarted = $false
 try {
     Start-Transcript -Path $runLog -Append | Out-Null
