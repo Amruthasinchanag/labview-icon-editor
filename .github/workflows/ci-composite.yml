@@ -169,6 +169,12 @@ jobs:
             throw "Baseline guard: unable to determine base commit for comparison."
           }
 
+          $baselineInBase = & git ls-tree -r --name-only $baseSha -- $baselinePath
+          if (-not $baselineInBase) {
+            Write-Host ("Baseline guard: baseline missing in base {0}; allowing initial baseline addition." -f $baseSha)
+            exit 0
+          }
+
           $changed = git diff --name-only $baseSha $headSha -- $baselinePath
           if ($changed) {
             throw ("PSScriptAnalyzer baseline change detected in {0}. Use branch prefix 'lint-baseline/' or workflow_dispatch input allow_baseline_update=true." -f $baselinePath)
