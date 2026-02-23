@@ -323,6 +323,7 @@
 			<Item Name="Set Run Icon Editor from Source.vi" Type="VI" URL="../Tooling/Set Run Icon Editor from Source.vi"/>
 			<Item Name="Remove Icon Editor Settings.vi" Type="VI" URL="../Tooling/Remove Icon Editor Settings.vi"/>
 			<Item Name="Unset Run Icon Editor from Source.vi" Type="VI" URL="../Tooling/Unset Run Icon Editor from Source.vi"/>
+			<Item Name="Install to LVAddons.vi" Type="VI" URL="../Tooling/Install to LVAddons.vi"/>
 		</Item>
 		<Item Name="vi.lib/LabVIEW Icon API" Type="Folder">
 			<Item Name="lv_icon" Type="Folder">

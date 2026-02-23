@@ -46,8 +46,32 @@ This document provides **manual** steps to configure, edit, and distribute the L
 
 ---
 
+<a name="Testing"></a>
+## 3. Testing Guide
+
+There are four ways to test the GUI.
+
+1. Run the lv_icon.vi directly.
+   - There will be no data in the icon, but you can still build up an icon using the full functionality.
+2. Configure LabVIEW to use the source code for the Icon Editor
+ 
+   **NOTE:** The API is not tested using this method. It is only for the editor GUI.
+   - Run Tools\Set Run Icon Editor from Source.vi.  This VI will create a launcher VI that points to the lv_icon.vi in the project.
+   - This allows testing using the launching paths from the LabVIEW IDE.
+   - Run Tools\Unset Run Icon Editor from Source.vi to restore the default editor.
+3. Build the PPL and install in the lvaddons directory.
+
+   **NOTE:** This does require administrative rights
+   **NOTE:** This is only valid for LabVIEW 2023 or newer
+   - Run the Editor Packed Library build specification from the project. This will create a PPL for the editor.
+   - Run Tools\Install to LVAddons.vi. This VI will copy the built lv_icon.lvlibp and all of the VIs in the vi.lib\LabVIEW Icon API folder to the proper locations in C:\Program Files\NI\LVAddons\labview-icon-editor as well as the infrastructure required for an LVAddon.
+4. Manually copy the files into the <LabVIEW 20xx> installation folders.
+   - See [Distribution Guide (Manual)](#distribution-guide-manual) for instructions on building and copying the files.
+
+---
+
 <a name="distribution-guide-manual"></a>
-## 3. Distribution Guide (Manual)
+## 4. Distribution Guide (Manual)
 
 To **manually distribute** your custom Icon Editor:
 
