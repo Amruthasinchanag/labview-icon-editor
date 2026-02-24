@@ -318,12 +318,16 @@
 				<Item Name="PPL Paths.vi" Type="VI" URL="../Tooling/support/PPL Paths.vi"/>
 				<Item Name="Set Path in Launcher.vi" Type="VI" URL="../Tooling/support/Set Path in Launcher.vi"/>
 			</Item>
+			<Item Name="Build Actions" Type="Folder">
+				<Item Name="Pre Build Icon Editor PPL.vi" Type="VI" URL="../Tooling/Build Actions/Pre Build Icon Editor PPL.vi"/>
+				<Item Name="Post-Build Icon Editor PPL.vi" Type="VI" URL="../Tooling/Build Actions/Post-Build Icon Editor PPL.vi"/>
+			</Item>
 			<Item Name="Force Icon Editor to Unload.vi" Type="VI" URL="../Tooling/Force Icon Editor to Unload.vi"/>
-			<Item Name="Pre Build Icon Editor PPL.vi" Type="VI" URL="../Tooling/Pre Build Icon Editor PPL.vi"/>
 			<Item Name="Set Run Icon Editor from Source.vi" Type="VI" URL="../Tooling/Set Run Icon Editor from Source.vi"/>
 			<Item Name="Remove Icon Editor Settings.vi" Type="VI" URL="../Tooling/Remove Icon Editor Settings.vi"/>
 			<Item Name="Unset Run Icon Editor from Source.vi" Type="VI" URL="../Tooling/Unset Run Icon Editor from Source.vi"/>
 			<Item Name="Install to LVAddons.vi" Type="VI" URL="../Tooling/Install to LVAddons.vi"/>
+			<Item Name="Set Debug Flag.vi" Type="VI" URL="../Tooling/Set Debug Flag.vi"/>
 		</Item>
 		<Item Name="vi.lib/LabVIEW Icon API" Type="Folder">
 			<Item Name="lv_icon" Type="Folder">
@@ -381,7 +385,8 @@
 				<Property Name="Bld_localDestDir" Type="Path">../resource/plugins</Property>
 				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_modifyLibraryFile" Type="Bool">true</Property>
-				<Property Name="Bld_preActionVIID" Type="Ref">/My Computer/Tooling/Pre Build Icon Editor PPL.vi</Property>
+				<Property Name="Bld_postActionVIID" Type="Ref">/My Computer/Tooling/Build Actions/Post-Build Icon Editor PPL.vi</Property>
+				<Property Name="Bld_preActionVIID" Type="Ref">/My Computer/Tooling/Build Actions/Pre Build Icon Editor PPL.vi</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{C699D48A-6A0A-4A55-BF6A-D6FC254001CD}</Property>
 				<Property Name="Bld_version.build" Type="Int">1</Property>
 				<Property Name="Bld_version.major" Type="Int">1</Property>
@@ -395,7 +400,7 @@
 				<Property Name="Destination[1].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="PackedLib_callersAdapt" Type="Bool">true</Property>
-				<Property Name="Source[0].itemID" Type="Str">{138797B9-53A9-4873-9DF2-49472334A11F}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{84ECD9C7-7C14-4BD6-8967-85FB97F1ADB5}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/resource\/plugins/lv_icon.lvlib</Property>
