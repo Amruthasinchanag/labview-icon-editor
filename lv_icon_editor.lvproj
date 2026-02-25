@@ -320,7 +320,6 @@
 			</Item>
 			<Item Name="Build Actions" Type="Folder">
 				<Item Name="Pre Build Icon Editor PPL.vi" Type="VI" URL="../Tooling/Build Actions/Pre Build Icon Editor PPL.vi"/>
-				<Item Name="Post-Build Icon Editor PPL.vi" Type="VI" URL="../Tooling/Build Actions/Post-Build Icon Editor PPL.vi"/>
 			</Item>
 			<Item Name="Force Icon Editor to Unload.vi" Type="VI" URL="../Tooling/Force Icon Editor to Unload.vi"/>
 			<Item Name="Set Run Icon Editor from Source.vi" Type="VI" URL="../Tooling/Set Run Icon Editor from Source.vi"/>
@@ -385,7 +384,6 @@
 				<Property Name="Bld_localDestDir" Type="Path">../resource/plugins</Property>
 				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_modifyLibraryFile" Type="Bool">true</Property>
-				<Property Name="Bld_postActionVIID" Type="Ref">/My Computer/Tooling/Build Actions/Post-Build Icon Editor PPL.vi</Property>
 				<Property Name="Bld_preActionVIID" Type="Ref">/My Computer/Tooling/Build Actions/Pre Build Icon Editor PPL.vi</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{C699D48A-6A0A-4A55-BF6A-D6FC254001CD}</Property>
 				<Property Name="Bld_version.build" Type="Int">1</Property>
@@ -400,7 +398,7 @@
 				<Property Name="Destination[1].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="PackedLib_callersAdapt" Type="Bool">true</Property>
-				<Property Name="Source[0].itemID" Type="Str">{84ECD9C7-7C14-4BD6-8967-85FB97F1ADB5}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{CDFBB82B-1D14-4D61-85B6-C6172B2E3554}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/resource\/plugins/lv_icon.lvlib</Property>
