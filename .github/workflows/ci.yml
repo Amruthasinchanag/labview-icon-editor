@@ -95,8 +95,8 @@ jobs:
           "minor=$($info.MinorRevision)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "numeric=$($info.NumericVersion)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-  pylavi-strict:
-    name: Pylavi Strict (Report-Only)
+  pylavi-linux:
+    name: Pylavi Linux Container
     needs: [run-metadata, version-gate]
     runs-on: ubuntu-latest
     steps:
@@ -105,50 +105,19 @@ jobs:
           fetch-depth: 0
 
       - id: pylavi
-        name: Run pylavi strict config
+        name: Run pylavi
         uses: ./.github/actions/pylavi-ci
         with:
-          config_path: Tooling/pylavi/vi-validate.yml
-          labview_numeric: ${{ needs.version-gate.outputs.numeric }}
-          label: strict
+          validate_args: --gt 19 --lt 21 --no-suspend-on-run --breakpoints --no-code --no-absolute-path
+          label: linux-container
           report_only: 'true'
           absolute_roots: ${{ vars.LVIE_PYLAVI_ABSOLUTE_PATH_ROOTS }}
 
-      - name: Upload pylavi strict artifacts
+      - name: Upload pylavi artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pylavi-strict
-          path: |
-            ${{ steps.pylavi.outputs.log_path }}
-            ${{ steps.pylavi.outputs.offenders_path }}
-            ${{ steps.pylavi.outputs.summary_path }}
-          if-no-files-found: warn
-
-  pylavi-legacy:
-    name: Pylavi Legacy (Report-Only)
-    needs: [run-metadata, version-gate]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - id: pylavi
-        name: Run pylavi legacy config
-        uses: ./.github/actions/pylavi-ci
-        with:
-          config_path: Tooling/pylavi/vi-validate-legacy.yml
-          labview_numeric: ${{ needs.version-gate.outputs.numeric }}
-          label: legacy
-          report_only: 'true'
-          absolute_roots: ${{ vars.LVIE_PYLAVI_ABSOLUTE_PATH_ROOTS }}
-
-      - name: Upload pylavi legacy artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pylavi-legacy
+          name: pylavi-linux
           path: |
             ${{ steps.pylavi.outputs.log_path }}
             ${{ steps.pylavi.outputs.offenders_path }}
@@ -203,13 +172,12 @@ jobs:
   pipeline-contract:
     name: Pipeline Contract
     if: always()
-    needs: [run-metadata, version-gate, pylavi-strict, pylavi-legacy, vi-analyzer-linux]
+    needs: [run-metadata, version-gate, pylavi-linux, vi-analyzer-linux]
     runs-on: ubuntu-latest
     env:
       RUN_METADATA_RESULT: ${{ needs.run-metadata.result }}
       VERSION_GATE_RESULT: ${{ needs.version-gate.result }}
-      PYLAVI_STRICT_RESULT: ${{ needs.pylavi-strict.result }}
-      PYLAVI_LEGACY_RESULT: ${{ needs.pylavi-legacy.result }}
+      PYLAVI_RESULT: ${{ needs.pylavi-linux.result }}
       VI_ANALYZER_RESULT: ${{ needs.vi-analyzer-linux.result }}
     steps:
       - uses: actions/checkout@v4
@@ -220,11 +188,10 @@ jobs:
         shell: pwsh
         run: |
           $results = [ordered]@{
-            'run-metadata'    = $env:RUN_METADATA_RESULT
-            'version-gate'    = $env:VERSION_GATE_RESULT
-            'pylavi-strict'   = $env:PYLAVI_STRICT_RESULT
-            'pylavi-legacy'   = $env:PYLAVI_LEGACY_RESULT
-            'vi-analyzer'     = $env:VI_ANALYZER_RESULT
+            'run-metadata' = $env:RUN_METADATA_RESULT
+            'version-gate' = $env:VERSION_GATE_RESULT
+            'pylavi-linux' = $env:PYLAVI_RESULT
+            'vi-analyzer'  = $env:VI_ANALYZER_RESULT
           }
 
           $failed = @($results.GetEnumerator() | Where-Object { [string]$_.Value -ne 'success' })

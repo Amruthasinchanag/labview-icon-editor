@@ -3,18 +3,14 @@ name: Pylavi CI
 description: Deterministic pylavi validation without runner-cli dependency.
 
 inputs:
-  config_path:
-    description: Path to vi_validate config file relative to repo root.
+  validate_args:
+    description: Arguments passed to vi_validate.
     required: false
-    default: Tooling/pylavi/vi-validate.yml
-  labview_numeric:
-    description: LabVIEW numeric version (for example 20.0). Falls back to .lvversion when omitted.
-    required: false
-    default: ''
+    default: --gt 19 --lt 21 --no-suspend-on-run --breakpoints --no-code --no-absolute-path
   label:
     description: Label to use in emitted report artifacts.
     required: false
-    default: strict
+    default: linux-container
   report_only:
     description: Do not fail the step when vi_validate reports findings.
     required: false
@@ -23,18 +19,6 @@ inputs:
     description: Semicolon-delimited absolute roots for visibility in summary metadata.
     required: false
     default: ''
-  baseline_path:
-    description: Optional baseline report path relative to repo root.
-    required: false
-    default: ''
-  baseline_required:
-    description: Fail when baseline_path is set but missing.
-    required: false
-    default: 'false'
-  fail_on_delta:
-    description: Fail when newly observed offenders are not present in the baseline report.
-    required: false
-    default: 'false'
 
 outputs:
   status:
@@ -80,75 +64,21 @@ runs:
           return $normalized -in @('1', 'true', 'yes')
         }
 
-        function Get-OffenderSignatures {
-          param([object]$InputObject)
-          $values = @()
-          if ($null -eq $InputObject) {
-            return $values
-          }
-
-          if ($InputObject -is [string]) {
-            if (-not [string]::IsNullOrWhiteSpace([string]$InputObject)) {
-              $values += [string]$InputObject
-            }
-            return $values
-          }
-
-          if ($InputObject -is [System.Collections.IEnumerable]) {
-            foreach ($entry in $InputObject) {
-              if ($null -eq $entry) { continue }
-              if ($entry.PSObject -and $entry.PSObject.Properties['line']) {
-                $line = [string]$entry.line
-                if (-not [string]::IsNullOrWhiteSpace($line)) {
-                  $values += $line
-                }
-                continue
-              }
-              if ($entry.PSObject -and $entry.PSObject.Properties['message']) {
-                $message = [string]$entry.message
-                if (-not [string]::IsNullOrWhiteSpace($message)) {
-                  $values += $message
-                }
-                continue
-              }
-              $values += Get-OffenderSignatures -InputObject $entry
-            }
-            return @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
-          }
-
-          if ($InputObject.PSObject -and $InputObject.PSObject.Properties['offenders']) {
-            return Get-OffenderSignatures -InputObject $InputObject.offenders
-          }
-
-          return $values
-        }
-
         $repoRoot = $env:GITHUB_WORKSPACE
         $label = [string]'${{ inputs.label }}'
         if ([string]::IsNullOrWhiteSpace($label)) {
-          $label = 'strict'
+          $label = 'linux-container'
         }
 
-        $configInput = [string]'${{ inputs.config_path }}'
-        $configPath = Join-Path $repoRoot $configInput
-        if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-          throw "vi_validate config file was not found: $configPath"
+        $validateArgsRaw = [string]'${{ inputs.validate_args }}'
+        if ([string]::IsNullOrWhiteSpace($validateArgsRaw)) {
+          $validateArgsRaw = '--gt 19 --lt 21 --no-suspend-on-run --breakpoints --no-code --no-absolute-path'
         }
 
-        $versionScript = Join-Path $repoRoot 'Tooling/support/LabVIEWVersion.ps1'
-        if (-not (Test-Path -LiteralPath $versionScript -PathType Leaf)) {
-          throw "LabVIEW version helper was not found: $versionScript"
+        $validateArgs = @($validateArgsRaw -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($validateArgs.Count -eq 0) {
+          throw 'validate_args resolved to an empty argument list.'
         }
-
-        . $versionScript
-
-        $labviewInput = [string]'${{ inputs.labview_numeric }}'
-        $versionInfo = if ([string]::IsNullOrWhiteSpace($labviewInput)) {
-          Get-LabVIEWVersionInfo -RepoRoot $repoRoot
-        } else {
-          Get-LabVIEWVersionInfo -VersionInput $labviewInput -RepoRoot $repoRoot
-        }
-        $labviewNumeric = [string]$versionInfo.NumericVersion
 
         $runRoot = Join-Path $env:RUNNER_TEMP ("pylavi-{0}" -f $label)
         New-Item -Path $runRoot -ItemType Directory -Force | Out-Null
@@ -161,7 +91,7 @@ runs:
         New-Item -Path $statusRoot -ItemType Directory -Force | Out-Null
         $statusSummaryPath = Join-Path $statusRoot ("pylavi-summary.{0}.json" -f $label)
 
-        $commandOutput = & vi_validate --config $configPath --eq $labviewNumeric 2>&1
+        $commandOutput = & vi_validate @validateArgs 2>&1
         $exitCode = $LASTEXITCODE
         $outputLines = @($commandOutput | ForEach-Object { $_.ToString() })
         $outputLines | Set-Content -Path $logPath -Encoding utf8
@@ -178,43 +108,14 @@ runs:
         $offendersReport = [ordered]@{
           generated_utc = (Get-Date).ToUniversalTime().ToString('o')
           label = $label
-          config_path = $configInput
-          labview_numeric = $labviewNumeric
+          command = "vi_validate $validateArgsRaw"
           offender_count = $offenders.Count
           offenders = $offenders
         }
         $offendersReport | ConvertTo-Json -Depth 8 | Set-Content -Path $offendersPath -Encoding utf8
 
-        $baselineInput = [string]'${{ inputs.baseline_path }}'
-        $baselineRequired = Test-Enabled '${{ inputs.baseline_required }}'
-        $failOnDelta = Test-Enabled '${{ inputs.fail_on_delta }}'
         $reportOnly = Test-Enabled '${{ inputs.report_only }}'
         $absoluteRoots = @([string]'${{ inputs.absolute_roots }}' -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-
-        $baselineExists = $false
-        $baselineResolvedPath = ''
-        $baselineOffenders = @()
-        if (-not [string]::IsNullOrWhiteSpace($baselineInput)) {
-          $baselineResolvedPath = Join-Path $repoRoot $baselineInput
-          $baselineExists = Test-Path -LiteralPath $baselineResolvedPath -PathType Leaf
-          if ($baselineRequired -and -not $baselineExists) {
-            throw "Baseline file is required but was not found: $baselineResolvedPath"
-          }
-
-          if ($baselineExists) {
-            try {
-              $baselineDoc = Get-Content -LiteralPath $baselineResolvedPath -Raw | ConvertFrom-Json -ErrorAction Stop
-              $baselineOffenders = Get-OffenderSignatures -InputObject $baselineDoc
-            } catch {
-              $baselineText = Get-Content -LiteralPath $baselineResolvedPath -Raw
-              $baselineOffenders = @([regex]::Matches($baselineText, '(?m)^FAIL:.*$') | ForEach-Object { $_.Value })
-            }
-          }
-        }
-
-        $currentOffenders = @($offenders | ForEach-Object { [string]$_.line })
-        $newOffenders = @($currentOffenders | Where-Object { $baselineOffenders -notcontains $_ })
-        $deltaCount = if ($baselineExists) { $newOffenders.Count } else { 0 }
 
         $status = 'pass'
         if ($exitCode -ne 0) {
@@ -225,35 +126,21 @@ runs:
           }
         }
 
-        if ($failOnDelta -and $baselineExists -and $deltaCount -gt 0) {
-          $status = 'fail'
-        }
-
         $summary = [ordered]@{
           generated_utc = (Get-Date).ToUniversalTime().ToString('o')
           status = $status
           exit_code = $exitCode
           label = $label
-          config_path = $configInput
-          labview_numeric = $labviewNumeric
+          command = "vi_validate $validateArgsRaw"
           report_only = $reportOnly
           absolute_roots = $absoluteRoots
           offender_count = $offenders.Count
           offenders_path = $offendersPath
           log_path = $logPath
-          baseline = [ordered]@{
-            path = $baselineResolvedPath
-            exists = $baselineExists
-            required = $baselineRequired
-            fail_on_delta = $failOnDelta
-            baseline_offender_count = @($baselineOffenders).Count
-            delta_count = $deltaCount
-            new_offenders = $newOffenders
-          }
         }
 
-        $summary | ConvertTo-Json -Depth 12 | Set-Content -Path $summaryPath -Encoding utf8
-        $summary | ConvertTo-Json -Depth 12 | Set-Content -Path $statusSummaryPath -Encoding utf8
+        $summary | ConvertTo-Json -Depth 8 | Set-Content -Path $summaryPath -Encoding utf8
+        $summary | ConvertTo-Json -Depth 8 | Set-Content -Path $statusSummaryPath -Encoding utf8
 
         "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8

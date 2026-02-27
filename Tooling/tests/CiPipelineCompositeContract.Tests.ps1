@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 Describe 'CI pipeline composite contract' {
     BeforeAll {
         $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..')).Path
-        $workflowPath = Join-Path $repoRoot '.github/workflows/ci-composite.yml'
+        $workflowPath = Join-Path $repoRoot '.github/workflows/ci.yml'
         if (-not (Test-Path -LiteralPath $workflowPath -PathType Leaf)) {
             throw "Workflow not found: $workflowPath"
         }
@@ -22,7 +22,7 @@ Describe 'CI pipeline composite contract' {
     }
 
     It 'defines required jobs and avoids runner-cli build dependencies' {
-        foreach ($jobId in @('run-metadata', 'version-gate', 'pylavi-strict', 'pylavi-legacy', 'vi-analyzer-linux', 'pipeline-contract')) {
+        foreach ($jobId in @('run-metadata', 'version-gate', 'pylavi-linux', 'vi-analyzer-linux', 'pipeline-contract')) {
             $script:content | Should -Match ("(?m)^\s{{2}}{0}:\s*$" -f [regex]::Escape($jobId))
         }
 

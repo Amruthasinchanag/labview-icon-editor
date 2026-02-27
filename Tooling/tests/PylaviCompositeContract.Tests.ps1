@@ -16,14 +16,10 @@ Describe 'Pylavi composite contract' {
 
     It 'defines required inputs and outputs for deterministic pylavi contract' {
         foreach ($token in @(
-            'config_path:',
-            'labview_numeric:',
+            'validate_args:',
             'label:',
             'report_only:',
-            'absolute_roots:',
-            'baseline_path:',
-            'baseline_required:',
-            'fail_on_delta:'
+            'absolute_roots:'
         )) {
             $script:content | Should -Match ([regex]::Escape($token))
         }
@@ -36,7 +32,8 @@ Describe 'Pylavi composite contract' {
     It 'installs pylavi directly and runs vi_validate without runner-cli dependency' {
         $script:content | Should -Match 'actions/setup-python@v5'
         $script:content | Should -Match 'python -m pip install pylavi'
-        $script:content | Should -Match 'vi_validate --config'
+        $script:content | Should -Match 'vi_validate @validateArgs'
+        $script:content | Should -Match '--gt 19 --lt 21 --no-suspend-on-run --breakpoints --no-code --no-absolute-path'
         $script:content | Should -Not -Match 'LVIE_RUNNER_CLI_PATH'
         $script:content | Should -Not -Match 'runner-cli\.exe'
         $script:content | Should -Not -Match 'Tooling/runner-cli'
