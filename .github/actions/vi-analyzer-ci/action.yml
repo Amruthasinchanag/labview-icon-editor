@@ -74,6 +74,7 @@ runs:
         $statusDir = Split-Path -Path $statusPath -Parent
         $sourceSyncManifestRelativePath = 'builds/status/source-sync-manifest-vi-analyzer-linux.json'
         $sourceSyncManifestPath = Join-Path $repoRoot $sourceSyncManifestRelativePath
+        $containerWorkspaceRoot = '/workspace/labview-icon-editor'
 
         foreach ($requiredPath in @($workerScriptPath, $tasksPath)) {
           if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
@@ -100,7 +101,7 @@ runs:
           }
 
           $resolvedHostConfigPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $configRelativePath))
-          $resolvedContainerConfigPath = '/workspace/' + ($configRelativePath -replace '\\', '/')
+          $resolvedContainerConfigPath = $containerWorkspaceRoot + '/' + ($configRelativePath -replace '\\', '/')
           $taskConfigEvidence += [ordered]@{
             task_id = $taskId
             config_path = $configRelativePath
@@ -125,17 +126,19 @@ runs:
           throw "docker pull failed for image '$containerImage'."
         }
 
-        $tasksPathInContainer = '/workspace/' + ($tasksRelativePath -replace '\\', '/')
-        $reportsPathInContainer = '/workspace/' + ($reportsRelativeRoot -replace '\\', '/')
-        $logsPathInContainer = '/workspace/' + ($logsRelativeRoot -replace '\\', '/')
-        $sourceSyncManifestInContainer = '/workspace/' + ($sourceSyncManifestRelativePath -replace '\\', '/')
+        $tasksPathInContainer = $containerWorkspaceRoot + '/' + ($tasksRelativePath -replace '\\', '/')
+        $reportsPathInContainer = $containerWorkspaceRoot + '/' + ($reportsRelativeRoot -replace '\\', '/')
+        $logsPathInContainer = $containerWorkspaceRoot + '/' + ($logsRelativeRoot -replace '\\', '/')
+        $sourceSyncManifestInContainer = $containerWorkspaceRoot + '/' + ($sourceSyncManifestRelativePath -replace '\\', '/')
 
         $dockerArgs = @(
           'run', '--rm',
-          '-v', "${repoRoot}:/workspace",
-          '-e', 'LVIE_REPO_ROOT=/workspace',
-          '-e', 'WORKSPACE_ROOT=/workspace',
-          '-e', 'REPO_ROOT=/workspace',
+          '-v', "${repoRoot}:$containerWorkspaceRoot",
+          '-e', "LVIE_REPO_ROOT=$containerWorkspaceRoot",
+          '-e', "WORKSPACE_ROOT=$containerWorkspaceRoot",
+          '-e', "REPO_ROOT=$containerWorkspaceRoot",
+          '-e', 'LVIE_VI_ANALYZER_SYNC_TO_INSTALL=false',
+          '-e', 'LVIE_VI_ANALYZER_ENABLE_MASSCOMPILE=false',
           '-e', "LVIE_VI_ANALYZER_LABVIEW_YEAR=$labviewYear",
           '-e', "LVIE_VI_ANALYZER_TASKS_PATH=$tasksPathInContainer",
           '-e', "LVIE_VI_ANALYZER_REPORTS_ROOT=$reportsPathInContainer",
@@ -144,7 +147,7 @@ runs:
           $containerImage,
           'bash',
           '-lc',
-          'chmod +x /workspace/Tooling/container-parity/run-vi-analyzer-linux.sh && /workspace/Tooling/container-parity/run-vi-analyzer-linux.sh'
+          "sed -i 's/\r$//' $containerWorkspaceRoot/Tooling/container-parity/run-vi-analyzer-linux.sh && chmod +x $containerWorkspaceRoot/Tooling/container-parity/run-vi-analyzer-linux.sh && bash $containerWorkspaceRoot/Tooling/container-parity/run-vi-analyzer-linux.sh"
         )
 
         & docker @dockerArgs

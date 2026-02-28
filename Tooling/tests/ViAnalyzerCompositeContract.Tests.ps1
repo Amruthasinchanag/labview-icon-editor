@@ -51,6 +51,9 @@ Describe 'VI Analyzer composite contract' {
         $script:content | Should -Match 'run-vi-analyzer-linux\.sh'
         $script:content | Should -Match 'LVIE_VI_ANALYZER_TASKS_PATH'
         $script:content | Should -Match 'source-sync-manifest-vi-analyzer-linux\.json'
+        $script:content | Should -Match '/workspace/labview-icon-editor'
+        $script:content | Should -Match 'LVIE_VI_ANALYZER_SYNC_TO_INSTALL=false'
+        $script:content | Should -Match 'LVIE_VI_ANALYZER_ENABLE_MASSCOMPILE=false'
     }
 
     It 'includes ownership normalization and deterministic failure path' {

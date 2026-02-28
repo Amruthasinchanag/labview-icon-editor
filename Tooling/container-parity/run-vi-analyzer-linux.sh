@@ -26,9 +26,11 @@ TASKS_PATH="${LVIE_VI_ANALYZER_TASKS_PATH:-$(join_lvie_repo_path "$LVIE_REPO_ROO
 REPORTS_ROOT="${LVIE_VI_ANALYZER_REPORTS_ROOT:-$(join_lvie_repo_path "$LVIE_REPO_ROOT" "builds/vi-analyzer")}"
 LOG_ROOT="${LVIE_VI_ANALYZER_LOG_ROOT:-$(join_lvie_repo_path "$LVIE_REPO_ROOT" "TestResults/container-parity/linux/vi-analyzer/logs")}"
 SOURCE_SYNC_MANIFEST_PATH="${LVIE_SOURCE_SYNC_MANIFEST_PATH:-$(join_lvie_repo_path "$LVIE_REPO_ROOT" "builds/status/source-sync-manifest-vi-analyzer-linux.json")}"
-TARGET_DIR_REL="${LVIE_VI_ANALYZER_MASSCOMPILE_TARGET_REL:-Test/Templates}"
-TARGET_DIR="$(join_lvie_repo_path "$LVIE_REPO_ROOT" "$TARGET_DIR_REL")"
-EXCLUDE_LIST="${LVIE_VI_ANALYZER_EXCLUDE_FILES:-Polymorphic Template.vi}"
+MASSCOMPILE_TARGET_MODE="${LVIE_VI_ANALYZER_MASSCOMPILE_TARGET_MODE:-workspace-relative}"
+MASSCOMPILE_TARGET_REL="${LVIE_VI_ANALYZER_MASSCOMPILE_TARGET_REL:-.}"
+SYNC_TO_INSTALL_RAW="${LVIE_VI_ANALYZER_SYNC_TO_INSTALL:-false}"
+MASSCOMPILE_ENABLED_RAW="${LVIE_VI_ANALYZER_ENABLE_MASSCOMPILE:-false}"
+MASSCOMPILE_REQUIRED_RAW="${LVIE_VI_ANALYZER_MASSCOMPILE_REQUIRED:-false}"
 LV_YEAR="${LVIE_VI_ANALYZER_LABVIEW_YEAR:-${CONTAINER_PARITY_LABVIEW_VERSION:-${LV_YEAR:-2026}}}"
 LABVIEW_PATH="${LVIE_VI_ANALYZER_LABVIEW_PATH:-/usr/local/natinst/LabVIEW-${LV_YEAR}-64/labviewprofull}"
 LABVIEW_ROOT="$(dirname "$LABVIEW_PATH")"
@@ -39,17 +41,23 @@ XVFB_BIN="${LVIE_XVFB_BIN:-$(command -v Xvfb || true)}"
 XVFB_DISPLAY="${LVIE_XVFB_DISPLAY:-:99}"
 XVFB_PID=""
 LABVIEWCLI_HEARTBEAT_SECONDS="${LVIE_LABVIEWCLI_HEARTBEAT_SECONDS:-30}"
+TARGET_DIR=""
+TARGET_DIR_SOURCE=""
+SYNCED_ICON_API_DIR=""
+SYNCED_PLUGIN_DIR=""
 
 echo "Resolved repo root: $LVIE_REPO_ROOT (source: $LVIE_REPO_ROOT_SOURCE)"
 echo "Resolved tasks path: $TASKS_PATH"
 echo "Resolved reports root: $REPORTS_ROOT"
 echo "Resolved logs root: $LOG_ROOT"
 echo "Resolved source sync manifest path: $SOURCE_SYNC_MANIFEST_PATH"
-echo "Resolved target directory: $TARGET_DIR (source: \$LVIE_VI_ANALYZER_MASSCOMPILE_TARGET_REL)"
 echo "Using LabVIEW path: $LABVIEW_PATH"
 echo "Using LabVIEWCLI port: $PORT_NUMBER"
 echo "Close between tasks: $CLOSE_BETWEEN_TASKS_RAW"
 echo "LabVIEWCLI heartbeat interval: ${LABVIEWCLI_HEARTBEAT_SECONDS}s"
+echo "Install sync enabled: $SYNC_TO_INSTALL_RAW"
+echo "MassCompile enabled: $MASSCOMPILE_ENABLED_RAW"
+echo "MassCompile required: $MASSCOMPILE_REQUIRED_RAW"
 if [[ -n "${DISPLAY:-}" ]]; then
   echo "Using existing DISPLAY=$DISPLAY"
 fi
@@ -100,11 +108,6 @@ fi
 
 if [[ ! -e "$LABVIEW_PATH" ]]; then
   echo "ERROR: LabVIEW executable path does not exist: $LABVIEW_PATH" >&2
-  exit 1
-fi
-
-if [[ ! -d "$TARGET_DIR" ]]; then
-  echo "ERROR: MassCompile target directory does not exist: $TARGET_DIR" >&2
   exit 1
 fi
 
@@ -185,6 +188,9 @@ sync_icon_editor_sources_for_build_spec() {
     "resource-plugins-niiconeditor" "$repo_plugins/NIIconEditor" "$install_plugins/NIIconEditor" "$snapshot_plugins_dir" \
     "resource-plugins-root-files" "$plugin_root_stage" "$install_plugins" "$snapshot_plugins_root_files" \
     "labview-icon-api" "$repo_icon_api" "$install_icon_api" "$snapshot_icon_api"
+
+  SYNCED_PLUGIN_DIR="$install_plugins/NIIconEditor"
+  SYNCED_ICON_API_DIR="$install_icon_api"
 
   echo "Synchronized Icon Editor sources into LabVIEW install:"
   echo "  resource/plugins -> $install_plugins"
@@ -308,48 +314,77 @@ read_vi_analyzer_tasks() {
   ' "$registry_path"
 }
 
-echo "Running LabVIEWCLI MassCompile before VI Analyzer tasks."
-echo "MassCompile target directory: $TARGET_DIR"
-echo "Excluded templates: $EXCLUDE_LIST"
+sync_to_install_enabled=false
+if is_enabled_value "$SYNC_TO_INSTALL_RAW"; then
+  sync_to_install_enabled=true
+fi
 
-STAGING_DIR="$(mktemp -d)"
+if [[ "$sync_to_install_enabled" == "true" ]]; then
+  echo "Synchronizing workspace Icon Editor sources into LabVIEW install before VI Analyzer."
+  if ! sync_icon_editor_sources_for_build_spec; then
+    exit 1
+  fi
+else
+  echo "Install sync is disabled; operating from workspace sources only."
+fi
+
 cleanup() {
   if [[ -n "$XVFB_PID" ]]; then
     kill "$XVFB_PID" 2>/dev/null || true
   fi
-  rm -rf "$STAGING_DIR"
 }
 trap cleanup EXIT
 
-cp -a "$TARGET_DIR/." "$STAGING_DIR/"
-IFS=';' read -r -a _exclude_items <<< "$EXCLUDE_LIST"
-for _item in "${_exclude_items[@]}"; do
-  _trimmed="$(echo "$_item" | xargs)"
-  if [[ -z "$_trimmed" ]]; then
-    continue
-  fi
-  _candidate="$STAGING_DIR/$_trimmed"
-  if [[ -e "$_candidate" ]]; then
-    echo "Excluding template from parity compile: $_trimmed"
-    rm -rf "$_candidate"
-  fi
-done
-
-if ! invoke_labviewcli "MassCompile-ViAnalyzer" \
-  -LogToConsole TRUE \
-  -OperationName MassCompile \
-  -DirectoryToCompile "$STAGING_DIR" \
-  -LabVIEWPath "$LABVIEW_PATH" \
-  -PortNumber "$PORT_NUMBER" \
-  -Headless; then
-  echo "ERROR: LabVIEWCLI MassCompile failed before VI Analyzer." >&2
-  exit 1
+masscompile_enabled=false
+if is_enabled_value "$MASSCOMPILE_ENABLED_RAW"; then
+  masscompile_enabled=true
 fi
 
-echo "MassCompile completed successfully."
-echo "Synchronizing workspace Icon Editor sources into LabVIEW install before VI Analyzer."
-if ! sync_icon_editor_sources_for_build_spec; then
-  exit 1
+masscompile_required=false
+if is_enabled_value "$MASSCOMPILE_REQUIRED_RAW"; then
+  masscompile_required=true
+fi
+
+if [[ "$masscompile_enabled" == "true" ]]; then
+  if [[ "$MASSCOMPILE_TARGET_MODE" == "copied-source" ]]; then
+    if [[ "$sync_to_install_enabled" != "true" ]]; then
+      echo "ERROR: copied-source masscompile mode requires LVIE_VI_ANALYZER_SYNC_TO_INSTALL=true." >&2
+      exit 1
+    fi
+    TARGET_DIR="$SYNCED_ICON_API_DIR"
+    TARGET_DIR_SOURCE="copied-source (vi.lib/LabVIEW Icon API)"
+  elif [[ "$MASSCOMPILE_TARGET_MODE" == "workspace-relative" ]]; then
+    TARGET_DIR="$(join_lvie_repo_path "$LVIE_REPO_ROOT" "$MASSCOMPILE_TARGET_REL")"
+    TARGET_DIR_SOURCE="\$LVIE_VI_ANALYZER_MASSCOMPILE_TARGET_REL"
+  else
+    echo "ERROR: Unsupported masscompile target mode '$MASSCOMPILE_TARGET_MODE'. Use 'copied-source' or 'workspace-relative'." >&2
+    exit 1
+  fi
+
+  if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "ERROR: MassCompile target directory does not exist: $TARGET_DIR" >&2
+    exit 1
+  fi
+
+  echo "Running LabVIEWCLI MassCompile before VI Analyzer tasks."
+  echo "MassCompile target directory: $TARGET_DIR (source: $TARGET_DIR_SOURCE)"
+  if ! invoke_labviewcli "MassCompile-ViAnalyzer" \
+    -LogToConsole TRUE \
+    -OperationName MassCompile \
+    -DirectoryToCompile "$TARGET_DIR" \
+    -LabVIEWPath "$LABVIEW_PATH" \
+    -PortNumber "$PORT_NUMBER" \
+    -Headless; then
+    if [[ "$masscompile_required" == "true" ]]; then
+      echo "ERROR: LabVIEWCLI MassCompile failed before VI Analyzer." >&2
+      exit 1
+    fi
+    echo "WARNING: LabVIEWCLI MassCompile failed; continuing because LVIE_VI_ANALYZER_MASSCOMPILE_REQUIRED is false."
+  else
+    echo "MassCompile completed successfully."
+  fi
+else
+  echo "Skipping LabVIEWCLI MassCompile before VI Analyzer tasks (LVIE_VI_ANALYZER_ENABLE_MASSCOMPILE=false)."
 fi
 
 close_between_tasks_enabled=false
