@@ -43,5 +43,9 @@ Describe 'Pylavi composite contract' {
         $script:content | Should -Match 'report_only'
         $script:content | Should -Match 'if \(\$status -eq ''warn''\)'
         $script:content | Should -Match 'if \(\$status -eq ''fail''\)'
+        $script:content | Should -Match 'first_offender_reason'
+        $script:content | Should -Match 'first_offender_vi_path'
+        $script:content | Should -Match 'GITHUB_STEP_SUMMARY'
+        $script:content | Should -Match '::error'
     }
 }

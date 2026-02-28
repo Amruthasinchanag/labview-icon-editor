@@ -64,6 +64,38 @@ runs:
           return $normalized -in @('1', 'true', 'yes')
         }
 
+        function Parse-OffenderLine {
+          param([string]$Line)
+
+          $content = [string]$Line
+          if ($content.StartsWith('FAIL:')) {
+            $content = $content.Substring(5).Trim()
+          }
+
+          $reason = $content
+          $viPath = ''
+          $separatorIndex = $content.LastIndexOf(': ')
+          if ($separatorIndex -gt 0) {
+            $candidatePath = $content.Substring($separatorIndex + 2).Trim()
+            if (
+              $candidatePath -match '^[A-Za-z]:\\' -or
+              $candidatePath -match '^\./' -or
+              $candidatePath -match '^\.\./' -or
+              $candidatePath -match '[\\/].+\.vi$' -or
+              $candidatePath -match '\.vi$'
+            ) {
+              $viPath = $candidatePath
+              $reason = $content.Substring(0, $separatorIndex).Trim()
+            }
+          }
+
+          [pscustomobject]@{
+            raw_line = [string]$Line
+            reason = [string]$reason
+            vi_path = [string]$viPath
+          }
+        }
+
         $repoRoot = $env:GITHUB_WORKSPACE
         $label = [string]'${{ inputs.label }}'
         if ([string]::IsNullOrWhiteSpace($label)) {
@@ -99,9 +131,12 @@ runs:
         $failLines = @($outputLines | Where-Object { $_ -like 'FAIL:*' })
         $offenders = @()
         for ($index = 0; $index -lt $failLines.Count; $index++) {
+          $parsed = Parse-OffenderLine -Line ([string]$failLines[$index])
           $offenders += [pscustomobject]@{
             id = $index + 1
             line = [string]$failLines[$index]
+            reason = [string]$parsed.reason
+            vi_path = [string]$parsed.vi_path
           }
         }
 
@@ -135,6 +170,8 @@ runs:
           report_only = $reportOnly
           absolute_roots = $absoluteRoots
           offender_count = $offenders.Count
+          first_offender_reason = if ($offenders.Count -gt 0) { [string]$offenders[0].reason } else { '' }
+          first_offender_vi_path = if ($offenders.Count -gt 0) { [string]$offenders[0].vi_path } else { '' }
           offenders_path = $offendersPath
           log_path = $logPath
         }
@@ -147,6 +184,48 @@ runs:
         "log_path=$logPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "offenders_path=$offendersPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "summary_path=$summaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+        if ($offenders.Count -gt 0) {
+          Write-Host ("pylavi offenders detected: {0}" -f $offenders.Count)
+          foreach ($offender in $offenders) {
+            $viDisplay = if ([string]::IsNullOrWhiteSpace($offender.vi_path)) { '(unknown)' } else { [string]$offender.vi_path }
+            $reasonDisplay = if ([string]::IsNullOrWhiteSpace($offender.reason)) { [string]$offender.line } else { [string]$offender.reason }
+            Write-Host (" - VI: {0}" -f $viDisplay)
+            Write-Host ("   Reason: {0}" -f $reasonDisplay)
+
+            if ([string]::IsNullOrWhiteSpace($offender.vi_path)) {
+              Write-Host ("::error title=pylavi::{0}" -f $reasonDisplay)
+            } else {
+              Write-Host ("::error file={0},title=pylavi::{1}" -f $offender.vi_path, $reasonDisplay)
+            }
+          }
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+          $summaryLines = @(
+            '### pylavi result',
+            '',
+            ('- Status: **{0}**' -f $status),
+            ('- Exit code: `{0}`' -f $exitCode),
+            ('- Command: `vi_validate {0}`' -f $validateArgsRaw),
+            ('- Offender count: `{0}`' -f $offenders.Count),
+            ''
+          )
+
+          if ($offenders.Count -gt 0) {
+            $summaryLines += '| VI | Reason |'
+            $summaryLines += '| --- | --- |'
+            foreach ($offender in $offenders) {
+              $viCell = if ([string]::IsNullOrWhiteSpace($offender.vi_path)) { '(unknown)' } else { [string]$offender.vi_path }
+              $reasonCell = if ([string]::IsNullOrWhiteSpace($offender.reason)) { [string]$offender.line } else { [string]$offender.reason }
+              $viCell = $viCell -replace '\|', '\\|'
+              $reasonCell = $reasonCell -replace '\|', '\\|'
+              $summaryLines += ("| `{0}` | {1} |" -f $viCell, $reasonCell)
+            }
+          }
+
+          $summaryLines -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+        }
 
         if ($status -eq 'warn') {
           Write-Warning "pylavi reported findings in report-only mode for label '$label'."
