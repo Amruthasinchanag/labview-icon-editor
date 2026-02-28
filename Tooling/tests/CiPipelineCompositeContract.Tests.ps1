@@ -26,6 +26,8 @@ Describe 'CI pipeline composite contract' {
             $script:content | Should -Match ("(?m)^\s{{2}}{0}:\s*$" -f [regex]::Escape($jobId))
         }
 
+        $script:content | Should -Match "report_only:\s*'false'"
+
         $script:content | Should -Not -Match 'build-runner-cli'
         $script:content | Should -Not -Match 'runner-cli'
         $script:content | Should -Not -Match 'actions/download-artifact'

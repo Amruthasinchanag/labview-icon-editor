@@ -110,7 +110,7 @@ jobs:
         with:
           validate_args: --gt 19 --lt 21 --no-suspend-on-run --breakpoints --no-code --no-absolute-path
           label: linux-container
-          report_only: 'true'
+          report_only: 'false'
           absolute_roots: ${{ vars.LVIE_PYLAVI_ABSOLUTE_PATH_ROOTS }}
 
       - name: Upload pylavi artifacts
