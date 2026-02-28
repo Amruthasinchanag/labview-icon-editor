@@ -189,7 +189,7 @@ runs:
 
         Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### VI Analyzer Task Config Evidence"
         foreach ($taskConfig in $taskConfigEvidence) {
-          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value ("- `{0}` -> `{1}`" -f $taskConfig.task_id, $taskConfig.resolved_config_path_container)
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value ("- {0} -> {1}" -f $taskConfig.task_id, $taskConfig.resolved_config_path_container)
         }
 
         "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
