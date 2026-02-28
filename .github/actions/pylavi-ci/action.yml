@@ -178,19 +178,33 @@ runs:
 
         $expectedRuleConfigured = -not [string]::IsNullOrWhiteSpace($expectedReason) -or -not [string]::IsNullOrWhiteSpace($expectedViPath)
         $expectedFailureObserved = $false
+        $unexpectedOffenders = @()
         if ($expectedRuleConfigured) {
           foreach ($offender in $offenders) {
             $reasonMatches = [string]::IsNullOrWhiteSpace($expectedReason) -or ([string]$offender.reason -eq $expectedReason)
             $viMatches = [string]::IsNullOrWhiteSpace($expectedViPath) -or ([string]$offender.vi_path -eq $expectedViPath)
             if ($reasonMatches -and $viMatches) {
               $expectedFailureObserved = $true
-              break
+            } else {
+              $unexpectedOffenders += $offender
             }
           }
         }
 
         if ($failIfExpectedMissing -and $expectedRuleConfigured -and -not $expectedFailureObserved) {
           $status = 'fail'
+        }
+
+        # In strict mode, allow the known expected-failure signature to pass when it is the only offender.
+        if (
+          -not $reportOnly -and
+          $exitCode -ne 0 -and
+          $failIfExpectedMissing -and
+          $expectedRuleConfigured -and
+          $expectedFailureObserved -and
+          $unexpectedOffenders.Count -eq 0
+        ) {
+          $status = 'pass'
         }
 
         $summary = [ordered]@{
@@ -208,6 +222,7 @@ runs:
             reason = $expectedReason
             vi_path = $expectedViPath
             observed = $expectedFailureObserved
+            unexpected_offender_count = $unexpectedOffenders.Count
           }
           first_offender_reason = if ($offenders.Count -gt 0) { [string]$offenders[0].reason } else { '' }
           first_offender_vi_path = if ($offenders.Count -gt 0) { [string]$offenders[0].vi_path } else { '' }
@@ -242,9 +257,12 @@ runs:
         }
 
         if ($expectedRuleConfigured) {
-          Write-Host ("pylavi expected failure signature configured: reason='{0}' vi='{1}' observed={2}" -f $expectedReason, $expectedViPath, $expectedFailureObserved)
+          Write-Host ("pylavi expected failure signature configured: reason='{0}' vi='{1}' observed={2} unexpected_offenders={3}" -f $expectedReason, $expectedViPath, $expectedFailureObserved, $unexpectedOffenders.Count)
           if ($failIfExpectedMissing -and -not $expectedFailureObserved) {
             Write-Host ("::error title=pylavi::Expected failure signature was not observed (reason='{0}' vi='{1}')" -f $expectedReason, $expectedViPath)
+          }
+          if ($unexpectedOffenders.Count -gt 0) {
+            Write-Host ("::error title=pylavi::Unexpected pylavi offenders detected while enforcing expected signature (count={0})" -f $unexpectedOffenders.Count)
           }
         }
 
@@ -263,6 +281,7 @@ runs:
             $summaryLines += ('- Expected failure reason: `{0}`' -f $expectedReason)
             $summaryLines += ('- Expected failure VI path: `{0}`' -f $expectedViPath)
             $summaryLines += ('- Expected failure observed: `{0}`' -f $expectedFailureObserved)
+            $summaryLines += ('- Unexpected offender count: `{0}`' -f $unexpectedOffenders.Count)
             $summaryLines += ''
           }
 
