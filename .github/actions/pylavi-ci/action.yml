@@ -155,3 +155,6 @@ runs:
         if ($status -eq 'fail') {
           throw "pylavi composite gate failed for label '$label'."
         }
+
+        # Ensure the composite step exits successfully in report-only mode.
+        $global:LASTEXITCODE = 0
