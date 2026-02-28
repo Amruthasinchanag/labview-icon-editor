@@ -81,6 +81,40 @@ runs:
           }
         }
 
+        try {
+          $taskRegistry = Get-Content -LiteralPath $tasksPath -Raw | ConvertFrom-Json -Depth 32
+        } catch {
+          throw "Failed to parse VI Analyzer task registry '$tasksRelativePath': $($_.Exception.Message)"
+        }
+
+        $taskConfigEvidence = @()
+        foreach ($taskEntry in @($taskRegistry.tasks)) {
+          if ($null -eq $taskEntry) {
+            continue
+          }
+
+          $taskId = [string]$taskEntry.id
+          $configRelativePath = [string]$taskEntry.config_path
+          if ([string]::IsNullOrWhiteSpace($taskId) -or [string]::IsNullOrWhiteSpace($configRelativePath)) {
+            continue
+          }
+
+          $resolvedHostConfigPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $configRelativePath))
+          $resolvedContainerConfigPath = '/workspace/' + ($configRelativePath -replace '\\', '/')
+          $taskConfigEvidence += [ordered]@{
+            task_id = $taskId
+            config_path = $configRelativePath
+            resolved_config_path_host = $resolvedHostConfigPath
+            resolved_config_path_container = $resolvedContainerConfigPath
+            config_exists_host = (Test-Path -LiteralPath $resolvedHostConfigPath -PathType Leaf)
+          }
+        }
+
+        Write-Host 'Resolved VI Analyzer task configuration entries:'
+        foreach ($taskConfig in $taskConfigEvidence) {
+          Write-Host ("- [{0}] {1}" -f $taskConfig.task_id, $taskConfig.resolved_config_path_container)
+        }
+
         New-Item -Path $reportsRootPath -ItemType Directory -Force | Out-Null
         New-Item -Path $logsRootPath -ItemType Directory -Force | Out-Null
         New-Item -Path $statusDir -ItemType Directory -Force | Out-Null
@@ -148,9 +182,15 @@ runs:
           source_sync_manifest_path = $sourceSyncManifestRelativePath
           report_count = $reportFiles.Count
           report_files = $reportFiles
+          vi_analyzer_tasks = $taskConfigEvidence
         }
 
         $statusDocument | ConvertTo-Json -Depth 8 | Set-Content -Path $statusPath -Encoding utf8
+
+        Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### VI Analyzer Task Config Evidence"
+        foreach ($taskConfig in $taskConfigEvidence) {
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value ("- `{0}` -> `{1}`" -f $taskConfig.task_id, $taskConfig.resolved_config_path_container)
+        }
 
         "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "container_image=$containerImage" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8

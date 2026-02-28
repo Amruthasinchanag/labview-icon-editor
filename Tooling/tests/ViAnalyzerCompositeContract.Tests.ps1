@@ -59,6 +59,13 @@ Describe 'VI Analyzer composite contract' {
         $script:content | Should -Match 'throw "VI Analyzer composite gate failed'
     }
 
+    It 'records per-task config evidence in status artifact and step summary' {
+        $script:content | Should -Match 'vi_analyzer_tasks'
+        $script:content | Should -Match 'task_id'
+        $script:content | Should -Match 'resolved_config_path_container'
+        $script:content | Should -Match 'VI Analyzer Task Config Evidence'
+    }
+
     It 'uses lv_icon_editor.viancfg as the only VI Analyzer configuration' {
         $script:tasksLinux.tasks.Count | Should -Be 1
         $script:tasksDefault.tasks.Count | Should -Be 1
