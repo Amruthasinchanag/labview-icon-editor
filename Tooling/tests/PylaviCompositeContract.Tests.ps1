@@ -19,6 +19,9 @@ Describe 'Pylavi composite contract' {
             'validate_args:',
             'label:',
             'report_only:',
+            'expected_reason:',
+            'expected_vi_path:',
+            'fail_if_expected_missing:',
             'absolute_roots:'
         )) {
             $script:content | Should -Match ([regex]::Escape($token))
@@ -41,6 +44,8 @@ Describe 'Pylavi composite contract' {
 
     It 'supports report-only and strict failure behavior' {
         $script:content | Should -Match 'report_only'
+        $script:content | Should -Match 'expected_failure_observed'
+        $script:content | Should -Match 'Expected failure signature was not observed'
         $script:content | Should -Match 'if \(\$status -eq ''warn''\)'
         $script:content | Should -Match 'if \(\$status -eq ''fail''\)'
         $script:content | Should -Match 'first_offender_reason'

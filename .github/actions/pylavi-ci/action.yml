@@ -15,6 +15,18 @@ inputs:
     description: Do not fail the step when vi_validate reports findings.
     required: false
     default: 'true'
+  expected_reason:
+    description: Expected offender reason text to assert in pylavi results.
+    required: false
+    default: ''
+  expected_vi_path:
+    description: Expected offender VI path to assert in pylavi results.
+    required: false
+    default: ''
+  fail_if_expected_missing:
+    description: Fail the step when expected_reason/expected_vi_path does not appear in offender list.
+    required: false
+    default: 'false'
   absolute_roots:
     description: Semicolon-delimited absolute roots for visibility in summary metadata.
     required: false
@@ -150,6 +162,9 @@ runs:
         $offendersReport | ConvertTo-Json -Depth 8 | Set-Content -Path $offendersPath -Encoding utf8
 
         $reportOnly = Test-Enabled '${{ inputs.report_only }}'
+        $expectedReason = [string]'${{ inputs.expected_reason }}'
+        $expectedViPath = [string]'${{ inputs.expected_vi_path }}'
+        $failIfExpectedMissing = Test-Enabled '${{ inputs.fail_if_expected_missing }}'
         $absoluteRoots = @([string]'${{ inputs.absolute_roots }}' -split ';' | ForEach-Object { $_.Trim() } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 
         $status = 'pass'
@@ -161,6 +176,23 @@ runs:
           }
         }
 
+        $expectedRuleConfigured = -not [string]::IsNullOrWhiteSpace($expectedReason) -or -not [string]::IsNullOrWhiteSpace($expectedViPath)
+        $expectedFailureObserved = $false
+        if ($expectedRuleConfigured) {
+          foreach ($offender in $offenders) {
+            $reasonMatches = [string]::IsNullOrWhiteSpace($expectedReason) -or ([string]$offender.reason -eq $expectedReason)
+            $viMatches = [string]::IsNullOrWhiteSpace($expectedViPath) -or ([string]$offender.vi_path -eq $expectedViPath)
+            if ($reasonMatches -and $viMatches) {
+              $expectedFailureObserved = $true
+              break
+            }
+          }
+        }
+
+        if ($failIfExpectedMissing -and $expectedRuleConfigured -and -not $expectedFailureObserved) {
+          $status = 'fail'
+        }
+
         $summary = [ordered]@{
           generated_utc = (Get-Date).ToUniversalTime().ToString('o')
           status = $status
@@ -170,6 +202,13 @@ runs:
           report_only = $reportOnly
           absolute_roots = $absoluteRoots
           offender_count = $offenders.Count
+          expected_failure = [ordered]@{
+            configured = $expectedRuleConfigured
+            fail_if_expected_missing = $failIfExpectedMissing
+            reason = $expectedReason
+            vi_path = $expectedViPath
+            observed = $expectedFailureObserved
+          }
           first_offender_reason = if ($offenders.Count -gt 0) { [string]$offenders[0].reason } else { '' }
           first_offender_vi_path = if ($offenders.Count -gt 0) { [string]$offenders[0].vi_path } else { '' }
           offenders_path = $offendersPath
@@ -184,6 +223,7 @@ runs:
         "log_path=$logPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "offenders_path=$offendersPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "summary_path=$summaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        "expected_failure_observed=$expectedFailureObserved" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
         if ($offenders.Count -gt 0) {
           Write-Host ("pylavi offenders detected: {0}" -f $offenders.Count)
@@ -201,6 +241,13 @@ runs:
           }
         }
 
+        if ($expectedRuleConfigured) {
+          Write-Host ("pylavi expected failure signature configured: reason='{0}' vi='{1}' observed={2}" -f $expectedReason, $expectedViPath, $expectedFailureObserved)
+          if ($failIfExpectedMissing -and -not $expectedFailureObserved) {
+            Write-Host ("::error title=pylavi::Expected failure signature was not observed (reason='{0}' vi='{1}')" -f $expectedReason, $expectedViPath)
+          }
+        }
+
         if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
           $summaryLines = @(
             '### pylavi result',
@@ -211,6 +258,13 @@ runs:
             ('- Offender count: `{0}`' -f $offenders.Count),
             ''
           )
+
+          if ($expectedRuleConfigured) {
+            $summaryLines += ('- Expected failure reason: `{0}`' -f $expectedReason)
+            $summaryLines += ('- Expected failure VI path: `{0}`' -f $expectedViPath)
+            $summaryLines += ('- Expected failure observed: `{0}`' -f $expectedFailureObserved)
+            $summaryLines += ''
+          }
 
           if ($offenders.Count -gt 0) {
             $summaryLines += '| VI | Reason |'

@@ -27,6 +27,9 @@ Describe 'CI pipeline composite contract' {
         }
 
         $script:content | Should -Match "report_only:\s*'false'"
+        $script:content | Should -Match "fail_if_expected_missing:\s*'true'"
+        $script:content | Should -Match "expected_reason:\s*'VI saved in LabVIEW 25\.3\.3f3 > 21'"
+        $script:content | Should -Match "expected_vi_path:\s*'\./resource/plugins/NIIconEditor/Global Variables/Data\.vi'"
 
         $script:content | Should -Not -Match 'build-runner-cli'
         $script:content | Should -Not -Match 'runner-cli'
