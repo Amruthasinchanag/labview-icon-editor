@@ -69,6 +69,8 @@ Describe 'VI Analyzer composite contract' {
     It 'uses lv_icon_editor.viancfg as the only VI Analyzer configuration' {
         $script:tasksLinux.tasks.Count | Should -Be 1
         $script:tasksDefault.tasks.Count | Should -Be 1
+        $script:tasksLinux.tasks[0].id | Should -Be 'labview-icon-editor'
+        $script:tasksDefault.tasks[0].id | Should -Be 'labview-icon-editor'
         $script:tasksLinux.tasks[0].config_path | Should -Be 'lv_icon_editor.viancfg'
         $script:tasksDefault.tasks[0].config_path | Should -Be 'lv_icon_editor.viancfg'
     }
