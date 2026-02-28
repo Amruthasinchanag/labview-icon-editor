@@ -7,11 +7,25 @@ Describe 'VI Analyzer composite contract' {
     BeforeAll {
         $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..\..')).Path
         $actionPath = Join-Path $repoRoot '.github/actions/vi-analyzer-ci/action.yml'
+        $tasksLinuxPath = Join-Path $repoRoot 'Tooling/vi-analyzer/tasks.linux.json'
+        $tasksDefaultPath = Join-Path $repoRoot 'Tooling/vi-analyzer/tasks.json'
+        $singleConfigPath = Join-Path $repoRoot 'lv_icon_editor.viancfg'
         if (-not (Test-Path -LiteralPath $actionPath -PathType Leaf)) {
             throw "Composite action not found: $actionPath"
         }
+        if (-not (Test-Path -LiteralPath $tasksLinuxPath -PathType Leaf)) {
+            throw "VI Analyzer linux task registry not found: $tasksLinuxPath"
+        }
+        if (-not (Test-Path -LiteralPath $tasksDefaultPath -PathType Leaf)) {
+            throw "VI Analyzer default task registry not found: $tasksDefaultPath"
+        }
+        if (-not (Test-Path -LiteralPath $singleConfigPath -PathType Leaf)) {
+            throw "Expected VI Analyzer config not found: $singleConfigPath"
+        }
 
         $script:content = Get-Content -LiteralPath $actionPath -Raw
+        $script:tasksLinux = Get-Content -LiteralPath $tasksLinuxPath -Raw | ConvertFrom-Json
+        $script:tasksDefault = Get-Content -LiteralPath $tasksDefaultPath -Raw | ConvertFrom-Json
     }
 
     It 'defines required inputs and outputs for VI Analyzer runtime contract' {
@@ -43,5 +57,12 @@ Describe 'VI Analyzer composite contract' {
         $script:content | Should -Match 'sudo chown -R'
         $script:content | Should -Match 'if \(\$status -eq ''fail''\)'
         $script:content | Should -Match 'throw "VI Analyzer composite gate failed'
+    }
+
+    It 'uses lv_icon_editor.viancfg as the only VI Analyzer configuration' {
+        $script:tasksLinux.tasks.Count | Should -Be 1
+        $script:tasksDefault.tasks.Count | Should -Be 1
+        $script:tasksLinux.tasks[0].config_path | Should -Be 'lv_icon_editor.viancfg'
+        $script:tasksDefault.tasks[0].config_path | Should -Be 'lv_icon_editor.viancfg'
     }
 }

@@ -3,7 +3,7 @@
   "tasks": [
     {
       "id": "labview-icon-api",
-      "config_path": "brokenVIsOnLabVIEWIconAPI.viancfg"
+      "config_path": "lv_icon_editor.viancfg"
     }
   ]
 }
