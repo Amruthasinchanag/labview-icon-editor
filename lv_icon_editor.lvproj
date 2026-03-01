@@ -308,18 +308,19 @@
 		</Item>
 		<Item Name="Tooling" Type="Folder">
 			<Item Name="support" Type="Folder">
-				<Item Name="Add Files to Archive.vi" Type="VI" URL="../Tooling/support/Add Files to Archive.vi"/>
-				<Item Name="Delete Icon Editor from LV Installation.vi" Type="VI" URL="../Tooling/support/Delete Icon Editor from LV Installation.vi"/>
-				<Item Name="Get Paths to Icon Editor Files in LV Installation.vi" Type="VI" URL="../Tooling/support/Get Paths to Icon Editor Files in LV Installation.vi"/>
-				<Item Name="Prompt to Confirm Archival.vi" Type="VI" URL="../Tooling/support/Prompt to Confirm Archival.vi"/>
-				<Item Name="Set LibraryPaths to Include Icon Editor.vi" Type="VI" URL="../Tooling/support/Set LibraryPaths to Include Icon Editor.vi"/>
-				<Item Name="Add dev dist if present.vi" Type="VI" URL="../Tooling/support/Add dev dist if present.vi"/>
 				<Item Name="API Paths.vi" Type="VI" URL="../Tooling/support/API Paths.vi"/>
 				<Item Name="PPL Paths.vi" Type="VI" URL="../Tooling/support/PPL Paths.vi"/>
 				<Item Name="Set Path in Launcher.vi" Type="VI" URL="../Tooling/support/Set Path in Launcher.vi"/>
 			</Item>
 			<Item Name="Build Actions" Type="Folder">
 				<Item Name="Pre Build Icon Editor PPL.vi" Type="VI" URL="../Tooling/Build Actions/Pre Build Icon Editor PPL.vi"/>
+			</Item>
+			<Item Name="deployment" Type="Folder">
+				<Item Name="NI Icon editor.vipb" Type="Document" URL="../Tooling/deployment/NI Icon editor.vipb"/>
+				<Item Name="VIP_Post-Install Custom Action.vi" Type="VI" URL="../Tooling/deployment/VIP_Post-Install Custom Action.vi"/>
+				<Item Name="VIP_Post-Uninstall Custom Action.vi" Type="VI" URL="../Tooling/deployment/VIP_Post-Uninstall Custom Action.vi"/>
+				<Item Name="VIP_Pre-Install Custom Action.vi" Type="VI" URL="../Tooling/deployment/VIP_Pre-Install Custom Action.vi"/>
+				<Item Name="VIP_Pre-Uninstall Custom Action.vi" Type="VI" URL="../Tooling/deployment/VIP_Pre-Uninstall Custom Action.vi"/>
 			</Item>
 			<Item Name="Force Icon Editor to Unload.vi" Type="VI" URL="../Tooling/Force Icon Editor to Unload.vi"/>
 			<Item Name="Set Run Icon Editor from Source.vi" Type="VI" URL="../Tooling/Set Run Icon Editor from Source.vi"/>
