@@ -110,9 +110,6 @@
 						<Item Name="PixelValue.vi" Type="VI" URL="../resource/plugins/NIIconEditor/Miscellaneous/Draw/PixelValue.vi"/>
 					</Item>
 					<Item Name="Font" Type="Folder">
-						<Item Name="Linux.vi" Type="VI" URL="../resource/plugins/NIIconEditor/Miscellaneous/Font/Linux.vi"/>
-						<Item Name="Mac.vi" Type="VI" URL="../resource/plugins/NIIconEditor/Miscellaneous/Font/Mac.vi"/>
-						<Item Name="Windows.vi" Type="VI" URL="../resource/plugins/NIIconEditor/Miscellaneous/Font/Windows.vi"/>
 						<Item Name="Populate Font ComboBox.vi" Type="VI" URL="../resource/plugins/NIIconEditor/Miscellaneous/Font/Populate Font ComboBox.vi"/>
 					</Item>
 					<Item Name="Glyphs" Type="Folder">
