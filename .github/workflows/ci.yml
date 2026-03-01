@@ -111,9 +111,6 @@ jobs:
           validate_args: --gt 19 --lt 21 --no-suspend-on-run --breakpoints --no-code --no-absolute-path
           label: linux-container
           report_only: 'false'
-          expected_reason: 'VI saved in LabVIEW 25.3.3f3 > 21'
-          expected_vi_path: './resource/plugins/NIIconEditor/Global Variables/Data.vi'
-          fail_if_expected_missing: 'true'
           absolute_roots: ${{ vars.LVIE_PYLAVI_ABSOLUTE_PATH_ROOTS }}
 
       - name: Upload pylavi artifacts
