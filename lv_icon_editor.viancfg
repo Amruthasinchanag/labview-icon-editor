@@ -26,7 +26,11 @@
 		<Removed>TRUE</Removed>
 	</Item>
 	<Item>
-		<Path>"Test\\Templates"</Path>
+		<Path>"docs"</Path>
+		<Removed>TRUE</Removed>
+	</Item>
+	<Item>
+		<Path>"Test"</Path>
 		<Removed>TRUE</Removed>
 	</Item>
 </ItemsToAnalyze>
