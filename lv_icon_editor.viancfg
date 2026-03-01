@@ -1,36 +1,32 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Config>
 <FileFormatVersion>1</FileFormatVersion>
-<AnalyzeProject>TRUE</AnalyzeProject>
-<ProjectPath>"lv_icon_editor.lvproj"</ProjectPath>
+<AnalyzeProject>FALSE</AnalyzeProject>
+<ProjectPath>""</ProjectPath>
 <TargetIndex>0</TargetIndex>
 <ItemsToAnalyze>
 	<Item>
-		<Path>"..\\Test\\Templates\\Class Template\\Class Template.lvclass"</Path>
+		<Path>"."</Path>
+		<Removed>FALSE</Removed>
+	</Item>
+	<Item>
+		<Path>".git"</Path>
 		<Removed>TRUE</Removed>
 	</Item>
 	<Item>
-		<Path>"..\\Test\\Templates\\Library Template\\Library Template.lvlib"</Path>
+		<Path>".github"</Path>
 		<Removed>TRUE</Removed>
 	</Item>
 	<Item>
-		<Path>"..\\Test\\Templates\\Control Template.ctl"</Path>
+		<Path>".lv_icon_editor.UserState"</Path>
 		<Removed>TRUE</Removed>
 	</Item>
 	<Item>
-		<Path>"..\\Test\\Templates\\Many Layers.vi"</Path>
+		<Path>".vscode"</Path>
 		<Removed>TRUE</Removed>
 	</Item>
 	<Item>
-		<Path>"..\\Test\\Templates\\Polymorphic Template.vi"</Path>
-		<Removed>TRUE</Removed>
-	</Item>
-	<Item>
-		<Path>"..\\Test\\Templates\\Pyramid Icon Template.vi"</Path>
-		<Removed>TRUE</Removed>
-	</Item>
-	<Item>
-		<Path>"..\\Test\\Templates\\Pyramid.png"</Path>
+		<Path>"Test\\Templates"</Path>
 		<Removed>TRUE</Removed>
 	</Item>
 </ItemsToAnalyze>
