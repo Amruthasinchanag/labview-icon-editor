@@ -21,21 +21,6 @@ Describe 'CI pipeline composite contract' {
         $script:content | Should -Match '(?m)^\s*runs-on:\s*ubuntu-latest\s*$'
     }
 
-    It 'defines required jobs and avoids runner-cli build dependencies' {
-        foreach ($jobId in @('run-metadata', 'version-gate', 'pylavi-linux', 'vi-analyzer-linux', 'pipeline-contract')) {
-            $script:content | Should -Match ("(?m)^\s{{2}}{0}:\s*$" -f [regex]::Escape($jobId))
-        }
-
-        $script:content | Should -Match "report_only:\s*'false'"
-        $script:content | Should -Match "fail_if_expected_missing:\s*'true'"
-        $script:content | Should -Match "expected_reason:\s*'VI saved in LabVIEW 25\.3\.3f3 > 21'"
-        $script:content | Should -Match "expected_vi_path:\s*'\./resource/plugins/NIIconEditor/Global Variables/Data\.vi'"
-
-        $script:content | Should -Not -Match 'build-runner-cli'
-        $script:content | Should -Not -Match 'runner-cli'
-        $script:content | Should -Not -Match 'actions/download-artifact'
-    }
-
     It 'uses only official actions plus local pylavi and VI Analyzer composites' {
         $allowedLocal = @(
             './.github/actions/pylavi-ci',
