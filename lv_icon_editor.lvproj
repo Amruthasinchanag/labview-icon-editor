@@ -362,9 +362,10 @@
 			<Item Name="Undo Redo Core.lvclass" Type="LVClass" URL="../Test/Unit Tests/Undo Redo Core/Undo Redo Core.lvclass"/>
 		</Item>
 		<Item Name="Test Templates" Type="Folder">
+			<Property Name="NI.SortType" Type="Int">1</Property>
 			<Item Name="Class Template.lvclass" Type="LVClass" URL="../Test/Templates/Class Template/Class Template.lvclass"/>
-			<Item Name="Library Template.lvlib" Type="Library" URL="../Test/Templates/Library Template/Library Template.lvlib"/>
 			<Item Name="Control Template.ctl" Type="VI" URL="../Test/Templates/Control Template.ctl"/>
+			<Item Name="Library Template.lvlib" Type="Library" URL="../Test/Templates/Library Template/Library Template.lvlib"/>
 			<Item Name="Many Layers.vi" Type="VI" URL="../Test/Templates/Many Layers.vi"/>
 			<Item Name="Polymorphic Template.vi" Type="VI" URL="../Test/Templates/Polymorphic Template.vi"/>
 			<Item Name="Pyramid Icon Template.vi" Type="VI" URL="../Test/Templates/Pyramid Icon Template.vi"/>
@@ -373,30 +374,29 @@
 		<Item Name="Dependencies" Type="Dependencies"/>
 		<Item Name="Build Specifications" Type="Build">
 			<Item Name="Editor Packed Library" Type="Packed Library">
-				<Property Name="Bld_autoIncrement" Type="Bool">true</Property>
 				<Property Name="Bld_buildCacheID" Type="Str">{2EFDE742-60A0-4EBA-A8BF-5DA02968166D}</Property>
 				<Property Name="Bld_buildSpecName" Type="Str">Editor Packed Library</Property>
 				<Property Name="Bld_excludeLibraryItems" Type="Bool">true</Property>
 				<Property Name="Bld_excludePolymorphicVIs" Type="Bool">true</Property>
 				<Property Name="Bld_excludeTypedefs" Type="Bool">true</Property>
-				<Property Name="Bld_localDestDir" Type="Path">../resource/plugins</Property>
+				<Property Name="Bld_localDestDir" Type="Path">../builds</Property>
 				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_modifyLibraryFile" Type="Bool">true</Property>
 				<Property Name="Bld_preActionVIID" Type="Ref">/My Computer/Tooling/Build Actions/Pre Build Icon Editor PPL.vi</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{C699D48A-6A0A-4A55-BF6A-D6FC254001CD}</Property>
 				<Property Name="Bld_version.build" Type="Int">1</Property>
-				<Property Name="Bld_version.major" Type="Int">1</Property>
+				<Property Name="Bld_version.major" Type="Int">2</Property>
 				<Property Name="Destination[0].destName" Type="Str">lv_icon.lvlibp</Property>
-				<Property Name="Destination[0].path" Type="Path">../resource/plugins/lv_icon.lvlibp</Property>
+				<Property Name="Destination[0].path" Type="Path">../builds/lv_icon.lvlibp</Property>
 				<Property Name="Destination[0].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="Destination[0].preserveHierarchy" Type="Bool">true</Property>
 				<Property Name="Destination[0].type" Type="Str">App</Property>
 				<Property Name="Destination[1].destName" Type="Str">Support Directory</Property>
-				<Property Name="Destination[1].path" Type="Path">../resource/plugins</Property>
+				<Property Name="Destination[1].path" Type="Path">../builds</Property>
 				<Property Name="Destination[1].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="PackedLib_callersAdapt" Type="Bool">true</Property>
-				<Property Name="Source[0].itemID" Type="Str">{CDFBB82B-1D14-4D61-85B6-C6172B2E3554}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{26D19FDD-2FD9-4599-9059-9204992BD5E5}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/resource\/plugins/lv_icon.lvlib</Property>
@@ -477,7 +477,7 @@
 				<Property Name="TgtF_companyName" Type="Str">National Instruments</Property>
 				<Property Name="TgtF_fileDescription" Type="Str">Icon Editor Packed Library</Property>
 				<Property Name="TgtF_internalName" Type="Str">Icon Editor Packed Library</Property>
-				<Property Name="TgtF_legalCopyright" Type="Str">Copyright © 2024 National Instruments</Property>
+				<Property Name="TgtF_legalCopyright" Type="Str">Copyright © 2026 National Instruments</Property>
 				<Property Name="TgtF_productName" Type="Str">Icon Editor Packed Library</Property>
 				<Property Name="TgtF_targetfileGUID" Type="Str">{8000CA4B-2279-41C6-9767-84059F743142}</Property>
 				<Property Name="TgtF_targetfileName" Type="Str">lv_icon.lvlibp</Property>
