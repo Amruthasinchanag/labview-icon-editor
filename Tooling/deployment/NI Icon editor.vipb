@@ -1,7 +1,7 @@
-<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2026-01-29 16:02:31" Creator="svelderr" Comments="" ID="a51d1e167c6649a4fc9ee6774cdcdf1e">
+<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2026-03-04 23:00:05" Creator="svelderr" Comments="" ID="5e84ae1567626dcfc753d4a47058ee34">
   <Library_General_Settings>
     <Package_File_Name>NI_Icon_editor</Package_File_Name>
-    <Library_Version>21.0.0.20</Library_Version>
+    <Library_Version>2.0.0.4</Library_Version>
     <Auto_Increment_Version>false</Auto_Increment_Version>
     <Library_Source_Folder>..\..</Library_Source_Folder>
     <Library_Output_Folder>..\..\builds\VI Package</Library_Output_Folder>
@@ -30,7 +30,7 @@
       <One_Line_Description_Summary/>
       <Description/>
       <Copyright/>
-      <Packager>Sergio Velderrain</Packager>
+      <Packager>NI</Packager>
       <URL/>
       <Release_Notes/>
     </Description>
@@ -114,13 +114,13 @@
         <Additional_Destination_Index>0</Additional_Destination_Index>
       </Destination_Overrides>
       <Destination_Overrides>
-        <Path>resource/plugins/lv_icon_x64.lvlibp</Path>
+        <Path>builds/lv_icon_x64.lvlibp</Path>
         <Destination>0</Destination>
         <Additional_Destination>true</Additional_Destination>
         <Additional_Destination_Index>0</Additional_Destination_Index>
       </Destination_Overrides>
       <Destination_Overrides>
-        <Path>resource/plugins/lv_icon_x86.lvlibp</Path>
+        <Path>builds/lv_icon_x86.lvlibp</Path>
         <Destination>0</Destination>
         <Additional_Destination>true</Additional_Destination>
         <Additional_Destination_Index>0</Additional_Destination_Index>
@@ -187,25 +187,7 @@
         <Path>Tooling/support</Path>
       </Exclusions>
       <Exclusions>
-        <Path>Tooling/CI CD.lvproj</Path>
-      </Exclusions>
-      <Exclusions>
         <Path>Tooling/Force Icon Editor to Unload.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/Post Build Icon Editor PPL.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/Pre Build Icon Editor PPL.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/Prepare LV to Use Icon Editor Source.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/PrepareIESource.vi</Path>
-      </Exclusions>
-      <Exclusions>
-        <Path>Tooling/RestoreSetupLVSource.vi</Path>
       </Exclusions>
       <Exclusions>
         <Path>docs</Path>
@@ -223,7 +205,28 @@
         <Path>INSTALL.md</Path>
       </Exclusions>
       <Exclusions>
-        <Path>builds</Path>
+        <Path>resource</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>builds/VI Package</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>.lvcontainer</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>.lvversion</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>AGENTS.md</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>lv_icon_editor.viancfg</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>.vscode</Path>
+      </Exclusions>
+      <Exclusions>
+        <Path>.lv_icon_editor.UserState</Path>
       </Exclusions>
       <Compile_Exclusions>
         <Path>.</Path>
