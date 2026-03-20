@@ -35,18 +35,28 @@ jobs:
         id: version
         shell: pwsh
         run: |
+          Write-Host "Debug: Fetching tags..."
+          git fetch --tags --force          
           $tag = git describe --tags --abbrev=0 2>$null
-          if ($tag -match '^v?(\d+)\.(\d+)\.(\d+)') {
+          Write-Host "Debug: Retrieved tag = '$tag'"
+          
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            Write-Warning "Debug: Tag is null or empty"
+            $major = 0
+            $minor = 0
+            $patch = 0
+          } elseif ($tag -match '^v?(\d+)\.(\d+)\.(\d+)') {
             $major = $Matches[1]
             $minor = $Matches[2]
             $patch = $Matches[3]
             Write-Host "Parsed version from tag '$tag': $major.$minor.$patch"
           } else {
+            Write-Warning "Tag '$tag' does not match expected pattern '^v?(\d+)\.(\d+)\.(\d+)'"
             $major = 0
             $minor = 0
             $patch = 0
-            Write-Warning "No valid version tag found. Using default 0.0.0"
           }
+          
           $build = $env:GITHUB_RUN_NUMBER
           Write-Host "Version: $major.$minor.$patch.$build"
           
