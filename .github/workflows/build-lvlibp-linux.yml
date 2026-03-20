@@ -1,0 +1,86 @@
+name: Build LVLIBP with Docker
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - release-alpha/*
+      - release-beta/*
+      - release-rc/*
+      - hotfix/*
+  pull_request:
+    branches:
+      - main
+      - develop
+      - release-alpha/*
+      - release-beta/*
+      - release-rc/*
+      - hotfix/*
+  workflow_dispatch:
+
+jobs:
+  build-lvlibp:
+    name: Build LabVIEW Packed Library
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Get Version from Git
+        id: version
+        shell: pwsh
+        run: |
+          $tag = git describe --tags --abbrev=0 2>$null
+          if ($tag -match '^v?(\d+)\.(\d+)\.(\d+)') {
+            $major = $Matches[1]
+            $minor = $Matches[2]
+            $patch = $Matches[3]
+            Write-Host "Parsed version from tag '$tag': $major.$minor.$patch"
+          } else {
+            $major = 0
+            $minor = 0
+            $patch = 0
+            Write-Warning "No valid version tag found. Using default 0.0.0"
+          }
+          $build = $env:GITHUB_RUN_NUMBER
+          Write-Host "Version: $major.$minor.$patch.$build"
+          
+          "major=$major" >> $env:GITHUB_OUTPUT
+          "minor=$minor" >> $env:GITHUB_OUTPUT
+          "patch=$patch" >> $env:GITHUB_OUTPUT
+          "build=$build" >> $env:GITHUB_OUTPUT
+      
+      - name: Build PPL with Docker
+        uses: ni/open-source/build-lvlibp-docker-linux@actions
+        with:
+          minimum_supported_lv_version: '2026'
+          supported_bitness: '64'
+          project_path: 'lv_icon_editor.lvproj'
+          target_name: 'My Computer'
+          build_spec_name: 'Editor Packed Library'
+          major: ${{ steps.version.outputs.major }}
+          minor: ${{ steps.version.outputs.minor }}
+          patch: ${{ steps.version.outputs.patch }}
+          build: ${{ steps.version.outputs.build }}
+          commit: ${{ github.sha }}
+          docker_image: 'nationalinstruments/labview'
+          image_tag: '2026q1-linux'
+
+      - name: Upload Built PPL
+        uses: actions/upload-artifact@v6
+        if: success()
+        with:
+          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}
+          path: builds/*.lvlibp
+          retention-days: 7
+
+      - name: Upload Build Logs
+        uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: build-logs
+          path: |
+            **/*.log
+          retention-days: 3
