@@ -54,8 +54,7 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Debug: Fetching tags..."
-          git fetch --tags --force
-          
+          git fetch --tags --force          
           $tag = git describe --tags --abbrev=0 2>$null
           Write-Host "Debug: Retrieved tag = '$tag'"
           
