@@ -9,14 +9,6 @@ on:
       - release-beta/*
       - release-rc/*
       - hotfix/*
-  pull_request:
-    branches:
-      - main
-      - develop
-      - release-alpha/*
-      - release-beta/*
-      - release-rc/*
-      - hotfix/*
   workflow_dispatch:
 
 jobs:
