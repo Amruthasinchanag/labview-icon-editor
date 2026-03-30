@@ -35,7 +35,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          git fetch --tags --force          
+          git fetch --tags
           $allTags = git tag -l "v*.*.*" --sort=-version:refname 2>$null
           $tag = if ($allTags) { $allTags | Select-Object -First 1 } else { $null }
           

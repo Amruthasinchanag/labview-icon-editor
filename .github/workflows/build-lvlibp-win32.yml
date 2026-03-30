@@ -53,13 +53,14 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          Write-Host "Debug: Fetching tags..."
-          git fetch --tags --force          
-          $tag = git describe --tags --abbrev=0 2>$null
-          Write-Host "Debug: Retrieved tag = '$tag'"
+          git fetch --tags
+          $allTags = git tag -l "v*.*.*" --sort=-version:refname 2>$null
+          $tag = if ($allTags) { $allTags | Select-Object -First 1 } else { $null }
+          
+          Write-Host "Latest tag in repository: '$tag'"
           
           if ([string]::IsNullOrWhiteSpace($tag)) {
-            Write-Warning "Debug: Tag is null or empty"
+            Write-Host "No version tag found. Using fallback version 0.0.0"
             $major = 0
             $minor = 0
             $patch = 0
@@ -69,7 +70,7 @@ jobs:
             $patch = $Matches[3]
             Write-Host "Parsed version from tag '$tag': $major.$minor.$patch"
           } else {
-            Write-Warning "Tag '$tag' does not match expected pattern '^v?(\d+)\.(\d+)\.(\d+)'"
+            Write-Warning "Tag '$tag' does not match expected pattern. Using fallback 0.0.0"
             $major = 0
             $minor = 0
             $patch = 0
@@ -78,11 +79,11 @@ jobs:
           $build = $env:GITHUB_RUN_NUMBER
           Write-Host "Version: $major.$minor.$patch.$build"
           
-          "major=$major" >> $env:GITHUB_OUTPUT
-          "minor=$minor" >> $env:GITHUB_OUTPUT
-          "patch=$patch" >> $env:GITHUB_OUTPUT
-          "build=$build" >> $env:GITHUB_OUTPUT
-          
+          echo "major=$major" >> $env:GITHUB_OUTPUT
+          echo "minor=$minor" >> $env:GITHUB_OUTPUT
+          echo "patch=$patch" >> $env:GITHUB_OUTPUT
+          echo "build=$build" >> $env:GITHUB_OUTPUT
+
       - name: Build PPL
         uses: ni/open-source/build-lvlibp-github-hosted-windows@actions
         with:
