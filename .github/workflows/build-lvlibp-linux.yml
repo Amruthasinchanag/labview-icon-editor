@@ -47,18 +47,24 @@ jobs:
             $minor = 0
             $patch = 0
             $build = 0
-          } elseif ($tag -match '^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$') {
-            $major = $Matches[1]
-            $minor = $Matches[2]
-            $patch = $Matches[3]
-            $build = if ($Matches[4]) { $Matches[4] } else { 0 }
-            Write-Host "Parsed version from tag '$tag': $major.$minor.$patch.$build"
           } else {
-            Write-Warning "Tag '$tag' does not match pattern v{major}.{minor}.{patch}[.{build}]. Using fallback 0.0.0.0"
-            $major = 0
-            $minor = 0
-            $patch = 0
-            $build = 0
+            # Strip pre-release suffix (e.g., v2.0.0-rc -> v2.0.0)
+            $cleanTag = $tag -replace '-.*$', ''
+            Write-Host "Cleaned tag: '$cleanTag'"
+            
+            if ($cleanTag -match '^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$') {
+              $major = $Matches[1]
+              $minor = $Matches[2]
+              $patch = $Matches[3]
+              $build = if ($Matches[4]) { $Matches[4] } else { 0 }
+              Write-Host "Parsed version from tag '$tag': $major.$minor.$patch.$build"
+            } else {
+              Write-Warning "Tag '$tag' (cleaned: '$cleanTag') does not match pattern v{major}.{minor}.{patch}[.{build}]. Using fallback 0.0.0.0"
+              $major = 0
+              $minor = 0
+              $patch = 0
+              $build = 0
+            }
           }
 
           Write-Host "Version: $major.$minor.$patch.$build"
