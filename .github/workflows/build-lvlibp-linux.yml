@@ -42,20 +42,23 @@ jobs:
           Write-Host "Latest tag in repository: '$tag'"
           
           if ([string]::IsNullOrWhiteSpace($tag)) {
-            Write-Host "No version tag found. Using fallback version 0.0.0"
+            Write-Host "No version tag found. Using fallback version 0.0.0.0"
             $major = 0
             $minor = 0
             $patch = 0
-          } elseif ($tag -match '^v?(\d+)\.(\d+)\.(\d+)') {
+            $build = 0
+          } elseif ($tag -match '^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$') {
             $major = $Matches[1]
             $minor = $Matches[2]
             $patch = $Matches[3]
-            Write-Host "Parsed version from tag '$tag': $major.$minor.$patch"
+            $build = if ($Matches[4]) { $Matches[4] } else { 0 }
+            Write-Host "Parsed version from tag '$tag': $major.$minor.$patch.$build"
           } else {
-            Write-Warning "Tag '$tag' does not match expected pattern. Using fallback 0.0.0"
+            Write-Warning "Tag '$tag' does not match pattern v{major}.{minor}.{patch}[.{build}]. Using fallback 0.0.0.0"
             $major = 0
             $minor = 0
             $patch = 0
+            $build = 0
           }
           
           $build = $env:GITHUB_RUN_NUMBER
