@@ -127,7 +127,7 @@ jobs:
       - name: Configure LabVIEW
         uses: ni/open-source/configure-labview@actions
         with:
-          labview_version: ${{ env.LV_VERSION }}
+          labview_version: ${{ env.LV_YEAR }}
           log_level: 'DEBUG'
 
       - name: Get Version from Git
