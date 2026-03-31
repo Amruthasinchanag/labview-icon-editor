@@ -26,6 +26,7 @@ on:
 
 jobs:
   build-lvlibp-win:
+    name: Build LabVIEW Packed Library (Windows)
     runs-on: windows-latest
     steps:
       - name: Checkout code

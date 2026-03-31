@@ -27,7 +27,7 @@ on:
 
 jobs:
   build-lvlibp:
-    name: Build LabVIEW Packed Library
+    name: Build LabVIEW Packed Library (Linux)
     runs-on: ubuntu-latest
 
     steps:
