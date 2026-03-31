@@ -1,4 +1,4 @@
-name: Build LVLIBP with Docker
+name: Build LVLIBP with Docker (Linux)
 
 on:
   push:
@@ -18,6 +18,12 @@ on:
       - release-rc/*
       - hotfix/*
   workflow_dispatch:
+    inputs:
+      labview_version:
+        description: 'LabVIEW version (e.g., 2025q3, 2026q1)'
+        required: false
+        default: '2026q1'
+        type: string
 
 jobs:
   build-lvlibp:
@@ -30,6 +36,50 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      - name: Validate LabVIEW Version for Docker
+        shell: pwsh
+        run: |
+          $lvVersion = if ('${{ github.event.inputs.labview_version }}') { 
+            '${{ github.event.inputs.labview_version }}' 
+          } else { 
+            '2026q1' 
+          }
+          
+          Write-Host "Requested LabVIEW version: $lvVersion"
+          
+          # Parse version (e.g., 2025q3 -> year=2025, quarter=3)
+          if ($lvVersion -match '^(\d{4})q([13])$') {
+            $year = [int]$Matches[1]
+            $quarter = [int]$Matches[2]
+            Write-Host "Parsed: Year=$year, Quarter=$quarter"
+          } else {
+            throw "Invalid LabVIEW version format: $lvVersion. Expected format: YYYYq1 or YYYYq3 (e.g., 2025q3, 2026q1)"
+          }
+          
+          # Minimum version for Linux Docker: 2025q3
+          $minYear = 2025
+          $minQuarter = 3
+          
+          $isValid = ($year -gt $minYear) -or (($year -eq $minYear) -and ($quarter -ge $minQuarter))
+          
+          if (-not $isValid) {
+            Write-Error @"
+          LabVIEW version $lvVersion is not available in Docker for Linux.
+          
+          Minimum supported version: 2025q3
+          
+          Please either:
+          1. Use LabVIEW 2025q3 or later (e.g., 2025q3, 2026q1)
+          2. Use GitHub-hosted runners instead of Docker (see build-lvlibp-win32.yml)
+          
+          Available Docker images: https://hub.docker.com/r/nationalinstruments/labview
+          "@
+            exit 1
+          }
+          
+          Write-Host "LabVIEW version $lvVersion is supported for Linux Docker builds"
+          echo "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
 
       - name: Get Version from Git
         id: version
@@ -88,13 +138,13 @@ jobs:
           build: ${{ steps.version.outputs.build }}
           commit: ${{ github.sha }}
           docker_image: 'nationalinstruments/labview'
-          image_tag: '2026q1-linux'
+          image_tag: '${{ env.LV_VERSION }}-linux'
 
       - name: Upload Built PPL
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}
+          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
           path: builds/*.lvlibp
           retention-days: 7
 
@@ -102,7 +152,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: failure()
         with:
-          name: build-logs
+          name: build-logs-linux-${{ env.LV_VERSION }}
           path: |
             **/*.log
           retention-days: 3

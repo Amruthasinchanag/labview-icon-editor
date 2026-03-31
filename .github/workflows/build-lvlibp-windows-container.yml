@@ -1,4 +1,4 @@
-name: Build LVLIBP with Github Runner (Windows x86)
+name: Build LVLIBP with Docker (Windows)
 
 on:
   push:
@@ -9,37 +9,77 @@ on:
       - release-beta/*
       - release-rc/*
       - hotfix/*
+  pull_request:
+    branches:
+      - main
+      - develop
+      - release-alpha/*
+      - release-beta/*
+      - release-rc/*
+      - hotfix/*
   workflow_dispatch:
+    inputs:
+      labview_version:
+        description: 'LabVIEW version'
+        required: false
+        default: '2026q1'
+        type: string
 
 jobs:
-  build-lvlibp-win32:
-    runs-on: windows-latest
+  build-lvlibp:
+    name: Build LabVIEW Packed Library (Windows)
+    runs-on: windows-2022
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
-      
-      - name: Setup NI Package Manager
-        uses: ni/open-source/setup-nipm@actions
-        with:
-          log_level: 'DEBUG'
-      
-      - name: Setup LabVIEW
-        uses: ni/open-source/setup-labview@actions
-        with:
-          labview_iso_url: 'https://download.ni.com/support/softlib/labview/labview_development_system/2025_Q3/ni-labview-2025-community-x86_25.3.3_offline.iso'
-          timeout_seconds: 1800
-          serial_number: ${{ secrets.LABVIEW_SERIAL_NUMBER }}
-          package_id: 'LabVIEW_COM_PKG 25.0300'
-          log_level: 'DEBUG'
 
-      - name: Configure LabVIEW
-        uses: ni/open-source/configure-labview@actions
-        with:
-          labview_version: '2025'
-          log_level: 'DEBUG'
+      - name: Validate LabVIEW Version for Docker
+        shell: pwsh
+        run: |
+          $lvVersion = if ('${{ github.event.inputs.labview_version }}') { 
+            '${{ github.event.inputs.labview_version }}' 
+          } else { 
+            '2026q1' 
+          }
+          
+          Write-Host "Requested LabVIEW version: $lvVersion"
+          
+          # Parse version (e.g., 2026q1 -> year=2026, quarter=1)
+          if ($lvVersion -match '^(\d{4})q([13])$') {
+            $year = [int]$Matches[1]
+            $quarter = [int]$Matches[2]
+            Write-Host "Parsed: Year=$year, Quarter=$quarter"
+          } else {
+            throw "Invalid LabVIEW version format: $lvVersion. Expected format: YYYYq1 or YYYYq3 (e.g., 2026q1, 2026q3)"
+          }
+          
+          # Minimum version for Windows Docker: 2026q1
+          $minYear = 2026
+          $minQuarter = 1
+          
+          $isValid = ($year -gt $minYear) -or (($year -eq $minYear) -and ($quarter -ge $minQuarter))
+          
+          if (-not $isValid) {
+            Write-Error @"
+          LabVIEW version $lvVersion is not available in Docker for Windows.
+          
+          Minimum supported version: 2026q1
+          
+          Please either:
+          1. Use LabVIEW 2026q1 or later (e.g., 2026q1, 2026q3)
+          2. Use GitHub-hosted runners instead of Docker (see build-lvlibp-windows-github-hosted.yml)
+          
+          Available Docker images: https://hub.docker.com/r/nationalinstruments/labview
+          "@
+            exit 1
+          }
+          
+          Write-Host "LabVIEW version $lvVersion is supported for Windows Docker builds"
+          echo "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
 
       - name: Get Version from Git
         id: version
@@ -84,11 +124,11 @@ jobs:
           echo "patch=$patch" >> $env:GITHUB_OUTPUT
           echo "build=$build" >> $env:GITHUB_OUTPUT
 
-      - name: Build PPL
-        uses: ni/open-source/build-lvlibp-github-hosted-windows@actions
+      - name: Build PPL with Windows Docker
+        uses: ni/open-source/build-lvlibp-docker-windows@actions
         with:
-          minimum_supported_lv_version: '2025'
-          supported_bitness: '32'
+          minimum_supported_lv_version: '2026'
+          supported_bitness: '64'
           project_path: 'lv_icon_editor.lvproj'
           target_name: 'My Computer'
           build_spec_name: 'Editor Packed Library'
@@ -97,13 +137,15 @@ jobs:
           patch: ${{ steps.version.outputs.patch }}
           build: ${{ steps.version.outputs.build }}
           commit: ${{ github.sha }}
+          docker_image: 'nationalinstruments/labview'
+          image_tag: '${{ env.LV_VERSION }}-windows'
           log_level: 'INFO'
 
       - name: Upload Built PPL
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: lv_icon_x86_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}
+          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
           path: builds/*.lvlibp
           retention-days: 7
 
@@ -111,6 +153,6 @@ jobs:
         uses: actions/upload-artifact@v6
         if: failure()
         with:
-          name: build-logs
+          name: build-logs-windows-${{ env.LV_VERSION }}
           path: build-logs/*.log
           retention-days: 3
