@@ -72,6 +72,17 @@ jobs:
           Write-Host "LabVIEW version $lvVersion is supported for Windows Docker builds"
           echo "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
 
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            @(
+              '### Build LVLIBP — Windows Docker',
+              '',
+              "- LabVIEW version: \`$lvVersion\`",
+              "- Platform: \`windows\`",
+              "- Bitness: \`64\`",
+              "- Docker image: \`nationalinstruments/labview:$lvVersion-windows\`"
+            ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
       - name: Get Version from Git
         id: version
         shell: pwsh
@@ -115,6 +126,16 @@ jobs:
           echo "patch=$patch" >> $env:GITHUB_OUTPUT
           echo "build=$build" >> $env:GITHUB_OUTPUT
 
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            @(
+              '',
+              '#### Version',
+              '',
+              "- Source tag: \`$tag\`",
+              "- Resolved: \`$major.$minor.$patch.$build\`"
+            ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
       - name: Build PPL with Windows Docker
         uses: ni/open-source/build-lvlibp-docker-windows@actions
         with:
@@ -136,7 +157,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
+          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-windows
           path: builds/*.lvlibp
           retention-days: 7
 
@@ -144,6 +165,6 @@ jobs:
         uses: actions/upload-artifact@v6
         if: failure()
         with:
-          name: build-logs-windows-${{ env.LV_VERSION }}
+          name: build-logs-windows-${{ env.LV_VERSION }}-windows
           path: build-logs/*.log
           retention-days: 3

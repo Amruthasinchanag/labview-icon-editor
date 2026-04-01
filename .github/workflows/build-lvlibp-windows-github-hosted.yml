@@ -96,7 +96,7 @@ jobs:
           if (-not $platformData) {
             throw "No $platform configuration found for version $lvVersion"
           }
-          
+
           $isoUrl = $platformData.$arch
           if ([string]::IsNullOrWhiteSpace($isoUrl)) {
             $availableArch = ($platformData.PSObject.Properties.Name -join ', ')
@@ -106,11 +106,23 @@ jobs:
           Write-Host "Resolved ISO URL ($platform/$arch): $isoUrl"
           Write-Host "Build bitness: $bitness"
           
-          "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
-          "LV_YEAR=$lvYear" >> $env:GITHUB_ENV
-          "ISO_URL=$isoUrl" >> $env:GITHUB_ENV
-          "BITNESS=$bitness" >> $env:GITHUB_ENV
-          "ARCH=$arch" >> $env:GITHUB_ENV
+          echo "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
+          echo "LV_YEAR=$lvYear" >> $env:GITHUB_ENV
+          echo "ISO_URL=$isoUrl" >> $env:GITHUB_ENV
+          echo "BITNESS=$bitness" >> $env:GITHUB_ENV
+          echo "ARCH=$arch" >> $env:GITHUB_ENV
+
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            @(
+              '### Build LVLIBP — Windows GitHub-Hosted',
+              '',
+              "- LabVIEW version: \`$lvVersion\`",
+              "- LabVIEW year: \`$lvYear\`",
+              "- Platform: \`windows\`",
+              "- Bitness: \`$bitness\` (\`$arch\`)",
+              "- ISO URL: \`$isoUrl\`"
+            ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
       
       - name: Setup NI Package Manager
         uses: ni/open-source/setup-nipm@actions
@@ -175,6 +187,16 @@ jobs:
           echo "patch=$patch" >> $env:GITHUB_OUTPUT
           echo "build=$build" >> $env:GITHUB_OUTPUT
 
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            @(
+              '',
+              '#### Version',
+              '',
+              "- Source tag: \`$tag\`",
+              "- Resolved: \`$major.$minor.$patch.$build\`"
+            ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
       - name: Build PPL
         uses: ni/open-source/build-lvlibp-github-hosted-windows@actions
         with:
@@ -194,7 +216,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: lv_icon_${{ env.ARCH }}_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
+          name: lv_icon_${{ env.ARCH }}_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-windows-gh
           path: builds/*.lvlibp
           retention-days: 7
 
@@ -202,6 +224,6 @@ jobs:
         uses: actions/upload-artifact@v6
         if: failure()
         with:
-          name: build-logs-${{ env.ARCH }}_${{ env.LV_VERSION }}
+          name: build-logs-${{ env.ARCH }}_${{ env.LV_VERSION }}-windows-gh
           path: build-logs/*.log
           retention-days: 3

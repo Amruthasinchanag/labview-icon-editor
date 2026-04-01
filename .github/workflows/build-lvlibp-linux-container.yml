@@ -72,6 +72,17 @@ jobs:
           Write-Host "LabVIEW version $lvVersion is supported for Linux Docker builds"
           echo "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
 
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            @(
+              '### Build LVLIBP — Linux Docker',
+              '',
+              "- LabVIEW version: \`$lvVersion\`",
+              "- Platform: \`linux\`",
+              "- Bitness: \`64\`",
+              "- Docker image: \`nationalinstruments/labview:$lvVersion-linux\`"
+            ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
       - name: Get Version from Git
         id: version
         shell: pwsh
@@ -114,6 +125,16 @@ jobs:
           echo "minor=$minor" >> $env:GITHUB_OUTPUT
           echo "patch=$patch" >> $env:GITHUB_OUTPUT
           echo "build=$build" >> $env:GITHUB_OUTPUT
+
+          if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+            @(
+              '',
+              '#### Version',
+              '',
+              "- Source tag: \`$tag\`",
+              "- Resolved: \`$major.$minor.$patch.$build\`"
+            ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
       
       - name: Build PPL with Docker
         uses: ni/open-source/build-lvlibp-docker-linux@actions
@@ -135,7 +156,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
+          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-linux
           path: builds/*.lvlibp
           retention-days: 7
 
@@ -143,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: failure()
         with:
-          name: build-logs-linux-${{ env.LV_VERSION }}
+          name: build-logs-linux-${{ env.LV_VERSION }}-linux
           path: |
             **/*.log
           retention-days: 3
