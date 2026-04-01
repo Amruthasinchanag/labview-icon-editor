@@ -172,14 +172,14 @@ jobs:
   build-lvlibp-linux-container:
     name: Build LVLIBP (Linux Container)
     needs: [run-metadata, version-gate]
-    uses: ./build-lvlibp-linux-container.yml
+    uses: ./.github/workflows/build-lvlibp-linux-container.yml
     with:
       labview_version: '2026q1'
 
   build-lvlibp-windows-container:
     name: Build LVLIBP (Windows Container)
     needs: [run-metadata, version-gate]
-    uses: ./build-lvlibp-windows-container.yml
+    uses: ./.github/workflows/build-lvlibp-windows-container.yml
     with:
       labview_version: '2026q1'
 
@@ -187,7 +187,7 @@ jobs:
     name: Build LVLIBP (Windows GitHub-Hosted)
     if: github.event_name != 'pull_request'
     needs: [run-metadata, version-gate]
-    uses: ./build-lvlibp-windows-github-hosted.yml
+    uses: ./.github/workflows/build-lvlibp-windows-github-hosted.yml
     with:
       labview_version: ''
       bitness: '32'
@@ -247,6 +247,9 @@ jobs:
           $testFiles = @(
             'Tooling/tests/CiPipelineCompositeContract.Tests.ps1',
             'Tooling/tests/PylaviCompositeContract.Tests.ps1',
-            'Tooling/tests/ViAnalyzerCompositeContract.Tests.ps1'
+            'Tooling/tests/ViAnalyzerCompositeContract.Tests.ps1',
+            'Tooling/tests/BuildLvlibpLinuxContainerContract.Tests.ps1',
+            'Tooling/tests/BuildLvlibpWindowsContainerContract.Tests.ps1',
+            'Tooling/tests/BuildLvlibpWindowsGithubHostedContract.Tests.ps1'
           )
           Invoke-Pester -Path $testFiles -CI
