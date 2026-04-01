@@ -76,10 +76,10 @@ jobs:
             @(
               '### Build LVLIBP — Windows Docker',
               '',
-              '- LabVIEW version: \`$lvVersion\`',
-              '- Platform: \`windows\`',
-              '- Bitness: \`64\`',
-              '- Docker image: \`nationalinstruments/labview:$lvVersion-windows\`'
+              ('- LabVIEW version: `{0}`' -f $lvVersion),
+              '- Platform: `windows`',
+              '- Bitness: `64`',
+              ('- Docker image: `nationalinstruments/labview:{0}-windows`' -f $lvVersion)
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 
@@ -131,8 +131,8 @@ jobs:
               '',
               '#### Version',
               '',
-              '- Source tag: \`$tag\`',
-              '- Resolved: \`$major.$minor.$patch.$build\`'
+              ('- Source tag: `{0}`' -f $tag),
+              ('- Resolved: `{0}.{1}.{2}.{3}`' -f $major, $minor, $patch, $build)
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 

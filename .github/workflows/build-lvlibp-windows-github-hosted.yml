@@ -116,10 +116,11 @@ jobs:
             @(
               '### Build LVLIBP — Windows GitHub-Hosted',
               '',
-              '- LabVIEW version: \`$lvVersion\`',
-              '- LabVIEW year: \`$lvYear\`',
-              '- Platform: \`windows\`',
-              '- Bitness: \`$bitness\` (\`$arch\`)'
+              ('- LabVIEW version: `{0}`' -f $lvVersion),
+              ('- LabVIEW year: `{0}`' -f $lvYear),
+              '- Platform: `windows`',
+              ('- Bitness: `{0}` (`{1}`)' -f $bitness, $arch),
+              ('- ISO URL: `{0}`' -f $isoUrl)
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
       
@@ -191,8 +192,8 @@ jobs:
               '',
               '#### Version',
               '',
-              '- Source tag: \`$tag\`',
-              '- Resolved: \`$major.$minor.$patch.$build\`'
+              ('- Source tag: `{0}`' -f $tag),
+              ('- Resolved: `{0}.{1}.{2}.{3}`' -f $major, $minor, $patch, $build)
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 
