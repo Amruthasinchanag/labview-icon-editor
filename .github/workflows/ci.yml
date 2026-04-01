@@ -170,21 +170,21 @@ jobs:
           if-no-files-found: error
   
   build-lvlibp-linux-container:
-    name: Build lv_icon PPL for LabVIEW ${{ needs.version-gate.outputs.year }}.${{ needs.version-gate.outputs.minor }} x64 (Linux Container)
+    name: Build lv_icon PPL for LabVIEW ${{ needs.version-gate.outputs.raw }} x64 (Linux Container)
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-linux-container.yml
     with:
       labview_version: '2026q1'
 
   build-lvlibp-windows-container:
-    name: Build lv_icon PPL for LabVIEW ${{ needs.version-gate.outputs.year }}.${{ needs.version-gate.outputs.minor }} x64 (Windows Container)
+    name: Build lv_icon PPL for LabVIEW ${{ needs.version-gate.outputs.raw }} x64 (Windows Container)
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-windows-container.yml
     with:
       labview_version: '2026q1'
 
   build-lvlibp-windows-github-hosted:
-    name: Build lv_icon PPL for LabVIEW ${{ needs.version-gate.outputs.year }}.${{ needs.version-gate.outputs.minor }} x32 (Windows GitHub-Hosted)
+    name: Build lv_icon PPL for LabVIEW ${{ needs.version-gate.outputs.raw }} x32 (Windows GitHub-Hosted)
     if: github.event_name != 'pull_request'
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-windows-github-hosted.yml
