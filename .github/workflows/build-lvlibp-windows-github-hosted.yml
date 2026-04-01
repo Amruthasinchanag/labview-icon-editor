@@ -1,14 +1,6 @@
 name: Build LVLIBP with Github Runner (Windows)
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-      - release-alpha/*
-      - release-beta/*
-      - release-rc/*
-      - hotfix/*
   workflow_dispatch:
     inputs:
       labview_version:
@@ -23,6 +15,21 @@ on:
         options:
           - '32'
           - '64'
+  workflow_call:
+    inputs:
+      labview_version:
+        description: 'LabVIEW version'
+        required: false
+        default: ''
+        type: string
+      bitness:
+        description: 'Build bitness (32 or 64)'
+        required: false
+        default: '32'
+        type: string
+    secrets:
+      LABVIEW_SERIAL_NUMBER:
+        required: true
 
 jobs:
   build-lvlibp-win:
@@ -49,7 +56,7 @@ jobs:
           $isoMap = Get-Content $isoMapFile -Raw | ConvertFrom-Json
           
           # Determine version
-          $lvVersion = '${{ github.event.inputs.labview_version }}'
+          $lvVersion = '${{ inputs.labview_version }}'
           if ([string]::IsNullOrWhiteSpace($lvVersion)) {
             $lvVersion = $isoMap.default
             Write-Host "Using default version from .lv-iso-map.json: $lvVersion"
@@ -71,7 +78,7 @@ jobs:
           }
 
           # Determine bitness
-          $bitness = '${{ github.event.inputs.bitness }}'
+          $bitness = '${{ inputs.bitness }}'
           if ([string]::IsNullOrWhiteSpace($bitness)) {
             $bitness = '32'
             Write-Host "Using default bitness: $bitness"
@@ -84,11 +91,6 @@ jobs:
           
           # Get platform and bitness-specific ISO URL
           $platform = 'windows'
-          
-          $platformData = $isoMap.versions.$lvVersion.$platform
-          if (-not $platformData) {
-            throw "No $platform configuration found for version $lvVersion"
-          }
           
           $platformData = $isoMap.versions.$lvVersion.$platform
           if (-not $platformData) {

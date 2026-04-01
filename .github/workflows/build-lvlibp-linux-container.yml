@@ -1,23 +1,14 @@
 name: Build LVLIBP with Docker (Linux)
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-      - release-alpha/*
-      - release-beta/*
-      - release-rc/*
-      - hotfix/*
-  pull_request:
-    branches:
-      - main
-      - develop
-      - release-alpha/*
-      - release-beta/*
-      - release-rc/*
-      - hotfix/*
   workflow_dispatch:
+    inputs:
+      labview_version:
+        description: 'LabVIEW version (e.g., 2025q3, 2026q1)'
+        required: false
+        default: '2026q1'
+        type: string
+  workflow_call:
     inputs:
       labview_version:
         description: 'LabVIEW version (e.g., 2025q3, 2026q1)'
@@ -40,8 +31,8 @@ jobs:
       - name: Validate LabVIEW Version for Docker
         shell: pwsh
         run: |
-          $lvVersion = if ('${{ github.event.inputs.labview_version }}') { 
-            '${{ github.event.inputs.labview_version }}' 
+          $lvVersion = if ('${{ inputs.labview_version }}') { 
+            '${{ inputs.labview_version }}' 
           } else { 
             '2026q1' 
           }

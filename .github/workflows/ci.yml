@@ -168,17 +168,45 @@ jobs:
           name: vi-analyzer-status
           path: ${{ steps.vi.outputs.status_path }}
           if-no-files-found: error
+  
+  build-lvlibp-linux-container:
+    name: Build LVLIBP (Linux Container)
+    needs: [run-metadata, version-gate]
+    uses: ./build-lvlibp-linux-container.yml
+    with:
+      labview_version: '2026q1'
+
+  build-lvlibp-windows-container:
+    name: Build LVLIBP (Windows Container)
+    needs: [run-metadata, version-gate]
+    uses: ./build-lvlibp-windows-container.yml
+    with:
+      labview_version: '2026q1'
+
+  build-lvlibp-windows-github-hosted:
+    name: Build LVLIBP (Windows GitHub-Hosted)
+    if: github.event_name != 'pull_request'
+    needs: [run-metadata, version-gate]
+    uses: ./build-lvlibp-windows-github-hosted.yml
+    with:
+      labview_version: ''
+      bitness: '32'
+    secrets:
+      LABVIEW_SERIAL_NUMBER: ${{ secrets.LABVIEW_SERIAL_NUMBER }}
 
   pipeline-contract:
     name: Pipeline Contract
     if: always()
-    needs: [run-metadata, version-gate, pylavi-linux, vi-analyzer-linux]
+    needs: [run-metadata, version-gate, pylavi-linux, vi-analyzer-linux, build-lvlibp-linux-container, build-lvlibp-windows-container, build-lvlibp-windows-github-hosted]
     runs-on: ubuntu-latest
     env:
       RUN_METADATA_RESULT: ${{ needs.run-metadata.result }}
       VERSION_GATE_RESULT: ${{ needs.version-gate.result }}
       PYLAVI_RESULT: ${{ needs.pylavi-linux.result }}
       VI_ANALYZER_RESULT: ${{ needs.vi-analyzer-linux.result }}
+      BUILD_PPL_LINUX_CONTAINER_RESULT: ${{ needs.build-lvlibp-linux-container.result }}
+      BUILD_PPL_WINDOWS_CONTAINER_RESULT: ${{ needs.build-lvlibp-windows-container.result }}
+      BUILD_PPL_WINDOWS_GITHUB_HOSTED_RESULT: ${{ needs.build-lvlibp-windows-github-hosted.result }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -192,6 +220,13 @@ jobs:
             'version-gate' = $env:VERSION_GATE_RESULT
             'pylavi-linux' = $env:PYLAVI_RESULT
             'vi-analyzer'  = $env:VI_ANALYZER_RESULT
+            'build-lvlibp-linux-container' = $env:BUILD_PPL_LINUX_CONTAINER_RESULT
+            'build-lvlibp-windows-container' = $env:BUILD_PPL_WINDOWS_CONTAINER_RESULT
+          }
+
+          $ghHostedResult = $env:BUILD_PPL_WINDOWS_GITHUB_HOSTED_RESULT
+          if ($ghHostedResult -notin @('success', 'skipped')) {
+            $results['build-lvlibp-windows-github-hosted'] = $ghHostedResult
           }
 
           $failed = @($results.GetEnumerator() | Where-Object { [string]$_.Value -ne 'success' })
