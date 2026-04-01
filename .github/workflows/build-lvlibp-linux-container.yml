@@ -62,7 +62,7 @@ jobs:
           
           Please either:
           1. Use LabVIEW 2025q3 or later (e.g., 2025q3, 2026q1)
-          2. Use GitHub-hosted runners instead of Docker (see build-lvlibp-win32.yml)
+          2. Use GitHub-hosted runners instead of Docker
           
           Available Docker images: https://hub.docker.com/r/nationalinstruments/labview
           "@
