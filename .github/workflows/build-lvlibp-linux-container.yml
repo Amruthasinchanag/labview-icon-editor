@@ -76,10 +76,10 @@ jobs:
             @(
               '### Build LVLIBP — Linux Docker',
               '',
-              "- LabVIEW version: \`$lvVersion\`",
-              "- Platform: \`linux\`",
-              "- Bitness: \`64\`",
-              "- Docker image: \`nationalinstruments/labview:$lvVersion-linux\`"
+              '- LabVIEW version: \`$lvVersion\`',
+              '- Platform: \`linux\`',
+              '- Bitness: \`64\`',
+              '- Docker image: \`nationalinstruments/labview:$lvVersion-linux\`'
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 
@@ -131,8 +131,8 @@ jobs:
               '',
               '#### Version',
               '',
-              "- Source tag: \`$tag\`",
-              "- Resolved: \`$major.$minor.$patch.$build\`"
+              '- Source tag: \`$tag\`',
+              '- Resolved: \`$major.$minor.$patch.$build\`'
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
       
