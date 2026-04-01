@@ -33,7 +33,7 @@ on:
 
 jobs:
   build-lvlibp-win:
-    name: Build LabVIEW Packed Library (Windows)
+    name: Build lv_icon PPL Windows 32-bit
     runs-on: windows-latest
     steps:
       - name: Checkout code
