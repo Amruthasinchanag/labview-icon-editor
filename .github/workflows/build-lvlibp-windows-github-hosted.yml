@@ -33,7 +33,7 @@ on:
 
 jobs:
   build-lvlibp-win:
-    name: Build lv_icon PPL Windows 32-bit
+    name: Build LabVIEW Packed Library (Windows)
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -102,15 +102,22 @@ jobs:
             $availableArch = ($platformData.PSObject.Properties.Name -join ', ')
             throw "No $arch ISO URL found for version $lvVersion on $platform. Available architectures: $availableArch"
           }
-          
+
+          $packageId = $platformData.package_id
+          if ([string]::IsNullOrWhiteSpace($packageId)) {
+            throw "No package_id found for version $lvVersion on $platform in .lv-iso-map.json"
+          }
+
           Write-Host "Resolved ISO URL ($platform/$arch): $isoUrl"
+          Write-Host "Package ID: $packageId"
           Write-Host "Build bitness: $bitness"
-          
-          echo "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
-          echo "LV_YEAR=$lvYear" >> $env:GITHUB_ENV
-          echo "ISO_URL=$isoUrl" >> $env:GITHUB_ENV
-          echo "BITNESS=$bitness" >> $env:GITHUB_ENV
-          echo "ARCH=$arch" >> $env:GITHUB_ENV
+
+          "LV_VERSION=$lvVersion" >> $env:GITHUB_ENV
+          "LV_YEAR=$lvYear" >> $env:GITHUB_ENV
+          "ISO_URL=$isoUrl" >> $env:GITHUB_ENV
+          "PACKAGE_ID=$packageId" >> $env:GITHUB_ENV
+          "BITNESS=$bitness" >> $env:GITHUB_ENV
+          "ARCH=$arch" >> $env:GITHUB_ENV
 
           if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
             @(
@@ -118,6 +125,7 @@ jobs:
               '',
               ('- LabVIEW version: `{0}`' -f $lvVersion),
               ('- LabVIEW year: `{0}`' -f $lvYear),
+              ('- Package ID: `{0}`' -f $packageId),
               '- Platform: `windows`',
               ('- Bitness: `{0}` (`{1}`)' -f $bitness, $arch),
               ('- ISO URL: `{0}`' -f $isoUrl)
@@ -135,7 +143,7 @@ jobs:
           labview_iso_url: ${{ env.ISO_URL }}
           timeout_seconds: 1800
           serial_number: ${{ secrets.LABVIEW_SERIAL_NUMBER }}
-          package_id: 'LabVIEW_COM_PKG 25.0300'
+          package_id: ${{ env.PACKAGE_ID }}
           log_level: 'DEBUG'
 
       - name: Configure LabVIEW

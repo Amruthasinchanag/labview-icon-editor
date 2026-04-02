@@ -18,7 +18,7 @@ on:
 
 jobs:
   build-lvlibp:
-    name: Build lv_icon PPL Windows 64-bit
+    name: Build LabVIEW Packed Library (Windows)
     runs-on: windows-2022
 
     steps:

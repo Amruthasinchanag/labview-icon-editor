@@ -18,7 +18,7 @@ on:
 
 jobs:
   build-lvlibp:
-    name: Build lv_icon PPL Linux 64-bit
+    name: Build LabVIEW Packed Library (Linux)
     runs-on: ubuntu-latest
 
     steps:
