@@ -66,7 +66,7 @@ jobs:
           "manifest_path=$manifestPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Upload run manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: run-manifest
           path: ${{ steps.meta.outputs.manifest_path }}
@@ -81,7 +81,7 @@ jobs:
       minor: ${{ steps.lv.outputs.minor }}
       numeric: ${{ steps.lv.outputs.numeric }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -100,7 +100,7 @@ jobs:
     needs: [run-metadata, version-gate]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload pylavi artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pylavi-linux
           path: |
@@ -129,7 +129,7 @@ jobs:
     needs: [run-metadata]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -147,7 +147,7 @@ jobs:
 
       - name: Upload VI Analyzer logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vi-analyzer-linux-logs
           path: ${{ steps.vi.outputs.logs_root }}
@@ -155,7 +155,7 @@ jobs:
 
       - name: Upload VI Analyzer reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vi-analyzer-reports
           path: ${{ steps.vi.outputs.reports_root }}
@@ -163,33 +163,33 @@ jobs:
 
       - name: Upload VI Analyzer status
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vi-analyzer-status
           path: ${{ steps.vi.outputs.status_path }}
           if-no-files-found: error
   
   build-lvlibp-linux-container:
-    name: Build LVLIBP (Linux Container)
+    name: Build lv_icon PPL using 2026q1 LabVIEW x64 (Linux Container)
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-linux-container.yml
     with:
       labview_version: '2026q1'
 
   build-lvlibp-windows-container:
-    name: Build LVLIBP (Windows Container)
+    name: Build lv_icon PPL using 2026q1 LabVIEW x64 (Windows Container)
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-windows-container.yml
     with:
       labview_version: '2026q1'
 
   build-lvlibp-windows-github-hosted:
-    name: Build LVLIBP (Windows GitHub-Hosted)
+    name: Build lv_icon PPL using 2026q1 LabVIEW x32 (Windows GitHub-Hosted)
     if: github.event_name != 'pull_request'
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-windows-github-hosted.yml
     with:
-      labview_version: ''
+      labview_version: '2026q1'
       bitness: '32'
     secrets:
       LABVIEW_SERIAL_NUMBER: ${{ secrets.LABVIEW_SERIAL_NUMBER }}
@@ -208,7 +208,7 @@ jobs:
       BUILD_PPL_WINDOWS_CONTAINER_RESULT: ${{ needs.build-lvlibp-windows-container.result }}
       BUILD_PPL_WINDOWS_GITHUB_HOSTED_RESULT: ${{ needs.build-lvlibp-windows-github-hosted.result }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 

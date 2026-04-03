@@ -50,8 +50,8 @@ Describe 'CI pipeline composite contract' {
             ($isOfficial -or $isAllowedLocal) | Should -BeTrue -Because "Unexpected uses target in CI pipeline: $useValue"
         }
 
-        $usesValues | Should -Contain 'actions/checkout@v4'
-        $usesValues | Should -Contain 'actions/upload-artifact@v4'
+        $usesValues | Should -Contain 'actions/checkout@v5'
+        $usesValues | Should -Contain 'actions/upload-artifact@v6'
         $usesValues | Should -Contain './.github/actions/pylavi-ci'
         $usesValues | Should -Contain './.github/actions/vi-analyzer-ci'
         $usesValues | Should -Contain './.github/workflows/build-lvlibp-linux-container.yml'
