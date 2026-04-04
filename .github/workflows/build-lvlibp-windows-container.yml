@@ -137,7 +137,7 @@ jobs:
           }
 
       - name: Build PPL with Windows Docker
-        uses: ni/open-source/build-lvlibp-docker-windows@actions
+        uses: ni/open-source/build-spec-docker-windows@actions
         with:
           minimum_supported_lv_version: '2026'
           supported_bitness: '64'

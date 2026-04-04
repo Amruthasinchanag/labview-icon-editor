@@ -206,7 +206,7 @@ jobs:
           }
 
       - name: Build PPL
-        uses: ni/open-source/build-lvlibp-github-hosted-windows@actions
+        uses: ni/open-source/build-spec-github-hosted-windows@actions
         with:
           minimum_supported_lv_version: ${{ env.LV_YEAR }}
           supported_bitness: ${{ env.BITNESS }}
