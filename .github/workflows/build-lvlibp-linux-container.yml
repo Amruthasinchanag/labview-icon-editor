@@ -137,7 +137,7 @@ jobs:
           }
       
       - name: Build PPL with Docker
-        uses: ni/open-source/build-lvlibp-docker-linux@actions
+        uses: ni/open-source/build-spec-docker-linux@actions
         with:
           minimum_supported_lv_version: '2026'
           supported_bitness: '64'
