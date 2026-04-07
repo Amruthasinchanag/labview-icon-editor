@@ -53,6 +53,7 @@
 			<Item Name="Polymorphic Template.vi" Type="VI" URL="../Test/Templates/Polymorphic Template.vi"/>
 			<Item Name="Pyramid Icon Template.vi" Type="VI" URL="../Test/Templates/Pyramid Icon Template.vi"/>
 			<Item Name="Pyramid.png" Type="Document" URL="../Test/Templates/Pyramid.png"/>
+			<Item Name="VI Template.vi" Type="VI" URL="../Test/Templates/VI Template.vi"/>
 		</Item>
 		<Item Name="Source" Type="Folder">
 			<Item Name="resource/plugins" Type="Folder">
