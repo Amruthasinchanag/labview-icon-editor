@@ -46,9 +46,9 @@
 		</Item>
 		<Item Name="Test Templates" Type="Folder">
 			<Property Name="NI.SortType" Type="Int">1</Property>
-			<Item Name="Class Template.lvclass" Type="LVClass" URL="../Test/Templates/Class Template/Class Template.lvclass"/>
+			<Item Name="Class Template.lvclass" Type="LVClass" URL="../Test/Templates/Class Template.lvclass"/>
 			<Item Name="Control Template.ctl" Type="VI" URL="../Test/Templates/Control Template.ctl"/>
-			<Item Name="Library Template.lvlib" Type="Library" URL="../Test/Templates/Library Template/Library Template.lvlib"/>
+			<Item Name="Library Template.lvlib" Type="Library" URL="../Test/Templates/Library Template.lvlib"/>
 			<Item Name="Many Layers.vi" Type="VI" URL="../Test/Templates/Many Layers.vi"/>
 			<Item Name="Polymorphic Template.vi" Type="VI" URL="../Test/Templates/Polymorphic Template.vi"/>
 			<Item Name="Pyramid Icon Template.vi" Type="VI" URL="../Test/Templates/Pyramid Icon Template.vi"/>
