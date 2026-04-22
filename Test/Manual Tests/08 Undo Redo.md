@@ -1,4 +1,5 @@
 # Scope
+
 This procedure is used to verify the undo/redo states are properly stored and applied appropriately.
 
 Unless otherwise stated, each section of the Main may be ran independently of the other sections. The Setup and Cleanup must be performed.
@@ -7,11 +8,14 @@ An Undo action can be done through either the Edit menu or by pressing Ctrl+z.
 A Redo action can be done through either the Edit menu or by pressing Ctrl+Shift+z.
 
 # Setup
+
 1. Open VI Template.vi.
 **NOTE:** This will add IE_Test.png to your list of templates.
 
 # Main
+
 ## 1. Templates Tab
+
 1. Double-click on the icon on VI Template.vi to open the Icon Editor.
 2. Open the Templates tab
 3. Verify the Undo and Redo items in the Edit menu are disabled.
@@ -53,6 +57,7 @@ A Redo action can be done through either the Edit menu or by pressing Ctrl+Shift
 39. Close the Icon Editor, discarding any changes.
 
 ## 2. Icon Text Tab
+
 1. Double-click on the icon on VI Template.vi to open the Icon Editor.
 2. Open the Icon Text tab.
 3. Verify the Undo and Redo items in the Edit menu are disabled.
@@ -149,39 +154,182 @@ A Redo action can be done through either the Edit menu or by pressing Ctrl+Shift
 94. Close the Icon Editor, discarding any changes.
 
 ## 3. Glyphs Tab
+
 1. Double-click on the icon on VI Template.vi to open the Icon Editor.
 2. Open the Glyphs tab.
 3. Verify the Undo and Redo items in the Edit menu are disabled.
-3. In the Filter glyphs by keyword control, type "xy".
-4. Verify the Undo item in the Edit menu is enabled.
-5. Verify the Redo item in the Edit menu is disabled.
-6. Perform an undo.
-7. Verify the string in Filter glyphs by keyword is now "x".
-8. Verify the filtered list of glyphs was updated.
+4. In the Filter glyphs by keyword control, type "xy".
+5. Verify the Undo item in the Edit menu is enabled.
+6. Verify the Redo item in the Edit menu is disabled.
+7. Perform an undo.
+8. Verify the string in Filter glyphs by keyword is now "x".
+9. Verify the filtered list of glyphs was updated.
+10. Verify the Undo item in the Edit menu is enabled.
+11. Verify the Redo item in the Edit menu is enabled.
+12. Perform an undo.
+13. Verify the string in Filter glyphs by keyword is now empty.
+14. Verify the filtered list of glyphs was updated.
+15. Verify the Undo item in the Edit menu is disabled.
+16. Verify the Redo item in the Edit menu is enabled.
+17. Perform a redo.
+18. Verify the string in Filter glyphs by keyword is now "x".
+19. Verify the filtered list of glyphs was updated.
+20. Verify the Undo item in the Edit menu is enabled.
+21. Verify the Redo item in the Edit menu is enabled.
+22. Perform a redo.
+23. Verify the string in Filter glyphs by keyword is now "xy".
+24. Verify the filtered list of glyphs was updated.
+25. Verify the Undo item in the Edit menu is disabled.
+26. Verify the Redo item in the Edit menu is enabled.
+27. Double-click the xy_graph glyph to place it in the icon.
+28. Perform an undo.
+29. Verify the glyph was removed from the icon.
+30. Perform a redo.
+31. Verify the glyph was placed backed in the icon.
+32. Close the Icon Editor, discarding any changes.
+
+## 4. Layers Tab
+
+1. Double-click on the icon on VI Template.vi to open the Icon Editor.
+2. Open the Layers tab.
+3. Verify the Undo and Redo items in the Edit menu are disabled.
+4. Click the + button twice to add two layers.
+5. Verify the Undo item in the Edit menu is enabled.
+6. Verify the Redo item in the Edit menu is disabled.
+7. Perform an undo.
+8. Verify one of the added layers was removed.
 9. Verify the Undo item in the Edit menu is enabled.
 10. Verify the Redo item in the Edit menu is enabled.
 11. Perform an undo.
-12. Verify the string in Filter glyphs by keyword is now empty.
-13. Verify the filtered list of glyphs was updated.
-14. Verify the Undo item in the Edit menu is disabled.
-15. Verify the Redo item in the Edit menu is enabled.
-16. Perform a redo.
-17. Verify the string in Filter glyphs by keyword is now "x".
-18. Verify the filtered list of glyphs was updated.
-19. Verify the Undo item in the Edit menu is enabled.
-20. Verify the Redo item in the Edit menu is enabled.
-21. Perform a redo.
-22. Verify the string in Filter glyphs by keyword is now "xy".
-23. Verify the filtered list of glyphs was updated.
-24. Verify the Undo item in the Edit menu is disabled.
-25. Verify the Redo item in the Edit menu is enabled.
-26. Double-click the xy_graph glyph to place it in the icon.
+12. Verify the other added layer was removed.
+13. Verify the Undo item in the Edit menu is disabled.
+14. Verify the Redo item in the Edit menu is enabled.
+15. Perform a redo.
+16. Verify a layer was added.
+17. Verify the Undo item in the Edit menu is enabled.
+18. Verify the Redo item in the Edit menu is enabled.
+19. Perform a redo.
+20. Verify the second layer was added.
+21. Verify the Undo item in the Edit menu is enabled.
+22. Verify the Redo item in the Edit menu is disabled.
+23. Perform an undo.
+24. Select the empty user layer and click the X button to delete it.
+25. Verify the Undo item in the Edit menu is enabled.
+26. Verify the Redo item in the Edit menu is disabled.
 27. Perform an undo.
-28. Verify the glyph was removed from the icon.
-29. Perform a redo.
-30. Verify the glyph was placed backed in the icon.
-31. Close the Icon Editor, discarding any changes.
+28. Verify the empty user layer was restored.
+29. Select the emtpy user layer.
+30. Click the down arrow button to move it below the Colors layer.
+31. Perform an undo.
+32. Verify the empty layer was moved back to the top.
+33. Perform a redo.
+34. Verify the empty layer is below the Colors layer.
+35. Click the up arrow button to move the empty layer above the Colors layer.
+36. Perform an undo.
+37. Verify the empty layer was moved below the Colors layer.
+38. Perform a redo.
+39. Verify the empty layer was moved back to the top.
+40. Set the Icon Text layer's visibility off.
+41. Perform an undo.
+42. Verify the Icon Text layer's visibility is on.
+43. Perform a redo.
+44. Verify the Icon Text layer's visibility is off.
+45. Perform an undo to restore the visibility.
+46. Click and hold on the Icon Text layer transparency.
+47. Adjust the transparency to 50 and release the mouse button.
+48. Perform an undo.
+49. Verify the Icon Text layer transparency is 100.
+50. Perform a redo.
+51. Verify the Icon Text layer transparency is 50.
+52. Perform an undo to restore the layer transparency.
+53. Set the Icon Template layer's visibility off.
+54. Perform an undo.
+55. Verify the Icon Template layer's visibility is on.
+56. Perform a redo.
+57. Verify the Icon Template layer's visibility is off.
+58. Perform an undo to restore the visibility.
+59. Click and hold on the Icon Template layer transparency.
+60. Adjust the transparency to 50 and release the mouse button.
+61. Perform an undo.
+62. Verify the Icon Template layer transparency is 100.
+63. Perform a redo.
+64. Verify the Icon Template layer transparency is 50.
+65. Perform an undo to restore the layer transparency.
+66. Set the Colors layer's visibility off.
+67. Perform an undo.
+68. Verify the Colors layer's visibility is on.
+69. Perform a redo.
+70. Verify the Colors layer's visibility is off.
+71. Perform an undo to restore the visibility.
+72. Click and hold on the Colors layer transparency.
+73. Adjust the transparency to 50 and release the mouse button.
+74. Perform an undo.
+75. Verify the Colors layer transparency is 100.
+76. Perform a redo.
+77. Verify the Colors layer transparency is 50.
+78. Perform an undo to restore the layer transparency.
+79. Close the Icon Editor, discarding any changes.
+
+## 5. Menu Items
+
+1. Double-click on the icon on VI Template.vi to open the Icon Editor.
+2. Open the Icon Text tab.
+3. Type "asd" in the Line 1 text.
+4. Open the Layers tab.
+5. Select the Edit->Clear User Layers menu item to remove the Colors layer.
+6. Perform an undo.
+7. Verify the Colors layer was restored.
+8. Perform a redo.
+9. Verify the Colors layer was removed.
+10. Perform an undo to restore the layer.
+11. Select the Edit->Clear All menu item to remove all of the layers.
+12. Perform an undo.
+13. Verify all layers were restored.
+14. Perform a redo.
+15. Verify all layers were removed.
+16. Perform an undo to restore the layers.
+17. Select the Edit->Import Glyph From File menu item.
+18. Browse to the Templates folder and selct the Pyramid.png file.
+19. Perform an undo.
+20. Verify the Pyramid layer was removed.
+21. Perform a redo.
+22. Verify the Pryamid layer was restored.
+23. Select the Edit->Import From Owning Library menu item.
+24. Perform an undo.
+25. Verify the NI_Library layer was removed.
+26. Perform a redo.
+27. Verify the NI_Library layer was restored.
+28. Select the Layers->Create New Layer menu item.
+29. Perform an undo.
+30. Verify the empty layer was removed.
+31. Perform a redo.
+32. Verify the empty layer was restored.
+33. Select the empty layer.
+34. Select the Layers->Delete Selected Layers menu item.
+35. Perform an undo.
+36. Verify the empty layer was restored.
+37. Perform a redo.
+38. Verify the empty layer was removed.
+39. Select the Pyramid and Colors layers.
+40. Select the Layers->Merge Selected Layers menu item.
+41. Perform an undo.
+42. Verify the Merged Layers layer is removed and the Pyramid and Colors layers are restored.
+43. Perform a redo.
+44. Verify the Merged Layers layer is restored and the Pryamid and Colors layers are removed.
+45. Perform an undo.
+46. Select the Layers->Merge All User Layers menu item.
+47. Perform an undo.
+48. Verify the Merged Layers layer is removed and the NI_Library, Pyramid, and Colors layers are restored.
+49. Perform a redo.
+50. Verify the Merged Layers layer is restored and the NI_Library,Pryamid, and Colors layers are removed.
+51. Close the Icon Editor, discarding any changes.
+
+## 6. Tools
+
+1. Double-click on the icon on VI Template.vi to open the Icon Editor.
+2. 
 
 # Cleanup
+
 1. Click "Cancel" to close the Icon Editor, discarding any changes.
 2. Close the VI Template.vi, discarding any changes.
