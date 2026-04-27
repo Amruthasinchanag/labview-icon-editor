@@ -327,9 +327,93 @@ A Redo action can be done through either the Edit menu or by pressing Ctrl+Shift
 ## 6. Tools
 
 1. Double-click on the icon on VI Template.vi to open the Icon Editor.
-2. 
+2. Open the Layers tab.
+3. Select the Pencil tool.
+4. With a single click and drag (do not lift the mouse button until you are done drawing), draw on the Icon Preview.
+5. Perform an undo.
+6. Verify the pencil drawing was removed.
+7. Perform a redo.
+8. Verify the pencil drawing was restored.
+9. Perform an undo.
+10. Select the Line tool.
+11. Draw a line on the Icon Preview.
+12. Perform an undo.
+13. Verify the line was removed.
+14. Perform a redo.
+15. Verify the line was restored.
+16. Perform an undo.
+17. Select the Paint tool.
+18. Paint in the open area in the bottom half of the icon.
+19. Perform an undo.
+20. Verify the painted area was cleared.
+21. Perform a redo.
+22. Verify the painted area was restored.
+23. Perform an undo.
+24. Select the Rectangle tool.
+25. Draw a rectangle on the Icon Preview.
+26. Perform an undo.
+27. Verify the rectangle was cleared.
+28. Perfrom a redo.
+29. Verify the rectangle was restored.
+30. Perform an undo.
+31. Select the Filled Rectangle tool.
+32. Draw a rectangle on the Icon Preview.
+33. Perform an undo.
+34. Verify the rectangle was cleared.
+35. Perfrom a redo.
+36. Verify the rectangle was restored.
+37. Perform an undo.
+38. Select the elipse tool.
+39. Draw an elipse on the Icon Preview.
+40. Perform an undo.
+41. Verify the elipse was cleared.
+42. Perfrom a redo.
+43. Verify the elipse was restored.
+44. Perform an undo.
+45. Select the Filled Elipse tool.
+46. Draw an elipse on the Icon Preview.
+47. Perform an undo.
+48. Verify the elipse was cleared.
+49. Perfrom a redo.
+50. Verify the elipse was restored.
+51. Perform an undo.
+52. Select the Eraser tool.
+53. Erase parts of the colored boxes in the icon using a single click and drag action.
+54. Perform an undo.
+55. Verify the erased parts were restored.
+56. Perform a redo.
+57. Verify the previously erased parts were removed again.
+58. Perform an undo.
+59. Select the Text tool.
+60. Click in the bottom half of the icon and type "asd".
+61. Click outside of the Icon Preview to finalize the text.
+62. Perform an undo.
+63. Verify the text was removed.
+64. Perform a redo.
+65. Verify the text was restored.
+66. Perform an undo.
+67. Select the Move tool.
+68. Drag the color boxes to the bottom of the icon.
+69. Perform an undo.
+70. Verify the color boxes were returned to the top of the icon.
+71. Perform a redo.
+72. Verify the color boxes were moved to the bottom of the icon.
+73. Perform an undo.
+74. Select the Colors layer.
+75. Click the Horizontal Flip button.
+76. Perform an undo.
+77. Verify the color boxes were returned to the original order.
+78. Perform a redo.
+79. Verify the color boxes were flipped again.
+80. Perform an undo.
+81. Click the Clockwise Rotate button.
+82. Perform an undo.
+83. Verify the color boxes were returned to their original location.
+84. Perform a redo.
+85. Verify the color boxes were rotated again.
+86. Close the Icon Editor, discarding any changes.
 
 # Cleanup
 
-1. Click "Cancel" to close the Icon Editor, discarding any changes.
+1. If necessary, click "Cancel" to close the Icon Editor, discarding any changes.
 2. Close the VI Template.vi, discarding any changes.
