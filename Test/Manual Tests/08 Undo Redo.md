@@ -26,17 +26,17 @@ A Redo action can be done through either the Edit menu or by pressing Ctrl+Shift
 8. Perform an undo.
 9. Verify the string in Filter Templates by Keyword is now "i".
 10. Verify the Undo item in the Edit menu is enabled.
-11. Verify the Redo items in the Edit menu is enabled.
+11. Verify the Redo item in the Edit menu is enabled.
 12. Verify the "_blank.png" templates are still removed from the list.
 13. Perform an undo.
 14. Verify the string in the Filter Templates by Keyword is now empty.
 15. Verify the Undo item in the Edit menu is disabled.
-16. Verify the Redo items in the Edit menu is enabled.
+16. Verify the Redo item in the Edit menu is enabled.
 17. Verify the "_blank.png" templates are back in the list.
 18. Perform a redo.
 19. Verify the string in Filter Templates by Keyword is now "i".
 20. Verify the Undo item in the Edit menu is enabled.
-21. Verify the Redo items in the Edit menu is enabled.
+21. Verify the Redo item in the Edit menu is enabled.
 22. Verify the "_blank.png" templates are removed from the list.
 23. Perform a redo.
 24. Verify the Undo item in the Edit menu is enabled.
@@ -386,32 +386,39 @@ A Redo action can be done through either the Edit menu or by pressing Ctrl+Shift
 58. Perform an undo.
 59. Select the Text tool.
 60. Click in the bottom half of the icon and type "asd".
-61. Click outside of the Icon Preview to finalize the text.
-62. Perform an undo.
-63. Verify the text was removed.
-64. Perform a redo.
-65. Verify the text was restored.
+61. Click in another place in the Icon Preview and type "zxc".
+62. Click in another place in the Icon Preview and do not type anything.
+63. Click outside of the Icon Preview to finalize the text.
+64. Perform an undo.
+65. Verify the "zxc" text was removed. The "asd" should remain.
 66. Perform an undo.
-67. Select the Move tool.
-68. Drag the color boxes to the bottom of the icon.
-69. Perform an undo.
-70. Verify the color boxes were returned to the top of the icon.
-71. Perform a redo.
-72. Verify the color boxes were moved to the bottom of the icon.
-73. Perform an undo.
-74. Select the Colors layer.
-75. Click the Horizontal Flip button.
+67. Verify the "asd" text was removed.
+68. Perform a redo.
+69. Verify the "asd" text was restored.
+70. Perform a redo.
+71. Verify the "zxc" text was restored.
+72. Verify the Redo item in the Edit menu is disabled.
+73. Perform two undos.
+74. Select the Move tool.
+75. Drag the color boxes to the bottom of the icon.
 76. Perform an undo.
-77. Verify the color boxes were returned to the original order.
+77. Verify the color boxes were returned to the top of the icon.
 78. Perform a redo.
-79. Verify the color boxes were flipped again.
+79. Verify the color boxes were moved to the bottom of the icon.
 80. Perform an undo.
-81. Click the Clockwise Rotate button.
-82. Perform an undo.
-83. Verify the color boxes were returned to their original location.
-84. Perform a redo.
-85. Verify the color boxes were rotated again.
-86. Close the Icon Editor, discarding any changes.
+81. Select the Colors layer.
+82. Click the Horizontal Flip button.
+83. Perform an undo.
+84. Verify the color boxes were returned to the original order.
+85. Perform a redo.
+86. Verify the color boxes were flipped again.
+87. Perform an undo.
+88. Click the Clockwise Rotate button.
+89. Perform an undo.
+90. Verify the color boxes were returned to their original location.
+91. Perform a redo.
+92. Verify the color boxes were rotated again.
+93. Close the Icon Editor, discarding any changes.
 
 # Cleanup
 
