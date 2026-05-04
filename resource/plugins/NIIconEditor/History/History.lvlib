@@ -15,4 +15,5 @@
 	<Item Name="Set to State.vi" Type="VI" URL="../Set to State.vi"/>
 	<Item Name="Set Undo Flag.vi" Type="VI" URL="../Set Undo Flag.vi"/>
 	<Item Name="State.ctl" Type="VI" URL="../State.ctl"/>
+	<Item Name="Unflatten State.vi" Type="VI" URL="../Unflatten State.vi"/>
 </Library>
