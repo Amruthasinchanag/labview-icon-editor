@@ -1,21 +1,28 @@
-# Scope
+# Tools
+
+## Scope
+
 This procedure is used to verify the functionality of the tools on the Icon Editor.
 
 This procedure was derived from the following NI tests:
-- 1692480: Tools test
-- 1692488: CTRL and CTRL-Shift actions
+
+    - 1692480: Tools test
+    - 1692488: CTRL and CTRL-Shift actions
 
 Unless otherwise stated, each section of the Main may be ran independently of the other sections. The Setup and Cleanup must be performed.
 
-# Setup
+## Setup
+
 1. Open a new VI.
 2. Double-click on the icon to open the Icon Editor.
 3. Under the Layers tab, delete all layers.
 4. Set the Line Color to black (text).
 5. Set the Fill Color to red (Thermometer Fill).
 
-# Main
-## 1. Pencil
+## Main
+
+### 1. Pencil
+
 1. Click on the Pencil tool.
 2. Move the cursor to the top-left corner of the icon preview.
 3. Verify the cursor is a pencil.
@@ -51,7 +58,8 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 33. Verify the line was cleared.
 34. Verify a new layer was not created.
 
-## 2. Line
+### 2. Line
+
 1. Click on the Line tool.
 2. Move the cursor to the top-left corner of the icon preview.
 3. Verify the cursor is a crosshair.
@@ -81,10 +89,9 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 27. Verify the line was cleared.
 28. Verify a new layer was not created.
 
-## 3. Fill
-1. Using the Line tool, draw a black line from the top-left corner to the bottom-right corner and a second line from the top-right corner to the bottom-left corner.
+### 3. Fill
 
-**NOTE:** This is used to create four areas that can be filled and create a Tool layer.
+1. Using the Line tool, draw a black line from the top-left corner to the bottom-right corner and a second line from the top-right corner to the bottom-left corner.  **NOTE:** This is used to create four areas that can be filled and create a Tool layer.
 
 2. Click on the Fill tool.
 3. Move the mouse into the top area of the icon preview.
@@ -103,10 +110,13 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 16. Move the mouse into the right area of the icon preview.
 17. Right click.
 18. Verify the right area of the icon is blue.
+
 **NOTE:** No cleanup is required here as this setup will be used for the Dropper tool.
 
-## 4. Dropper
+### 4. Dropper
+
 **NOTE:** The Fill tool test must be completed to do this test.
+
 1. Click on the Dropper tool.
 2. Move the mouse into the bottom area of the icon preview.
 3. Verify the cursor is the dropper icon.
@@ -137,19 +147,20 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 28. Verify the Fill Color is now red.
 29. Set the Line Color to black (text).
 30. Repeat steps 9 through 29 for each of the following tools:
-- Line
-- Paint
-- Rectangle
-- Filled Rectangle
-- Ellipse
-- Filled Ellipse
-- Eraser
-- Text
-- Select
-- Move
+    - Line
+    - Paint
+    - Rectangle
+    - Filled Rectangle
+    - Ellipse
+    - Filled Ellipse
+    - Eraser
+    - Text
+    - Select
+    - Move
 31. Delete the Fill layer.
 
-## 5. Rectangle
+### 5. Rectangle
+
 1. Click on the Rectangle tool.
 2. Move the cursor to the top-left corner of the icon preview.
 3. Verify the cursor is a crosshair.
@@ -186,7 +197,8 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 34. Verify a new layer named "Border" was created.
 35. Delete the Border layer.
 
-## 6. Filled Rectangle
+### 6. Filled Rectangle
+
 1. Click on the Filled Rectangle tool.
 2. Move the cursor to the top-left corner of the icon preview.
 3. Verify the cursor is a crosshair.
@@ -223,7 +235,8 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 34. Verify a new layer named "Filled" was created.
 35. Delete the Filled layer.
 
-## 7. Ellipse
+### 7. Ellipse
+
 1. Click on the Ellipse tool.
 2. Move the cursor to the top-left corner of the icon preview.
 3. Verify the cursor is a crosshair.
@@ -256,7 +269,8 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 30. Verify the ellipse was cleared.
 31. Verify a new layer was not created.
 
-## 8. Filled Ellipse
+### 8. Filled Ellipse
+
 1. Click on the Filled Ellipse tool.
 2. Move the cursor to the top-left corner of the icon preview.
 3. Verify the cursor is a crosshair.
@@ -289,7 +303,8 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 30. Verify the ellipse was cleared.
 31. Verify a new layer was not created.
 
-## 9. Eraser
+### 9. Eraser
+
 1. Double-click the Filled Rectangle tool to fill the icon.
 2. Click on the Eraser tool.
 3. Move the cursor to near the middle of the icon preview.
@@ -304,13 +319,14 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 12. Verify the pixels the cursor passed over were erased.
 13. Delete the Filled layer.
 
-## 10. Text
+### 10. Text
+
 1. Double-click the Text tool.
 2. Verify the Icon Editor Properties window is opened up with the Text Tool category selected.
 3. Ensure the following settings:
-- Font = Small Fonts
-- Alignment = center
-- Size = 9
+    - Font = Small Fonts
+    - Alignment = center
+    - Size = 9
 4. Click OK to save the settings and close the dialog.
 5. Click on the Text tool.
 6. Move the cursor to near the middle of the icon preview.
@@ -362,8 +378,9 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 52. Change the alignment to center. Click OK.
 53. Remove any created User Layers.
 
-##
+###
 
-# Cleanup
+## Cleanup
+
 1. Click "Cancel" to close the Icon Editor, discarding any changes.
 2. Close the Icon Editor Manual Tests project and any associated files, discarding any changes.
