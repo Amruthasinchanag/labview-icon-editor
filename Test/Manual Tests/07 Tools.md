@@ -321,6 +321,8 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 
 ### 10. Text
 
+**NOTE:** It is recommended to use a keyboard layout that has the AltGr key. For those using an English keyboard, it is recommended to use the United States-International keyboard layout. This layout will make the right Alt key be AltGR.
+
 1. Double-click the Text tool.
 2. Verify the Icon Editor Properties window is opened up with the Text Tool category selected.
 3. Ensure the following settings:
@@ -358,25 +360,30 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 32. Press the ESC button to cancel the operation.
 33. Verify the text was cleared.
 34. Verify a new layer was not created.
-35. Double-click the Text tool to open the Icon Editor Properties.
-36. Change the Font to LabVIEW Application and click OK.
-37. Click in the icon preview and type "asdf".
-38. Verify the font of the typed characters has changed.
-39. Double-click the Text tool to open the Icon Editor Properties.
-40. Change the Font to Small Fonts and the size to 15. Click OK.
-41. Click in the icon preview and type "asdf".
-42. Verify the font of the typed characters is larger than before.
-43. Double-click the Text tool to open the Icon Editor Properties.
-44. Change the size to 9 and the alignment to left. Click OK.
-45. Click in the icon preview and type "asdf".
-46. Verify the typed characters is left aligned to where the mouse was clicked.
-47. Double-click the Text tool to open the Icon Editor Properties.
-48. Change the alignment to right. Click OK.
-49. Click in the icon preview and type "asdf".
-50. Verify the typed characters is right aligned to where the mouse was clicked.
-51. Double-click the Text tool to open the Icon Editor Properties.
-52. Change the alignment to center. Click OK.
-53. Remove any created User Layers.
+35. Move the cursor to near the middle of the icon preview.
+36. Left click.
+37. Type "µ" (AltGR+m) or another character that requires the AltGr key.
+38. Verify the character was placed in the icon preview.
+39. Press the ESC button to cancel the operation.
+40. Double-click the Text tool to open the Icon Editor Properties.
+41. Change the Font to LabVIEW Application and click OK.
+42. Click in the icon preview and type "asdf".
+43. Verify the font of the typed characters has changed.
+44. Double-click the Text tool to open the Icon Editor Properties.
+45. Change the Font to Small Fonts and the size to 15. Click OK.
+46. Click in the icon preview and type "asdf".
+47. Verify the font of the typed characters is larger than before.
+48. Double-click the Text tool to open the Icon Editor Properties.
+49. Change the size to 9 and the alignment to left. Click OK.
+50. Click in the icon preview and type "asdf".
+51. Verify the typed characters is left aligned to where the mouse was clicked.
+52. Double-click the Text tool to open the Icon Editor Properties.
+53. Change the alignment to right. Click OK.
+54. Click in the icon preview and type "asdf".
+55. Verify the typed characters is right aligned to where the mouse was clicked.
+56. Double-click the Text tool to open the Icon Editor Properties.
+57. Change the alignment to center. Click OK.
+58. Remove any created User Layers.
 
 ###
 
