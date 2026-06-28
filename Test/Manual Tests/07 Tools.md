@@ -321,7 +321,7 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 
 ### 10. Text
 
-**NOTE:** It is recommended to use a keyboard layout that has the AltGr key. For those using an English keyboard, it is recommended to use the United States-International keyboard layout. This layout will make the right Alt key be AltGR.
+**NOTE:** It is recommended to use a keyboard layout that has the AltGr key. For those using an "US" keyboard layout, it is recommended to use the "United States-International" keyboard layout. This layout will make the right Alt key be AltGR.
 
 1. Double-click the Text tool.
 2. Verify the Icon Editor Properties window is opened up with the Text Tool category selected.
@@ -362,7 +362,7 @@ Unless otherwise stated, each section of the Main may be ran independently of th
 34. Verify a new layer was not created.
 35. Move the cursor to near the middle of the icon preview.
 36. Left click.
-37. Type "µ" (AltGR+m) or another character that requires the AltGr key.
+37. Type a character that requires the AltGr key. If using the "United States-International" layout, it is recommended to use "µ" (AltGR+m).
 38. Verify the character was placed in the icon preview.
 39. Press the ESC button to cancel the operation.
 40. Double-click the Text tool to open the Icon Editor Properties.
