@@ -152,12 +152,6 @@ jobs:
           labview_version: ${{ env.LV_YEAR }}
           log_level: 'DEBUG'
 
-      - name: Setup VIPM CLI (for SBOM)
-        uses: ni/open-source/setup-lunit@actions
-        with:
-          lv_version: ${{ env.LV_YEAR }}
-          lv_bitness: ${{ env.BITNESS }}
-
       - name: Get Version from Git
         id: version
         shell: pwsh
@@ -226,48 +220,34 @@ jobs:
           commit: ${{ github.sha }}
           log_level: 'INFO'
 
-      - name: Generate SBOM with VIPM
-        if: success()
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}"
-          vipm sbom "lv_icon_editor.lvproj" `
-            --format cyclonedx `
-            --schema-version 1.5 `
-            --lvproj-build-spec "Editor Packed Library" `
-            --lvproj-target "My Computer" `
-            --product-name "labview-icon-editor" `
-            --product-version $version `
-            --output "builds/cdx.sbom.json"
-
       - name: Verify SBOM exists
         if: success()
         shell: pwsh
         run: |
-          $sbomPath = Join-Path $PWD 'builds/cdx.sbom.json'
-          if (-not (Test-Path -Path $sbomPath -PathType Leaf)) {
-            throw "Expected SBOM file not found: $sbomPath"
+          $sbomFiles = Get-ChildItem -Path '.\builds' -Recurse -Include '*.cdx.sbom.json','*.cdx.json' -ErrorAction SilentlyContinue
+          if (-not $sbomFiles) {
+            throw "No SBOM file found in builds\. Ensure 'Generate Software Bill of Materials (SBOM) using the JKI Security Suite' is enabled in the Editor Packed Library build spec."
           }
-
-          Write-Host "SBOM verified at $sbomPath"
+          $sbomFiles | ForEach-Object { Write-Host "SBOM verified: $($_.FullName)" }
 
       - name: Upload Built PPL
         uses: actions/upload-artifact@v6
         if: success()
         with:
           name: lv_icon_${{ env.ARCH }}_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-windows-gh
-          path: |
-            builds/*.lvlibp
-            builds/cdx.sbom.json
+          path: builds/*.lvlibp
           retention-days: 7
 
-      - name: Upload SBOM Artifact
+      - name: Upload SBOM
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: lv_icon_${{ env.ARCH }}_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-windows-gh_sbom
-          path: builds/cdx.sbom.json
-          retention-days: 7
+          name: sbom_${{ env.ARCH }}_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
+          path: |
+            builds/*.cdx.sbom.json
+            builds/*.cdx.json
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Upload Build Logs
         uses: actions/upload-artifact@v6
