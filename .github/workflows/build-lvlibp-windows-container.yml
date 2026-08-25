@@ -153,12 +153,45 @@ jobs:
           image_tag: '${{ env.LV_VERSION }}-windows'
           log_level: 'INFO'
 
+      - name: Generate SBOM with VIPM (Windows Docker)
+        if: success()
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}"
+          $image = "nationalinstruments/labview:${{ env.LV_VERSION }}-windows"
+
+          docker run --rm `
+            -v "${PWD}:C:\workspace" `
+            $image `
+            powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Set-Location 'C:\workspace'; vipm sbom 'lv_icon_editor.lvproj' --format cyclonedx --schema-version 1.5 --lvproj-build-spec 'Editor Packed Library' --lvproj-target 'My Computer' --product-name 'labview-icon-editor' --product-version '$version' --output 'builds/cdx.sbom.json'"
+
+      - name: Verify SBOM exists
+        if: success()
+        shell: pwsh
+        run: |
+          $sbomPath = Join-Path $PWD 'builds/cdx.sbom.json'
+          if (-not (Test-Path -Path $sbomPath -PathType Leaf)) {
+            throw "Expected SBOM file not found: $sbomPath"
+          }
+
+          Write-Host "SBOM verified at $sbomPath"
+
       - name: Upload Built PPL
         uses: actions/upload-artifact@v6
         if: success()
         with:
           name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-windows
-          path: builds/*.lvlibp
+          path: |
+            builds/*.lvlibp
+            builds/cdx.sbom.json
+          retention-days: 7
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v6
+        if: success()
+        with:
+          name: lv_icon_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-windows_sbom
+          path: builds/cdx.sbom.json
           retention-days: 7
 
       - name: Upload Build Logs
