@@ -155,7 +155,7 @@ jobs:
       - name: Verify SBOM exists
         shell: pwsh
         run: |
-          $sbomFiles = Get-ChildItem -Path '.\builds' -Recurse -Include '*.cdx.sbom.json','*.cdx.json' -ErrorAction SilentlyContinue
+          $sbomFiles = Get-ChildItem -Path '.\builds' -Recurse -Include '*sbom*.json' -ErrorAction SilentlyContinue
           if (-not $sbomFiles) {
             throw "No SBOM file found in builds\. Ensure 'Generate Software Bill of Materials (SBOM) using the JKI Security Suite' is enabled in the Editor Packed Library build spec."
           }
@@ -174,9 +174,7 @@ jobs:
         if: success()
         with:
           name: sbom_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
-          path: |
-            builds/*.cdx.sbom.json
-            builds/*.cdx.json
+          path: builds/*sbom*.json
           retention-days: 90
           if-no-files-found: error
 
