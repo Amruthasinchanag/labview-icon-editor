@@ -374,6 +374,8 @@
 				<Property Name="Bld_modifyLibraryFile" Type="Bool">true</Property>
 				<Property Name="Bld_preActionVIID" Type="Ref">/My Computer/Tooling/Build Actions/Pre Build Icon Editor PPL.vi</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{C699D48A-6A0A-4A55-BF6A-D6FC254001CD}</Property>
+				<Property Name="Bld_sbomFile" Type="Path">../builds/lv_icon_editor_Editor Packed Library.cdx.sbom.json</Property>
+				<Property Name="Bld_sbomFile.pathType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_version.build" Type="Int">1</Property>
 				<Property Name="Bld_version.major" Type="Int">2</Property>
 				<Property Name="Destination[0].destName" Type="Str">lv_icon.lvlibp</Property>
@@ -386,7 +388,7 @@
 				<Property Name="Destination[1].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="PackedLib_callersAdapt" Type="Bool">true</Property>
-				<Property Name="Source[0].itemID" Type="Str">{26D19FDD-2FD9-4599-9059-9204992BD5E5}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{DE5BCA89-E555-4054-ADE6-F45E919A0BF4}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/Source/resource\/plugins/lv_icon.lvlib</Property>
