@@ -177,11 +177,11 @@ jobs:
       labview_version: '2026q1'
 
   build-lvlibp-windows-container:
-    name: Build lv_icon PPL using 2026q1 LabVIEW x64 (Windows Container)
+    name: Build lv_icon PPL using 2026q3 LabVIEW x64 (Windows Container)
     needs: [run-metadata, version-gate]
     uses: ./.github/workflows/build-lvlibp-windows-container.yml
     with:
-      labview_version: '2026q1'
+      labview_version: '2026q3'
 
   build-lvlibp-windows-github-hosted:
     name: Build lv_icon PPL using 2026q1 LabVIEW x32 (Windows GitHub-Hosted)

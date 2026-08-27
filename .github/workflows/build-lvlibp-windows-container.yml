@@ -6,14 +6,14 @@ on:
       labview_version:
         description: 'LabVIEW version'
         required: false
-        default: '2026q1'
+        default: '2026q3'
         type: string
   workflow_call:
     inputs:
       labview_version:
         description: 'LabVIEW version'
         required: false
-        default: '2026q1'
+        default: '2026q3'
         type: string
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
           $lvVersion = if ('${{ inputs.labview_version }}') { 
             '${{ inputs.labview_version }}' 
           } else { 
-            '2026q1' 
+            '2026q3' 
           }
           
           Write-Host "Requested LabVIEW version: $lvVersion"
@@ -153,16 +153,62 @@ jobs:
           image_tag: '${{ env.LV_VERSION }}-windows'
           log_level: 'INFO'
 
+      - name: Generate SBOM (vipm sbom in container)
+        if: success()
+        shell: pwsh
+        run: |
+          # vipm sbom needs a real LabVIEW install to resolve .lvproj paths, so this
+          # runs inside the same LabVIEW container image, not on the runner host.
+          $containerScript = @'
+          $ErrorActionPreference = "Stop"
+          $env:VIPM_NONINTERACTIVE = "1"
+          $env:VIPM_COMMUNITY_EDITION = "1"
+          if (-not (Get-Command vipm -ErrorAction SilentlyContinue)) {
+            Write-Host "Downloading VIPM CLI installer..."
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -Uri "https://traffic.libsyn.com/secure/jkinc/vipm-26.3.4025-windows-setup.exe" -OutFile "$env:TEMP\vipm-setup.exe"
+
+            Write-Host "Installing VIPM CLI silently..."
+            Start-Process -Wait -FilePath "$env:TEMP\vipm-setup.exe" -ArgumentList "/exenoui /qn"
+            Remove-Item "$env:TEMP\vipm-setup.exe" -Force
+
+            # Installer updates the registry PATH, not this already-running process; reload it.
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+
+            if (-not (Get-Command vipm -ErrorAction SilentlyContinue)) {
+              Write-Host "vipm not on PATH after install; searching Program Files..."
+              $found = Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}" -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+              if (-not $found) {
+                throw "vipm.exe was not found on PATH or under Program Files after installation."
+              }
+              $env:Path = "$($found.DirectoryName);$env:Path"
+            }
+          }
+          Write-Host "Verifying VIPM CLI..."
+          vipm --version
+          Write-Host "Generating SBOM..."
+          vipm sbom C:\workspace\lv_icon_editor.lvproj --format cyclonedx --schema-version 1.5 --labview-version 2026 --labview-bitness 64 --lvproj-build-spec "Editor Packed Library" --lvproj-target "My Computer" --product-name "Icon Editor Packed Library" --product-version "$env:PRODUCT_VERSION" --output C:\workspace\builds\lv_icon-windows-x64.cdx.sbom.json
+          '@
+
+          docker run --rm `
+            --volume "${{ github.workspace }}:C:\workspace" `
+            --env "PRODUCT_VERSION=${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}" `
+            'nationalinstruments/labview:${{ env.LV_VERSION }}-windows' `
+            powershell -NoProfile -ExecutionPolicy Bypass -Command $containerScript
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "SBOM generation inside the LabVIEW container failed with exit code $LASTEXITCODE"
+          }
+
       - name: Verify SBOM exists
+        if: success()
         shell: pwsh
         run: |
           $sbomFiles = Get-ChildItem -Path '.\builds' -Recurse -Include '*sbom*.json' -ErrorAction SilentlyContinue
           if (-not $sbomFiles) {
-            # TODO: no vipm sbom step wired into this Docker-based build yet; non-blocking until that's added.
-            Write-Warning "No SBOM file found in builds\. SBOM generation is not yet wired into this Docker build."
-          } else {
-            $sbomFiles | ForEach-Object { Write-Host "SBOM verified: $($_.FullName)" }
+            throw "No SBOM file found in builds\. Ensure the 'Generate SBOM' step completed successfully."
           }
+          $sbomFiles | ForEach-Object { Write-Host "SBOM verified: $($_.FullName)" }
 
       - name: Upload Built PPL
         uses: actions/upload-artifact@v6
@@ -179,7 +225,7 @@ jobs:
           name: sbom_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
           path: builds/*sbom*.json
           retention-days: 90
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload Build Logs
         uses: actions/upload-artifact@v6
