@@ -163,7 +163,12 @@ jobs:
           $ErrorActionPreference = "Stop"
           $env:VIPM_NONINTERACTIVE = "1"
           $env:VIPM_COMMUNITY_EDITION = "1"
-          if (-not (Get-Command vipm -ErrorAction SilentlyContinue)) {
+
+          # VIPM is not preinstalled in the Windows LabVIEW container image, and vipm.exe
+          # is not added to PATH by the installer, so discover it directly under Program Files.
+          $vipmExe = Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}" -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $vipmExe) {
             Write-Host "Downloading VIPM CLI installer..."
             $ProgressPreference = "SilentlyContinue"
             Invoke-WebRequest -Uri "https://traffic.libsyn.com/secure/jkinc/vipm-26.3.4025-windows-setup.exe" -OutFile "$env:TEMP\vipm-setup.exe"
@@ -172,22 +177,42 @@ jobs:
             Start-Process -Wait -FilePath "$env:TEMP\vipm-setup.exe" -ArgumentList "/exenoui /qn"
             Remove-Item "$env:TEMP\vipm-setup.exe" -Force
 
-            # Installer updates the registry PATH, not this already-running process; reload it.
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-
-            if (-not (Get-Command vipm -ErrorAction SilentlyContinue)) {
-              Write-Host "vipm not on PATH after install; searching Program Files..."
-              $found = Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}" -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-              if (-not $found) {
-                throw "vipm.exe was not found on PATH or under Program Files after installation."
-              }
-              $env:Path = "$($found.DirectoryName);$env:Path"
+            $vipmExe = Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}" -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+            if (-not $vipmExe) {
+              throw "vipm.exe was not found under Program Files after installation."
             }
           }
+
+          Write-Host "Using VIPM CLI at: $vipmExe"
           Write-Host "Verifying VIPM CLI..."
-          vipm --version
+          & $vipmExe --version
+
+          # Root cause of the SBOM failure: running "vipm sbom" cold fails with
+          # "LabVIEW VI Server is not available ... on port 3363". Launch LabVIEW in the
+          # background (non-blocking) and poll VI Server until it accepts connections,
+          # instead of relying on a foreground call that could hang or a fixed sleep.
+          Write-Host "Launching LabVIEW in the background to warm up VI Server..."
+          Start-Process -FilePath "LabVIEWCLI" -ArgumentList "-OperationName","GetVersion","-Headless" | Out-Null
+
+          $viServerPort = 3363
+          $deadline = (Get-Date).AddSeconds(120)
+          $ready = $false
+          while ((Get-Date) -lt $deadline) {
+            try {
+              $client = New-Object System.Net.Sockets.TcpClient
+              $client.Connect("localhost", $viServerPort)
+              if ($client.Connected) { $client.Close(); $ready = $true; break }
+            } catch {
+              Start-Sleep -Seconds 3
+            }
+          }
+          if (-not $ready) {
+            throw "LabVIEW VI Server did not become available on port $viServerPort within the timeout."
+          }
+          Write-Host "LabVIEW VI Server is available on port $viServerPort."
+
           Write-Host "Generating SBOM..."
-          vipm sbom C:\workspace\lv_icon_editor.lvproj --format cyclonedx --schema-version 1.5 --labview-version 2026 --labview-bitness 64 --lvproj-build-spec "Editor Packed Library" --lvproj-target "My Computer" --product-name "Icon Editor Packed Library" --product-version "$env:PRODUCT_VERSION" --output C:\workspace\builds\lv_icon-windows-x64.cdx.sbom.json
+          & $vipmExe sbom C:\workspace\lv_icon_editor.lvproj --format cyclonedx --schema-version 1.5 --labview-version 2026 --labview-bitness 64 --lvproj-build-spec "Editor Packed Library" --lvproj-target "My Computer" --product-name "Icon Editor Packed Library" --product-version "$env:PRODUCT_VERSION" --output C:\workspace\builds\lv_icon-windows-x64.cdx.sbom.json
           '@
 
           docker run --rm `

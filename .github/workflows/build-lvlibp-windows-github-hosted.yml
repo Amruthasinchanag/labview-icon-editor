@@ -227,13 +227,44 @@ jobs:
           Invoke-WebRequest -Uri "https://traffic.libsyn.com/secure/jkinc/vipm-26.3.4025-windows-setup.exe" -OutFile "$env:TEMP\vipm-setup.exe"
           Start-Process -Wait -FilePath "$env:TEMP\vipm-setup.exe" -ArgumentList "/exenoui /qn"
           Remove-Item "$env:TEMP\vipm-setup.exe" -Force
-          vipm --version
+
+          # vipm.exe is not added to PATH by the installer; discover it and expose for later steps.
+          $vipmExe = Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}" -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vipmExe) {
+            throw "vipm.exe was not found under Program Files after installation."
+          }
+          Write-Host "Using VIPM CLI at: $vipmExe"
+          & $vipmExe --version
+          "VIPM_EXE=$vipmExe" >> $env:GITHUB_ENV
 
       - name: Generate SBOM (vipm sbom)
         if: success()
         shell: pwsh
         run: |
-          vipm sbom "lv_icon_editor.lvproj" `
+          # Running "vipm sbom" cold fails with "LabVIEW VI Server is not available ... on port 3363".
+          # Launch LabVIEW in the background (non-blocking) and poll VI Server until it accepts
+          # connections before invoking vipm sbom.
+          Write-Host "Launching LabVIEW in the background to warm up VI Server..."
+          Start-Process -FilePath "LabVIEWCLI" -ArgumentList "-OperationName","GetVersion","-Headless" | Out-Null
+
+          $viServerPort = 3363
+          $deadline = (Get-Date).AddSeconds(120)
+          $ready = $false
+          while ((Get-Date) -lt $deadline) {
+            try {
+              $client = New-Object System.Net.Sockets.TcpClient
+              $client.Connect("localhost", $viServerPort)
+              if ($client.Connected) { $client.Close(); $ready = $true; break }
+            } catch {
+              Start-Sleep -Seconds 3
+            }
+          }
+          if (-not $ready) {
+            throw "LabVIEW VI Server did not become available on port $viServerPort within the timeout."
+          }
+          Write-Host "LabVIEW VI Server is available on port $viServerPort."
+
+          & $env:VIPM_EXE sbom "lv_icon_editor.lvproj" `
             --format cyclonedx `
             --schema-version 1.5 `
             --labview-version ${{ env.LV_YEAR }} `
