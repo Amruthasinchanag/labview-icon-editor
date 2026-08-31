@@ -164,6 +164,25 @@ jobs:
           $env:VIPM_NONINTERACTIVE = "1"
           $env:VIPM_COMMUNITY_EDITION = "1"
 
+          # Git is not preinstalled in the Windows LabVIEW container image. Install
+          # portable MinGit (no installer, just unzip) and prepend it to PATH.
+          $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+          if (-not $gitCmd) {
+            Write-Host "Git not found; installing portable MinGit..."
+            $ProgressPreference = "SilentlyContinue"
+            $gitZip = "$env:TEMP\mingit.zip"
+            $gitDir = "C:\mingit"
+            Invoke-WebRequest -Uri "https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/MinGit-2.47.1-64-bit.zip" -OutFile $gitZip
+            Expand-Archive -Path $gitZip -DestinationPath $gitDir -Force
+            Remove-Item $gitZip -Force
+            $env:PATH = "$gitDir\cmd;$env:PATH"
+          } else {
+            Write-Host "Git already installed at: $($gitCmd.Source)"
+          }
+
+          Write-Host "Verifying Git..."
+          git --version
+
           # VIPM is not preinstalled in the Windows LabVIEW container image, and vipm.exe
           # is not added to PATH by the installer, so discover it directly under Program Files.
           $vipmExe = Get-ChildItem -Path "$env:ProgramFiles", "${env:ProgramFiles(x86)}" -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
