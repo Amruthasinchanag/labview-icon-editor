@@ -158,28 +158,16 @@ jobs:
         run: |
           # vipm sbom needs a real LabVIEW install to resolve .lvproj paths, so this
           # runs inside the same LabVIEW container image, not on the runner host.
+          # Mirrors the sequence validated manually on nationalinstruments/labview:2026q1-linux.
           $containerScript = @'
           set -e
-          export VIPM_NONINTERACTIVE=1
-          export VIPM_COMMUNITY_EDITION=1
-          if ! command -v wget >/dev/null 2>&1; then
-            echo "Installing wget..."
-            apt-get update
-            apt-get install -y wget
-          fi
-          if ! command -v vipm >/dev/null 2>&1; then
-            echo "Downloading VIPM CLI installer..."
-            wget -q -O /tmp/vipm.deb https://traffic.libsyn.com/secure/jkinc/vipm_26.3.1-4025_amd64.deb
-
-            echo "Installing VIPM CLI silently..."
-            dpkg -i /tmp/vipm.deb
-            rm -f /tmp/vipm.deb
-          fi
-          echo "Verifying VIPM CLI..."
+          apt-get update && apt-get install -y wget
+          wget --no-check-certificate -O /tmp/vipm.deb https://traffic.libsyn.com/secure/jkinc/vipm_26.3.1-4025_amd64.deb
+          dpkg -i /tmp/vipm.deb
           vipm --version
-          echo "Generating SBOM..."
           # vipm sbom needs a display; the container has no X server, so run it under xvfb-run.
-          xvfb-run -a vipm sbom /workspace/lv_icon_editor.lvproj --format cyclonedx --schema-version 1.5 --labview-version 2026 --labview-bitness 64 --lvproj-build-spec "Editor Packed Library" --lvproj-target "My Computer" --product-name "Icon Editor Packed Library" --product-version "$PRODUCT_VERSION" --output /workspace/builds/lv_icon-linux-x64.cdx.sbom.json
+          # timeout 300 hardening so any future hang fails fast instead of stalling the runner.
+          timeout 300 xvfb-run -a vipm sbom /workspace/lv_icon_editor.lvproj --format cyclonedx --schema-version 1.5 --labview-version 2026 --labview-bitness 64 --lvproj-build-spec "Editor Packed Library" --lvproj-target "My Computer" --product-name "Icon Editor Packed Library" --product-version "$PRODUCT_VERSION" --output /workspace/builds/lv_icon-linux-x64.cdx.sbom.json
           '@
 
           docker run --rm `

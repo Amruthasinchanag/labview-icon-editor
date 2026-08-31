@@ -181,6 +181,8 @@ jobs:
             if (-not $vipmExe) {
               throw "vipm.exe was not found under Program Files after installation."
             }
+          } else {
+            Write-Host "VIPM already installed; skipping installation."
           }
 
           Write-Host "Using VIPM CLI at: $vipmExe"
