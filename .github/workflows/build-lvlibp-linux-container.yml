@@ -202,7 +202,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: success()
         with:
-          name: sbom_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}
+          name: sbom_x64_v${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}.${{ steps.version.outputs.patch }}.${{ steps.version.outputs.build }}_${{ env.LV_VERSION }}-linux
           path: builds/*sbom*.json
           retention-days: 90
           if-no-files-found: error
