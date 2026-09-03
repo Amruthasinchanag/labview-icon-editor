@@ -6,14 +6,14 @@ on:
       labview_version:
         description: 'LabVIEW version'
         required: false
-        default: '2026q3'
+        default: '2026q1'
         type: string
   workflow_call:
     inputs:
       labview_version:
         description: 'LabVIEW version'
         required: false
-        default: '2026q3'
+        default: '2026q1'
         type: string
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
           $lvVersion = if ('${{ inputs.labview_version }}') { 
             '${{ inputs.labview_version }}' 
           } else { 
-            '2026q3' 
+            '2026q1' 
           }
           
           Write-Host "Requested LabVIEW version: $lvVersion"
@@ -45,7 +45,7 @@ jobs:
             $quarter = [int]$Matches[2]
             Write-Host "Parsed: Year=$year, Quarter=$quarter"
           } else {
-            throw "Invalid LabVIEW version format: $lvVersion. Expected format: YYYYq1 or YYYYq3 (e.g., 2026q1, 2026q3)"
+            throw "Invalid LabVIEW version format: $lvVersion. Expected format: YYYYq1 or YYYYq3 (e.g., 2026q1, 2026q1)"
           }
           
           # Minimum version for Windows Docker: 2026q1
@@ -61,7 +61,7 @@ jobs:
           Minimum supported version: 2026q1
           
           Please either:
-          1. Use LabVIEW 2026q1 or later (e.g., 2026q1, 2026q3)
+          1. Use LabVIEW 2026q1 or later (e.g., 2026q1, 2026q1)
           2. Use GitHub-hosted runners instead of Docker (see build-lvlibp-windows-github-hosted.yml)
           
           Available Docker images: https://hub.docker.com/r/nationalinstruments/labview
