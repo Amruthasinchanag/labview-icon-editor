@@ -23,7 +23,22 @@ runs:
           -RepoRoot "${{ inputs.repo_root }}" `
           -VipmTomlPath "${{ inputs.vipm_toml_path }}"
 
+    - name: Show VIPM lock path
+      if: always()
+      shell: pwsh
+      run: |
+        $lock = Join-Path "${{ inputs.repo_root }}" ".github/actions/apply-vipc/vipm.lock"
+        Write-Host "Expected lock path: $lock"
+        if (Test-Path $lock) {
+          Write-Host "vipm.lock exists"
+          Get-Content $lock
+        }
+        else {
+          Write-Error "vipm.lock was not generated"
+        }
+
     - name: Upload VIPM lock
+      if: always()
       uses: actions/upload-artifact@v6
       with:
         name: vipm-lock
