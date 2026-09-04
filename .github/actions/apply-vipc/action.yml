@@ -22,6 +22,13 @@ runs:
           -SupportedBitness ${{ inputs.supported_bitness }} `
           -RepoRoot "${{ inputs.repo_root }}" `
           -VipmTomlPath "${{ inputs.vipm_toml_path }}"
+
+    - name: Upload VIPM lock
+      uses: actions/upload-artifact@v6
+      with:
+        name: vipm-lock
+        path: ${{ inputs.repo_root }}/.github/actions/apply-vipc/vipm.lock
+        if-no-files-found: error
 inputs:
   labview_version:
     description: 'LabVIEW version to target (year or numeric).'
