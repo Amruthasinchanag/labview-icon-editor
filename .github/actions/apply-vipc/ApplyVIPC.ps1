@@ -194,7 +194,11 @@ try {
         # the lock in CI or when -UpdateLock is passed; otherwise install
         # directly from vipm.toml. VIPM is the only producer of the lock file.
         $runningInCI = $env:GITHUB_ACTIONS -eq 'true'
-        if ($UpdateLock -or $runningInCI) {
+        if ($UpdateLock) {
+            Write-Output "Generating vipm.lock from vipm.toml via 'vipm lock'..."
+            Invoke-Vipm -Arguments @('lock', '--timeout', $VipmTimeoutSeconds) -FailureMessage 'vipm lock failed'
+        }
+        elseif ($runningInCI) {
             if (Test-Path -Path $ResolvedLockPath) {
                 Write-Output "Validating existing vipm.lock via 'vipm lock --check'..."
                 $checkArgs = @('lock', '--check', '--timeout', $VipmTimeoutSeconds)
