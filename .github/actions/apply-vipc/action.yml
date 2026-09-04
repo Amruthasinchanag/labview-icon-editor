@@ -21,7 +21,7 @@ runs:
           -VIP_LVVersion ${{ inputs.vip_lv_version }} `
           -SupportedBitness ${{ inputs.supported_bitness }} `
           -RepoRoot "${{ inputs.repo_root }}" `
-          -VIPCPath "${{ inputs.vipc_path }}"
+          -VipmTomlPath "${{ inputs.vipm_toml_path }}"
 inputs:
   labview_version:
     description: 'LabVIEW version to target (year or numeric).'
@@ -35,8 +35,8 @@ inputs:
   repo_root:
     description: 'Workspace root path'
     required: true
-  vipc_path:
-    description: 'Path under repo for the .vipc file (relative to workspace)'
+  vipm_toml_path:
+    description: 'Path under repo for the vipm.toml manifest (relative to workspace)'
     required: true
 
 
