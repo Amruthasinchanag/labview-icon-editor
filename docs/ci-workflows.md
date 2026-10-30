@@ -120,7 +120,7 @@ Both `build-ppl` and `build-vi-package` run a `close-labview` step after their b
 
 The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct jobs.
 
-*(The **Run Unit Tests** workflow has been consolidated into the main CI process.)*
+*(LUnit unit tests now run in the main [`ci.yml`](../.github/workflows/ci.yml) pipeline as the `lunit-linux-container` job, which calls [`lunit-container-tests.yml`](../.github/workflows/lunit-container-tests.yml). It installs `astemes_lib_lunit` and `astemes_lib_lunit_cli` with VIPM in a headless `nationalinstruments/labview` 2026 Linux container, runs `LabVIEWCLI -OperationName LUnit` against `lv_icon_editor.lvproj`, and uploads the JUnit report and logs as the `lunit-results-*` artifact. The workflow can also be started manually via `workflow_dispatch`.)*
 
 ---
 
