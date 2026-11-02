@@ -35,6 +35,8 @@ Describe 'Windows LUnit container contract' {
         $script:workflow | Should -Match 'docker restart'
         $script:workflow | Should -Match '-Stage Test'
         $helper = Get-Content (Join-Path $repoRoot 'Tooling\Run-LUnitWindowsContainer.ps1') -Raw
+        $helper | Should -Match "VIPM_COMMUNITY_EDITION = '1'"
+        $helper | Should -Not -Match 'vipm activate|\$vipm activate'
         $helper | Should -Match 'install -y astemes_lib_lunit astemes_lib_lunit_cli'
         $helper | Should -Match 'Start-TestLabVIEW -Project \$project'
         $helper | Should -Match '-OperationName LUnit'

@@ -46,7 +46,7 @@ jobs:
           docker start $env:LVIE_CONTAINER_NAME
           if ($LASTEXITCODE -ne 0) { throw 'Failed to start Windows LUnit container.' }
 
-      - name: Install VIPM Free and LUnit
+      - name: Install VIPM (Community Edition) and LUnit
         timeout-minutes: 25
         run: |
           docker exec $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `

@@ -55,6 +55,9 @@ try {
     if ($Stage -eq 'Setup') {
         $env:VIPM_NONINTERACTIVE = '1'
         $env:VIPM_TIMEOUT = '900'
+        # A fresh Windows VIPM install has no edition selected and refuses `refresh` without activation;
+        # Community Edition (free for public repositories) needs no serial number or secrets.
+        $env:VIPM_COMMUNITY_EDITION = '1'
         $vipm = 'C:\Program Files\JKI\VI Package Manager\support\vipm.exe'
         if (-not (Test-Path -LiteralPath $vipm -PathType Leaf)) {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
