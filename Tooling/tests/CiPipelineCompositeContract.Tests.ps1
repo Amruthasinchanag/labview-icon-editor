@@ -49,7 +49,7 @@ Describe 'CI pipeline composite contract' {
             './.github/workflows/build-lvlibp-windows-container.yml',
             './.github/workflows/build-lvlibp-windows-github-hosted.yml',
             './.github/workflows/generate-sbom.yml',
-            './.github/workflows/lunit-container-tests.yml',
+            './.github/workflows/lunit-windows-container-tests.yml',
             'ni/open-source/.github/workflows/reusable-build-vip-linux.yml@actions'
         )
 
@@ -99,15 +99,15 @@ Describe 'CI pipeline composite contract' {
         $script:content | Should -Match "ghHostedResult -notin @\('success', 'skipped'\)"
     }
 
-    It 'runs LUnit tests in the Linux container and gates the pipeline on them' {
-        $lunitBlock = [regex]::Match($script:content, '(?ms)^  lunit-linux-container:.*?(?=^  [\w-]+:|\z)').Value
-        $lunitBlock | Should -Match 'uses:\s*\./\.github/workflows/lunit-container-tests\.yml'
+    It 'runs LUnit tests in the Windows container and gates the pipeline on them' {
+        $lunitBlock = [regex]::Match($script:content, '(?ms)^  lunit-windows-container:.*?(?=^  [\w-]+:|\z)').Value
+        $lunitBlock | Should -Match 'uses:\s*\./\.github/workflows/lunit-windows-container-tests\.yml'
         $lunitBlock | Should -Match 'needs:\s*\[run-metadata, version-gate\]'
         $lunitBlock | Should -Not -Match '(?m)^    if:' -Because 'LUnit tests must run on every CI event, including PRs'
 
         $contractBlock = [regex]::Match($script:content, '(?ms)^  pipeline-contract:.*?(?=^  [\w-]+:|\z)').Value
-        $contractBlock | Should -Match 'needs:\s*\[[^\]]*\blunit-linux-container\b'
-        $contractBlock | Should -Match 'LUNIT_RESULT:\s*\$\{\{ needs\.lunit-linux-container\.result \}\}'
-        $contractBlock | Should -Match "'lunit-linux-container' = \`$env:LUNIT_RESULT"
+        $contractBlock | Should -Match 'needs:\s*\[[^\]]*\blunit-windows-container\b'
+        $contractBlock | Should -Match 'LUNIT_RESULT:\s*\$\{\{ needs\.lunit-windows-container\.result \}\}'
+        $contractBlock | Should -Match "'lunit-windows-container' = \`$env:LUNIT_RESULT"
     }
 }

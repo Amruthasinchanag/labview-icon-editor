@@ -1,0 +1,118 @@
+name: LUnit Tests on Windows Container
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  LABVIEW_IMAGE: nationalinstruments/labview:2026q1-windows
+  LVIE_CONTAINER_NAME: lvie-lunit-windows-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  lunit-tests:
+    name: Run LUnit tests (Windows container)
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Pull Windows LabVIEW image
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $os = docker info --format '{{.OSType}}'
+          if ($LASTEXITCODE -ne 0 -or $os -ne 'windows') {
+            throw 'A running Docker engine in Windows-container mode is required.'
+          }
+          docker pull $env:LABVIEW_IMAGE
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to pull Windows LabVIEW image.' }
+
+      - name: Start container
+        run: |
+          New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\lunit-results" -Force | Out-Null
+          docker create --name $env:LVIE_CONTAINER_NAME --user ContainerAdministrator `
+            --mount "type=bind,source=$env:GITHUB_WORKSPACE,target=C:\workspace" `
+            --entrypoint powershell.exe $env:LABVIEW_IMAGE `
+            -NoProfile -Command "Start-Sleep -Seconds 7200"
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to create Windows LUnit container.' }
+          'LVIE_CONTAINER_CREATED=true' >> $env:GITHUB_ENV
+          docker start $env:LVIE_CONTAINER_NAME
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to start Windows LUnit container.' }
+
+      - name: Install VIPM Free and LUnit
+        timeout-minutes: 25
+        run: |
+          docker exec $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `
+            -File C:\workspace\Tooling\Run-LUnitWindowsContainer.ps1 -Stage Setup
+          if ($LASTEXITCODE -ne 0) { throw 'Windows LUnit setup failed; see Setup.log.' }
+
+      - name: Restart container and run LUnit CLI
+        timeout-minutes: 20
+        run: |
+          docker restart $env:LVIE_CONTAINER_NAME
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to restart Windows LUnit container.' }
+          docker exec $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `
+            -File C:\workspace\Tooling\Run-LUnitWindowsContainer.ps1 -Stage Test
+          if ($LASTEXITCODE -ne 0) { throw 'Windows LUnit execution failed; see Test.log.' }
+
+      - name: Validate JUnit report and test discovery
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = "$env:GITHUB_WORKSPACE\lunit-results\lunit.xml"
+          $settings = [System.Xml.XmlReaderSettings]::new()
+          $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+          $settings.XmlResolver = $null
+          $reader = [System.Xml.XmlReader]::Create($path, $settings)
+          try {
+            $report = [System.Xml.XmlDocument]::new()
+            $report.XmlResolver = $null
+            $report.Load($reader)
+          } finally {
+            $reader.Dispose()
+          }
+          if ($report.DocumentElement.Name -notin @('testsuite', 'testsuites')) {
+            throw 'Expected a testsuite or testsuites root element.'
+          }
+          if ($report.SelectNodes('//failure | //error').Count -gt 0) {
+            throw 'LUnit reported test failures or errors.'
+          }
+          foreach ($suite in $report.SelectNodes('//testsuite | /testsuites')) {
+            foreach ($attribute in @('failures', 'errors')) {
+              $value = $suite.GetAttribute($attribute)
+              if ($value -and $value -notmatch '^0+$') {
+                throw "Nonzero or invalid $attribute count: $value"
+              }
+            }
+          }
+          $skipped = $report.SelectNodes('//testcase[skipped]').Count
+          $executed = $report.SelectNodes('//testcase').Count - $skipped
+          if ($executed -lt 10) { throw "LUnit executed $executed tests; expected at least 10." }
+          "LUnit (Windows): $executed tests executed; $skipped skipped." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Collect container logs
+        if: always() && env.LVIE_CONTAINER_CREATED == 'true'
+        run: |
+          docker logs $env:LVIE_CONTAINER_NAME *> "$env:GITHUB_WORKSPACE\lunit-results\docker.log"
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to collect container logs.' }
+
+      - name: Upload LUnit reports and logs
+        if: always() && env.LVIE_CONTAINER_CREATED == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: lunit-windows-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: lunit-results
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove container
+        if: always() && env.LVIE_CONTAINER_CREATED == 'true'
+        run: |
+          docker rm -f $env:LVIE_CONTAINER_NAME
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to remove Windows LUnit container.' }

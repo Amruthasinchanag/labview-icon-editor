@@ -120,7 +120,9 @@ Both `build-ppl` and `build-vi-package` run a `close-labview` step after their b
 
 The `build-ppl` job uses a matrix to produce both bitnesses rather than distinct jobs.
 
-*(LUnit unit tests now run in the main [`ci.yml`](../.github/workflows/ci.yml) pipeline as the `lunit-linux-container` job, which calls [`lunit-container-tests.yml`](../.github/workflows/lunit-container-tests.yml). It installs `astemes_lib_lunit` and `astemes_lib_lunit_cli` with VIPM in a headless `nationalinstruments/labview` 2026 Linux container, runs `LabVIEWCLI -OperationName LUnit` against `lv_icon_editor.lvproj`, and uploads the JUnit report and logs as the `lunit-results-*` artifact. The workflow can also be started manually via `workflow_dispatch`.)*
+LUnit tests run in [`ci.yml`](../.github/workflows/ci.yml) as the required `lunit-windows-container` job, calling [`lunit-windows-container-tests.yml`](../.github/workflows/lunit-windows-container-tests.yml). It uses `windows-2022` and `nationalinstruments/labview:2026q1-windows`, installs `astemes_lib_lunit` and `astemes_lib_lunit_cli` with VIPM Free, restarts the container, opens `lv_icon_editor.lvproj`, and runs `LabVIEWCLI -OperationName LUnit`. No repository secrets or VIPM activation are used. The report must contain at least 10 non-skipped tests and no failures or errors; reports and logs are uploaded as `lunit-windows-results-*`.
+
+The Windows workflow supports `workflow_dispatch` as well as `workflow_call`. The original Linux [`lunit-container-tests.yml`](../.github/workflows/lunit-container-tests.yml) is retained unchanged for manual comparisons but is no longer called by CI. Passing tests in the Windows desktop UI does not establish that they pass in a headless Windows container; verify the Windows workflow run before merging.
 
 ---
 
