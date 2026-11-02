@@ -55,26 +55,52 @@ try {
     if ($Stage -eq 'Setup') {
         $env:VIPM_NONINTERACTIVE = '1'
         $env:VIPM_TIMEOUT = '900'
-        # A fresh Windows VIPM install has no edition selected and refuses `refresh` without activation;
-        # Community Edition (free for public repositories) needs no serial number or secrets.
+        # Without an edition, a fresh Windows VIPM rejects `refresh` as unactivated. Community Edition needs
+        # no serial number, but only applies inside a public git repository, so git must be available and
+        # VIPM must run from the checkout.
         $env:VIPM_COMMUNITY_EDITION = '1'
-        $vipm = 'C:\Program Files\JKI\VI Package Manager\support\vipm.exe'
-        if (-not (Test-Path -LiteralPath $vipm -PathType Leaf)) {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+        if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+            $gitZip = Join-Path $env:TEMP 'mingit.zip'
+            Invoke-WebRequest -UseBasicParsing `
+                -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.1/MinGit-2.47.1-64-bit.zip' `
+                -OutFile $gitZip
+            Expand-Archive -Path $gitZip -DestinationPath 'C:\mingit' -Force
+            Remove-Item -LiteralPath $gitZip -Force
+            $env:PATH = "C:\mingit\cmd;$env:PATH"
+        }
+        # The bind-mounted checkout is owned by a different account, which git otherwise refuses to read.
+        git config --global --add safe.directory '*'
+        if ($LASTEXITCODE -ne 0) { throw "git config failed: $LASTEXITCODE" }
+        Set-Location 'C:\workspace'
+        git remote -v
+        if ($LASTEXITCODE -ne 0) { throw "git cannot read the checkout at C:\workspace: $LASTEXITCODE" }
+
+        $findVipm = {
+            Get-ChildItem -Path $env:ProgramFiles, ${env:ProgramFiles(x86)} -Filter vipm.exe -Recurse -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty FullName
+        }
+        $vipm = & $findVipm
+        if (-not $vipm) {
             $installer = Join-Path $env:TEMP 'vipm-setup.exe'
             Invoke-WebRequest -UseBasicParsing `
-                -Uri 'https://packages.jki.net/vipm/preview/vipm-setup-latest-preview.exe' `
+                -Uri 'https://traffic.libsyn.com/secure/jkinc/vipm-26.3.4025-windows-setup.exe' `
                 -OutFile $installer
-            $install = Start-Process -FilePath $installer -ArgumentList '/quiet', '/norestart' -Wait -PassThru
+            $install = Start-Process -FilePath $installer -ArgumentList '/exenoui', '/qn' -Wait -PassThru
+            Remove-Item -LiteralPath $installer -Force
             if ($install.ExitCode -notin @(0, 3010)) {
                 throw "VIPM installer failed with exit code $($install.ExitCode)."
             }
+            $vipm = & $findVipm
         }
-        if (-not (Test-Path -LiteralPath $vipm -PathType Leaf)) {
-            throw "VIPM executable not found after installation: $vipm"
+        if (-not $vipm) {
+            throw 'vipm.exe not found under Program Files after installation.'
         }
+        Write-Host "Using VIPM CLI at: $vipm"
         & $vipm version
         if ($LASTEXITCODE -ne 0) { throw "vipm version failed: $LASTEXITCODE" }
+        & $vipm about
         & $vipm refresh --verbose
         if ($LASTEXITCODE -ne 0) { throw "vipm refresh failed: $LASTEXITCODE" }
         Start-TestLabVIEW
