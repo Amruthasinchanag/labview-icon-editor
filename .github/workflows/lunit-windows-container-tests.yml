@@ -3,6 +3,10 @@ name: LUnit Tests on Windows Container
 on:
   workflow_call:
   workflow_dispatch:
+  # TEMPORARY: run LUnit alone on pushes to the test branch; remove before merging.
+  push:
+    branches:
+      - users/amrutha/lunit-tests
 
 permissions:
   contents: read

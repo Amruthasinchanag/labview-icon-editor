@@ -48,6 +48,64 @@ function Start-TestLabVIEW {
     throw 'LabVIEW VI Server did not become ready on port 3363 within 3 minutes.'
 }
 
+# `vipm install` reads the LabVIEW target list from VIPM Desktop's Settings.ini, which only exists after
+# VIPM Desktop has run once. A silent install never runs it, so start it once to create the file and,
+# if it still does not appear, write a minimal one that targets this container's LabVIEW.
+function Initialize-VipmDesktopSettings {
+    param([string]$Vipm)
+
+    $settings = 'C:\ProgramData\JKI\VIPM\Settings.ini'
+    if (-not (Test-Path -LiteralPath $settings -PathType Leaf)) {
+        $desktopExe = Join-Path (Split-Path (Split-Path $Vipm)) 'VI Package Manager.exe'
+        if (Test-Path -LiteralPath $desktopExe -PathType Leaf) {
+            Write-Host "Starting VIPM Desktop once to create $settings"
+            $desktop = Start-Process -FilePath $desktopExe -PassThru
+            $deadline = (Get-Date).AddMinutes(3)
+            while ((Get-Date) -lt $deadline -and -not (Test-Path -LiteralPath $settings -PathType Leaf) -and -not $desktop.HasExited) {
+                Start-Sleep -Seconds 5
+            }
+            Start-Sleep -Seconds 5
+            if (-not $desktop.HasExited) {
+                Stop-Process -Id $desktop.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+        else {
+            Write-Warning "VIPM Desktop not found at $desktopExe"
+        }
+    }
+
+    $version = (Get-Item -LiteralPath $labview).VersionInfo
+    $target = '{0}.{1} (64-bit)' -f $version.FileMajorPart, $version.FileMinorPart
+    if (-not (Test-Path -LiteralPath $settings -PathType Leaf)) {
+        Write-Warning "VIPM Desktop did not create $settings; writing a minimal one for LabVIEW $target."
+        New-Item -ItemType Directory -Path (Split-Path $settings) -Force | Out-Null
+        $location = '/' + ($labview -replace '\\', '/' -replace '^([A-Za-z]):', '$1')
+        @(
+            '[General]'
+            'IsFirstLaunch="FALSE"'
+            ''
+            '[Targets]'
+            'Names.<size(s)>="1"'
+            'Names 0="LabVIEW"'
+            'Versions.<size(s)>="1"'
+            "Versions 0=`"$target`""
+            'Locations.<size(s)>="1"'
+            "Locations 0=`"$location`""
+            'Ports="<size(s)=1> 3363"'
+            'Tested.<size(s)>="1"'
+            'Tested 0="TRUE"'
+            'Disabled.<size(s)>="1"'
+            'Disabled 0="FALSE"'
+            'Connection Timeout="120"'
+            'Active Target.Name="LabVIEW"'
+            "Active Target.Version=`"$target`""
+            'CommunityEdition.<size(s)>="1"'
+            'CommunityEdition 0="FALSE"'
+        ) | Set-Content -LiteralPath $settings -Encoding Ascii
+    }
+    Copy-Item -LiteralPath $settings -Destination (Join-Path $results 'vipm-Settings.ini') -Force
+}
+
 try {
     if (-not (Test-Path -LiteralPath $labview -PathType Leaf)) {
         throw "LabVIEW executable not found: $labview"
@@ -104,6 +162,7 @@ try {
         & $vipm refresh --verbose
         if ($LASTEXITCODE -ne 0) { throw "vipm refresh failed: $LASTEXITCODE" }
         Start-TestLabVIEW
+        Initialize-VipmDesktopSettings -Vipm $vipm
         & $vipm install -y astemes_lib_lunit astemes_lib_lunit_cli --labview-version 2026 --labview-bitness 64
         if ($LASTEXITCODE -ne 0) { throw "LUnit installation failed: $LASTEXITCODE" }
         foreach ($relative in @('vi.lib\Astemes\LUnit', 'vi.lib\Astemes\LUnit CLI\LUnitCLI')) {
