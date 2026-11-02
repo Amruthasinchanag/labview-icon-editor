@@ -41,6 +41,8 @@ Describe 'Windows LUnit container contract' {
         $helper | Should -Match "safe\.directory '\*'"
         $helper | Should -Match "Set-Location 'C:\\workspace'"
         $helper | Should -Match 'Initialize-VipmDesktopSettings -Vipm \$vipm'
+        $helper | Should -Match 'Set-VipmFirstLaunchDone'
+        $helper | Should -Match "VIPM_DESKTOP_LIVELINESS_TIMEOUT = '900'"
         $helper | Should -Match 'C:\\ProgramData\\JKI\\VIPM\\Settings\.ini'
         $helper | Should -Not -Match 'vipm activate|\$vipm activate'
         $helper | Should -Match 'install -y astemes_lib_lunit astemes_lib_lunit_cli'

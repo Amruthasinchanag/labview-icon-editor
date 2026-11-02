@@ -106,6 +106,27 @@ function Initialize-VipmDesktopSettings {
     Copy-Item -LiteralPath $settings -Destination (Join-Path $results 'vipm-Settings.ini') -Force
 }
 
+# VIPM Desktop was closed during its first launch, so mark first-run as done; otherwise the next launch
+# (by `vipm install`) can wait on first-run UI that nobody can answer in a headless container.
+function Set-VipmFirstLaunchDone {
+    $settings = 'C:\ProgramData\JKI\VIPM\Settings.ini'
+    $lines = [System.Collections.Generic.List[string]](Get-Content -LiteralPath $settings)
+    $index = $lines.FindIndex([Predicate[string]] { param($line) $line -match '^IsFirstLaunch=' })
+    if ($index -ge 0) {
+        $lines[$index] = 'IsFirstLaunch="FALSE"'
+    }
+    else {
+        $general = $lines.IndexOf('[General]')
+        if ($general -lt 0) {
+            $lines.Insert(0, '[General]')
+            $general = 0
+        }
+        $lines.Insert($general + 1, 'IsFirstLaunch="FALSE"')
+    }
+    $lines | Set-Content -LiteralPath $settings -Encoding Ascii
+    Copy-Item -LiteralPath $settings -Destination (Join-Path $results 'vipm-Settings.ini') -Force
+}
+
 try {
     if (-not (Test-Path -LiteralPath $labview -PathType Leaf)) {
         throw "LabVIEW executable not found: $labview"
@@ -113,6 +134,11 @@ try {
     if ($Stage -eq 'Setup') {
         $env:VIPM_NONINTERACTIVE = '1'
         $env:VIPM_TIMEOUT = '900'
+        # Same as the Linux workflow: the CLI aborts after 60 s without VIPM Desktop progress by default,
+        # which a post-install mass compile can exceed.
+        $env:VIPM_DESKTOP_LIVELINESS_TIMEOUT = '900'
+        $env:VIPM_LABVIEW_LAUNCH_TIMEOUT = '300'
+        $env:VIPM_DEBUG = '1'
         # Without an edition, a fresh Windows VIPM rejects `refresh` as unactivated. Community Edition needs
         # no serial number, but only applies inside a public git repository, so git must be available and
         # VIPM must run from the checkout.
@@ -163,6 +189,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "vipm refresh failed: $LASTEXITCODE" }
         Start-TestLabVIEW
         Initialize-VipmDesktopSettings -Vipm $vipm
+        Set-VipmFirstLaunchDone
         & $vipm install -y astemes_lib_lunit astemes_lib_lunit_cli --labview-version 2026 --labview-bitness 64
         if ($LASTEXITCODE -ne 0) { throw "LUnit installation failed: $LASTEXITCODE" }
         foreach ($relative in @('vi.lib\Astemes\LUnit', 'vi.lib\Astemes\LUnit CLI\LUnitCLI')) {
