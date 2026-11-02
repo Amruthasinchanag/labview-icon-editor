@@ -103,7 +103,14 @@ function Initialize-VipmDesktopSettings {
             'CommunityEdition 0="FALSE"'
         ) | Set-Content -LiteralPath $settings -Encoding Ascii
     }
-    Copy-Item -LiteralPath $settings -Destination (Join-Path $results 'vipm-Settings.ini') -Force
+    Save-VipmSettingsCopy
+}
+
+# Uploaded artifacts are not secret-masked, so blank any licence-related values in the diagnostic copy.
+function Save-VipmSettingsCopy {
+    Get-Content -LiteralPath 'C:\ProgramData\JKI\VIPM\Settings.ini' |
+        ForEach-Object { $_ -replace '^([^=]*(?i:serial|licen|activation|e-?mail|full ?name)[^=]*)=.*$', '$1="<redacted>"' } |
+        Set-Content -LiteralPath (Join-Path $results 'vipm-Settings.ini') -Encoding Ascii
 }
 
 # VIPM Desktop was closed during its first launch, so mark first-run as done; otherwise the next launch
@@ -124,7 +131,7 @@ function Set-VipmFirstLaunchDone {
         $lines.Insert($general + 1, 'IsFirstLaunch="FALSE"')
     }
     $lines | Set-Content -LiteralPath $settings -Encoding Ascii
-    Copy-Item -LiteralPath $settings -Destination (Join-Path $results 'vipm-Settings.ini') -Force
+    Save-VipmSettingsCopy
 }
 
 try {
@@ -139,10 +146,13 @@ try {
         $env:VIPM_DESKTOP_LIVELINESS_TIMEOUT = '900'
         $env:VIPM_LABVIEW_LAUNCH_TIMEOUT = '300'
         $env:VIPM_DEBUG = '1'
-        # Without an edition, a fresh Windows VIPM rejects `refresh` as unactivated. Community Edition needs
-        # no serial number, but only applies inside a public git repository, so git must be available and
-        # VIPM must run from the checkout.
-        $env:VIPM_COMMUNITY_EDITION = '1'
+        # With the VIPM Pro secrets, activate Pro (JKI's documented container path). Without them, fall back to
+        # Community Edition, which needs no serial but only applies inside a public git repository, so git must
+        # be available and VIPM must run from the checkout. A fresh Windows VIPM with neither rejects `refresh`.
+        $activatePro = -not [string]::IsNullOrWhiteSpace($env:VIPM_SERIAL_NUMBER)
+        if (-not $activatePro) {
+            $env:VIPM_COMMUNITY_EDITION = '1'
+        }
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
         if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -184,6 +194,14 @@ try {
         Write-Host "Using VIPM CLI at: $vipm"
         & $vipm version
         if ($LASTEXITCODE -ne 0) { throw "vipm version failed: $LASTEXITCODE" }
+        if ($activatePro) {
+            Write-Host 'Activating VIPM Pro from the VIPM_* secrets'
+            & $vipm activate --serial-number $env:VIPM_SERIAL_NUMBER --name $env:VIPM_FULL_NAME --email $env:VIPM_EMAIL
+            if ($LASTEXITCODE -ne 0) { throw "vipm activate failed: $LASTEXITCODE" }
+        }
+        else {
+            Write-Host 'VIPM_SERIAL_NUMBER not set; using VIPM Community Edition'
+        }
         & $vipm about
         & $vipm refresh --verbose
         if ($LASTEXITCODE -ne 0) { throw "vipm refresh failed: $LASTEXITCODE" }

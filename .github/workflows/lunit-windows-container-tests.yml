@@ -2,6 +2,13 @@ name: LUnit Tests on Windows Container
 
 on:
   workflow_call:
+    secrets:
+      VIPM_SERIAL_NUMBER:
+        required: false
+      VIPM_FULL_NAME:
+        required: false
+      VIPM_EMAIL:
+        required: false
   workflow_dispatch:
   # TEMPORARY: run LUnit alone on pushes to the test branch; remove before merging.
   push:
@@ -50,10 +57,15 @@ jobs:
           docker start $env:LVIE_CONTAINER_NAME
           if ($LASTEXITCODE -ne 0) { throw 'Failed to start Windows LUnit container.' }
 
-      - name: Install VIPM (Community Edition) and LUnit
+      - name: Install VIPM and LUnit
         timeout-minutes: 25
+        env:
+          # Optional: with these, VIPM Pro is activated; without them (e.g. fork PRs), Community Edition is used.
+          VIPM_SERIAL_NUMBER: ${{ secrets.VIPM_SERIAL_NUMBER }}
+          VIPM_FULL_NAME: ${{ secrets.VIPM_FULL_NAME }}
+          VIPM_EMAIL: ${{ secrets.VIPM_EMAIL }}
         run: |
-          docker exec $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `
+          docker exec -e VIPM_SERIAL_NUMBER -e VIPM_FULL_NAME -e VIPM_EMAIL $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `
             -File C:\workspace\Tooling\Run-LUnitWindowsContainer.ps1 -Stage Setup
           if ($LASTEXITCODE -ne 0) { throw 'Windows LUnit setup failed; see Setup.log.' }
 

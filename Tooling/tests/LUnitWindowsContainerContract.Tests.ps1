@@ -27,15 +27,23 @@ Describe 'Windows LUnit container contract' {
         $env:GITHUB_STEP_SUMMARY = $script:oldSummary
     }
 
-    It 'uses a secret-free Windows container and native LUnit CLI' {
+    It 'uses a Windows container, optional VIPM Pro secrets, and native LUnit CLI' {
         $script:workflow | Should -Match 'runs-on: windows-2022'
         $script:workflow | Should -Match 'nationalinstruments/labview:2026q1-windows'
-        $script:workflow | Should -Not -Match 'secrets[.:]'
+        foreach ($name in 'VIPM_SERIAL_NUMBER', 'VIPM_FULL_NAME', 'VIPM_EMAIL') {
+            $script:workflow | Should -Match "(?ms)workflow_call:.*?$($name):\s*\r?\n\s*required: false"
+            $script:workflow | Should -Match "-e $name\b" -Because 'secrets must be passed into the container by name, not by value'
+        }
+        $script:workflow | Should -Not -Match 'docker exec[^\r\n]*\$\{\{\s*secrets\.' -Because 'secret values must not appear on a command line'
         $script:workflow | Should -Match '-Stage Setup'
         $script:workflow | Should -Match 'docker restart'
         $script:workflow | Should -Match '-Stage Test'
         $helper = Get-Content (Join-Path $repoRoot 'Tooling\Run-LUnitWindowsContainer.ps1') -Raw
-        $helper | Should -Match "VIPM_COMMUNITY_EDITION = '1'"
+        $helper | Should -Match '\$activatePro = -not \[string\]::IsNullOrWhiteSpace\(\$env:VIPM_SERIAL_NUMBER\)'
+        $helper | Should -Match "(?s)if \(-not \`$activatePro\) \{\s*\`$env:VIPM_COMMUNITY_EDITION = '1'"
+        $helper | Should -Match '(?s)if \(\$activatePro\) \{.*?& \$vipm activate --serial-number \$env:VIPM_SERIAL_NUMBER'
+        $helper | Should -Match 'Save-VipmSettingsCopy'
+        $helper | Should -Not -Match "Copy-Item[^\r\n]*vipm-Settings\.ini" -Because 'the uploaded settings copy must go through redaction'
         $helper | Should -Match 'vipm-26\.3\.4025-windows-setup\.exe'
         $helper | Should -Not -Match 'vipm-setup-latest-preview'
         $helper | Should -Match "safe\.directory '\*'"
@@ -44,7 +52,6 @@ Describe 'Windows LUnit container contract' {
         $helper | Should -Match 'Set-VipmFirstLaunchDone'
         $helper | Should -Match "VIPM_DESKTOP_LIVELINESS_TIMEOUT = '900'"
         $helper | Should -Match 'C:\\ProgramData\\JKI\\VIPM\\Settings\.ini'
-        $helper | Should -Not -Match 'vipm activate|\$vipm activate'
         $helper | Should -Match 'install -y astemes_lib_lunit astemes_lib_lunit_cli'
         $helper | Should -Match 'Start-TestLabVIEW -Project \$project'
         $helper | Should -Match '-OperationName LUnit'
