@@ -169,6 +169,8 @@ Describe 'Windows LUnit container contract' {
         $helper | Should -Match 'attempt -le 2'
         $helper | Should -Match 'Stop-SetupProcesses'
         $helper | Should -Match 'Refresh-VipmPackages -Vipm \$vipm'
+        $helper | Should -Match "directory = 'C:\\workspace\\\.lunit-packages'"
+        $helper | Should -Not -Match "Join-Path \`$env:TEMP 'lvie-lunit-packages'"
         $helper | Should -Not -Match 'Tested 0="TRUE"'
         $helper | Should -Match 'C:\\ProgramData\\JKI\\VIPM\\Settings\.ini'
         $helper | Should -Match "targets = @\('astemes_lib_lunit', 'astemes_lib_lunit_cli'\)"

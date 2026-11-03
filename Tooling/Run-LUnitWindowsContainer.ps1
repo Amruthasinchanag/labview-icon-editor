@@ -91,7 +91,9 @@ function Stop-SetupProcesses {
 }
 
 function Get-LUnitPackageFiles {
-    $directory = Join-Path $env:TEMP 'lvie-lunit-packages'
+    # Local-file installs resolve Community Edition eligibility from the file's
+    # directory, so keep packages under the verified public repository.
+    $directory = 'C:\workspace\.lunit-packages'
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
     # Versions and publisher checksums from the public JKI repository index.
     $packages = @(
