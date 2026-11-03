@@ -16,6 +16,100 @@ Describe 'Windows LUnit container contract' {
         $script:reportPath = Join-Path $TestDrive 'lunit-results\lunit.xml'
     }
 
+    Describe 'LUnit dependency installation recovery' {
+        BeforeAll {
+            $path = Join-Path $PSScriptRoot '..\Run-LUnitWindowsContainer.ps1'
+            $tokens = $null
+            $errors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+                (Resolve-Path $path).Path, [ref]$tokens, [ref]$errors)
+            if ($errors.Count) { throw ($errors | Out-String) }
+            $function = $ast.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq 'Install-LUnitPackages'
+            }, $true)
+            . ([scriptblock]::Create($function.Extent.Text))
+            $refresh = $ast.Find({
+                param($node)
+                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq 'Refresh-VipmPackages'
+            }, $true)
+            . ([scriptblock]::Create($refresh.Extent.Text))
+            function Invoke-TestVipm {}
+            function Stop-SetupProcesses {}
+            function Start-TestLabVIEW {}
+            function Initialize-VipmDesktopSettings {}
+        }
+
+        BeforeEach {
+            $script:codes = [System.Collections.Generic.Queue[int]]::new()
+            Mock Invoke-TestVipm { $global:LASTEXITCODE = $script:codes.Dequeue() }
+            Mock Stop-SetupProcesses {}
+            Mock Start-TestLabVIEW {}
+            Mock Initialize-VipmDesktopSettings {}
+            Mock Start-Sleep {}
+        }
+
+        It 'does not restart after a successful batch install' {
+            $script:codes.Enqueue(0)
+            Install-LUnitPackages -Vipm Invoke-TestVipm
+            Should -Invoke Invoke-TestVipm -Times 1 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
+        }
+
+        It 'restarts the stack once after an engine timeout' {
+            $script:codes.Enqueue(124)
+            $script:codes.Enqueue(0)
+            Install-LUnitPackages -Vipm Invoke-TestVipm
+            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+            Should -Invoke Start-TestLabVIEW -Times 1 -Exactly
+            Should -Invoke Initialize-VipmDesktopSettings -Times 1 -Exactly
+        }
+
+        It 'fails after two timeouts without trying packages individually' {
+            $script:codes.Enqueue(124)
+            $script:codes.Enqueue(124)
+            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*attempt 2/2*'
+            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+        }
+
+        It 'surfaces non-timeout failures without restarting' {
+            $script:codes.Enqueue(8)
+            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*failed: 8*'
+            Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
+        }
+
+        It 'tries individual packages only for a resolution failure' {
+            foreach ($code in @(3, 0, 0)) { $script:codes.Enqueue($code) }
+            Install-LUnitPackages -Vipm Invoke-TestVipm
+            Should -Invoke Invoke-TestVipm -Times 3 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
+        }
+
+        It 'does not accept a failed individual package as success' {
+            foreach ($code in @(3, 3)) { $script:codes.Enqueue($code) }
+            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*Required package*failed*'
+            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+        }
+
+        It 'restarts once after a refresh timeout' {
+            foreach ($code in @(124, 0)) { $script:codes.Enqueue($code) }
+            Refresh-VipmPackages -Vipm Invoke-TestVipm
+            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+        }
+
+        It 'fails after two refresh timeouts' {
+            foreach ($code in @(124, 124)) { $script:codes.Enqueue($code) }
+            { Refresh-VipmPackages -Vipm Invoke-TestVipm } | Should -Throw '*attempt 2/2*'
+            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+        }
+    }
+
     BeforeEach {
         $cases = (1..10 | ForEach-Object { "<testcase name='test$_'/>" }) -join ''
         "<testsuites><testsuite tests='10' failures='0'>$cases</testsuite></testsuites>" |
@@ -27,16 +121,18 @@ Describe 'Windows LUnit container contract' {
         $env:GITHUB_STEP_SUMMARY = $script:oldSummary
     }
 
-    It 'uses a Windows container, optional VIPM Pro secrets, and native LUnit CLI' {
+    It 'builds and reuses required secret-free Windows dependencies and native LUnit CLI' {
         $script:workflow | Should -Match 'runs-on: windows-2022'
-        $script:workflow | Should -Match 'nationalinstruments/labview:2026q1-windows'
-        foreach ($name in 'VIPM_SERIAL_NUMBER', 'VIPM_FULL_NAME', 'VIPM_EMAIL') {
-            $script:workflow | Should -Match "(?ms)workflow_call:.*?$($name):\s*\r?\n\s*required: false"
-            $script:workflow | Should -Match "-e $name\b" -Because 'secrets must be passed into the container by name, not by value'
-        }
-        $script:workflow | Should -Not -Match 'docker exec[^\r\n]*\$\{\{\s*secrets\.' -Because 'secret values must not appear on a command line'
-        $script:workflow | Should -Match '-Stage Setup'
-        $script:workflow | Should -Match 'docker restart'
+        $dockerfile = Get-Content (Join-Path $repoRoot 'Tooling\containers\lunit-windows.Dockerfile') -Raw
+        $dockerfile | Should -Match 'FROM nationalinstruments/labview:2026q1-windows'
+        $dockerfile | Should -Match '-Stage Setup -PublicRepositoryUrl'
+        $dockerfile | Should -Match 'dependency-manifest.json'
+        $dockerfile | Should -Not -Match 'VIPM_SERIAL_NUMBER|activate'
+        $script:workflow | Should -Match 'Get-FileHash'
+        $script:workflow | Should -Match 'Build-LUnitWindowsImage.ps1'
+        $script:workflow | Should -Match 'docker push'
+        $script:workflow | Should -Match "github.event_name != 'pull_request'"
+        $script:workflow | Should -Not -Match 'secrets\.VIPM_|-Stage Setup'
         $script:workflow | Should -Match '-Stage Test'
         $helper = Get-Content (Join-Path $repoRoot 'Tooling\Run-LUnitWindowsContainer.ps1') -Raw
         $helper | Should -Match '\$activatePro = -not \[string\]::IsNullOrWhiteSpace\(\$env:VIPM_SERIAL_NUMBER\)'
@@ -44,13 +140,18 @@ Describe 'Windows LUnit container contract' {
         $helper | Should -Match '(?s)if \(\$activatePro\) \{.*?& \$vipm activate --serial-number \$env:VIPM_SERIAL_NUMBER'
         $helper | Should -Match 'Save-VipmSettingsCopy'
         $helper | Should -Not -Match "Copy-Item[^\r\n]*vipm-Settings\.ini" -Because 'the uploaded settings copy must go through redaction'
-        $helper | Should -Match 'vipm-26\.3\.4025-windows-setup\.exe'
+        $helper | Should -Match 'vipm-26\.3\.3954-windows-setup\.exe'
         $helper | Should -Not -Match 'vipm-setup-latest-preview'
-        $helper | Should -Match "safe\.directory '\*'"
+        $helper | Should -Match 'safe\.directory C:/workspace'
         $helper | Should -Match "Set-Location 'C:\\workspace'"
         $helper | Should -Match 'Initialize-VipmDesktopSettings -Vipm \$vipm'
         $helper | Should -Match 'Set-VipmFirstLaunchDone'
-        $helper | Should -Match "VIPM_DESKTOP_LIVELINESS_TIMEOUT = '900'"
+        $helper | Should -Match "VIPM_DESKTOP_LIVELINESS_TIMEOUT = '120'"
+        $helper | Should -Match 'Remove-Item Env:LV_RTE_HEADLESS'
+        $helper | Should -Match 'attempt -le 2'
+        $helper | Should -Match 'Stop-SetupProcesses'
+        $helper | Should -Match 'Refresh-VipmPackages -Vipm \$vipm'
+        $helper | Should -Not -Match 'Tested 0="TRUE"'
         $helper | Should -Match 'C:\\ProgramData\\JKI\\VIPM\\Settings\.ini'
         $helper | Should -Match 'install -y astemes_lib_lunit astemes_lib_lunit_cli'
         $helper | Should -Match 'Start-TestLabVIEW -Project \$project'

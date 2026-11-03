@@ -2,13 +2,6 @@ name: LUnit Tests on Windows Container
 
 on:
   workflow_call:
-    secrets:
-      VIPM_SERIAL_NUMBER:
-        required: false
-      VIPM_FULL_NAME:
-        required: false
-      VIPM_EMAIL:
-        required: false
   workflow_dispatch:
   # TEMPORARY: run LUnit alone on pushes to the test branch; remove before merging.
   push:
@@ -17,9 +10,9 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 env:
-  LABVIEW_IMAGE: nationalinstruments/labview:2026q1-windows
   LVIE_CONTAINER_NAME: lvie-lunit-windows-${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
@@ -35,7 +28,30 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Pull Windows LabVIEW image
+      - name: Resolve dependency image
+        run: |
+          $inputs = @(
+            'Tooling\containers\lunit-windows.Dockerfile',
+            'Tooling\Build-LUnitWindowsImage.ps1',
+            'Tooling\Run-LUnitWindowsContainer.ps1'
+          )
+          $hashes = ($inputs | ForEach-Object { (Get-FileHash $_ -Algorithm SHA256).Hash }) -join ''
+          $sha = [System.Security.Cryptography.SHA256]::Create()
+          try {
+            $key = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($hashes)))).Replace('-', '').ToLowerInvariant()
+          } finally { $sha.Dispose() }
+          $repository = '${{ github.repository }}'.ToLowerInvariant()
+          "LABVIEW_IMAGE=ghcr.io/$repository/lunit-windows:$key" >> $env:GITHUB_ENV
+
+      - name: Log in to dependency registry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:GH_TOKEN | docker login ghcr.io --username '${{ github.actor }}' --password-stdin
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to authenticate to dependency registry.' }
+
+      - name: Reuse or build required LUnit dependency image
+        timeout-minutes: 25
         run: |
           $ErrorActionPreference = 'Stop'
           $os = docker info --format '{{.OSType}}'
@@ -43,7 +59,20 @@ jobs:
             throw 'A running Docker engine in Windows-container mode is required.'
           }
           docker pull $env:LABVIEW_IMAGE
-          if ($LASTEXITCODE -ne 0) { throw 'Failed to pull Windows LabVIEW image.' }
+          if ($LASTEXITCODE -eq 0) {
+            'LVIE_IMAGE_BUILT=false' >> $env:GITHUB_ENV
+          } else {
+            Write-Warning 'Dependency image could not be pulled. Building required dependencies locally; installation failures will fail this job.'
+            & .\Tooling\Build-LUnitWindowsImage.ps1 -Image $env:LABVIEW_IMAGE `
+              -PublicRepositoryUrl 'https://github.com/${{ github.repository }}.git'
+            'LVIE_IMAGE_BUILT=true' >> $env:GITHUB_ENV
+          }
+
+      - name: Publish verified dependency image
+        if: env.LVIE_IMAGE_BUILT == 'true' && github.event_name != 'pull_request'
+        run: |
+          docker push $env:LABVIEW_IMAGE
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to publish LUnit dependency image.' }
 
       - name: Start container
         run: |
@@ -57,23 +86,14 @@ jobs:
           docker start $env:LVIE_CONTAINER_NAME
           if ($LASTEXITCODE -ne 0) { throw 'Failed to start Windows LUnit container.' }
 
-      - name: Install VIPM and LUnit
-        timeout-minutes: 25
-        env:
-          # Optional: with these, VIPM Pro is activated; without them (e.g. fork PRs), Community Edition is used.
-          VIPM_SERIAL_NUMBER: ${{ secrets.VIPM_SERIAL_NUMBER }}
-          VIPM_FULL_NAME: ${{ secrets.VIPM_FULL_NAME }}
-          VIPM_EMAIL: ${{ secrets.VIPM_EMAIL }}
+      - name: Read installed dependency manifest
         run: |
-          docker exec -e VIPM_SERIAL_NUMBER -e VIPM_FULL_NAME -e VIPM_EMAIL $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `
-            -File C:\workspace\Tooling\Run-LUnitWindowsContainer.ps1 -Stage Setup
-          if ($LASTEXITCODE -ne 0) { throw 'Windows LUnit setup failed; see Setup.log.' }
+          docker cp "${env:LVIE_CONTAINER_NAME}:C:\lunit-dependency-manifest.json" "$env:GITHUB_WORKSPACE\lunit-results\dependency-manifest.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency image is missing its required installation manifest.' }
 
-      - name: Restart container and run LUnit CLI
+      - name: Run LUnit CLI
         timeout-minutes: 20
         run: |
-          docker restart $env:LVIE_CONTAINER_NAME
-          if ($LASTEXITCODE -ne 0) { throw 'Failed to restart Windows LUnit container.' }
           docker exec $env:LVIE_CONTAINER_NAME powershell.exe -NoProfile `
             -File C:\workspace\Tooling\Run-LUnitWindowsContainer.ps1 -Stage Test
           if ($LASTEXITCODE -ne 0) { throw 'Windows LUnit execution failed; see Test.log.' }
