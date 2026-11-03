@@ -40,6 +40,7 @@ Describe 'Windows LUnit container contract' {
             function Stop-SetupProcesses {}
             function Start-TestLabVIEW {}
             function Initialize-VipmDesktopSettings {}
+            function Get-LUnitPackageFiles {}
         }
 
         BeforeEach {
@@ -49,6 +50,7 @@ Describe 'Windows LUnit container contract' {
             Mock Start-TestLabVIEW {}
             Mock Initialize-VipmDesktopSettings {}
             Mock Start-Sleep {}
+            Mock Get-LUnitPackageFiles { @('C:\packages\lunit.vip', 'C:\packages\cli.vip') }
         }
 
         It 'does not restart after a successful batch install' {
@@ -82,17 +84,33 @@ Describe 'Windows LUnit container contract' {
             Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
         }
 
-        It 'tries individual packages only for a resolution failure' {
-            foreach ($code in @(3, 0, 0)) { $script:codes.Enqueue($code) }
+        It 'uses public files only for a resolution failure' {
+            foreach ($code in @(3, 0)) { $script:codes.Enqueue($code) }
             Install-LUnitPackages -Vipm Invoke-TestVipm
-            Should -Invoke Invoke-TestVipm -Times 3 -Exactly
+            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+            Should -Invoke Get-LUnitPackageFiles -Times 1 -Exactly
             Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
         }
 
-        It 'does not accept a failed individual package as success' {
+        It 'does not accept a failed local file installation as success' {
             foreach ($code in @(3, 3)) { $script:codes.Enqueue($code) }
-            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*Required package*failed*'
+            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*Required LUnit installation failed: 3*'
             Should -Invoke Invoke-TestVipm -Times 2 -Exactly
+        }
+
+        It 'reuses local files after a timeout without downloading again' {
+            foreach ($code in @(3, 124, 0)) { $script:codes.Enqueue($code) }
+            Install-LUnitPackages -Vipm Invoke-TestVipm
+            Should -Invoke Invoke-TestVipm -Times 3 -Exactly
+            Should -Invoke Get-LUnitPackageFiles -Times 1 -Exactly
+            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+        }
+
+        It 'surfaces download failures before attempting a local install' {
+            $script:codes.Enqueue(3)
+            Mock Get-LUnitPackageFiles { throw 'Publisher checksum mismatch' }
+            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*checksum mismatch*'
+            Should -Invoke Invoke-TestVipm -Times 1 -Exactly
         }
 
         It 'restarts once after a refresh timeout' {
@@ -153,7 +171,7 @@ Describe 'Windows LUnit container contract' {
         $helper | Should -Match 'Refresh-VipmPackages -Vipm \$vipm'
         $helper | Should -Not -Match 'Tested 0="TRUE"'
         $helper | Should -Match 'C:\\ProgramData\\JKI\\VIPM\\Settings\.ini'
-        $helper | Should -Match 'install -y astemes_lib_lunit astemes_lib_lunit_cli'
+        $helper | Should -Match "targets = @\('astemes_lib_lunit', 'astemes_lib_lunit_cli'\)"
         $helper | Should -Match 'Start-TestLabVIEW -Project \$project'
         $helper | Should -Match '-OperationName LUnit'
         $helper | Should -Match '-LogToConsole TRUE -Headless'

@@ -90,27 +90,52 @@ function Stop-SetupProcesses {
     $script:labviewProcess = $null
 }
 
+function Get-LUnitPackageFiles {
+    $directory = Join-Path $env:TEMP 'lvie-lunit-packages'
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    # Versions and publisher checksums from the public JKI repository index.
+    $packages = @(
+        @{ Name = 'astemes_lib_lunit'; Version = '2.0.13.6'; MD5 = '57bc42bcfdfcf898ef5e00651992a015' }
+        @{ Name = 'astemes_lib_lunit_cli'; Version = '1.7.1.32'; MD5 = '1d82a4f44e0fdb257b048e80ed2de254' }
+    )
+    foreach ($package in $packages) {
+        $filename = '{0}-{1}.vip' -f $package.Name, $package.Version
+        $path = Join-Path $directory $filename
+        $url = "https://www.jkisoft.com/packages/packages/$($package.Name)/$filename"
+        Write-Host "Downloading required public package: $filename"
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $path -TimeoutSec 120
+        $header = Get-Content -LiteralPath $path -Encoding Byte -TotalCount 4
+        if ($header.Count -lt 4 -or $header[0] -ne 0x50 -or $header[1] -ne 0x4b) {
+            throw "Downloaded package is not a VIP/ZIP archive: $filename"
+        }
+        # MD5 matches publisher metadata; HTTPS provides transport security.
+        $hash = (Get-FileHash -LiteralPath $path -Algorithm MD5).Hash
+        if ($hash -ne $package.MD5) { throw "Publisher checksum mismatch: $filename" }
+        $path
+    }
+}
+
 function Install-LUnitPackages {
     param([string]$Vipm)
 
-    # One fresh-stack retry for a hung engine. Resolution failures use individual
-    # packages; a hung engine must not trigger a long chain of per-package retries.
+    $targets = @('astemes_lib_lunit', 'astemes_lib_lunit_cli')
+    $usingFiles = $false
+    # Resolution fallback and engine recovery each get their own bounded budget.
     for ($attempt = 1; $attempt -le 2; $attempt++) {
         Write-Host "LUnit installation attempt $attempt/2"
-        & $Vipm install -y astemes_lib_lunit astemes_lib_lunit_cli `
+        & $Vipm install -y @targets `
             --labview-version 2026 --labview-bitness 64 --timeout 240 --verbose --show-progress
         $code = $LASTEXITCODE
-        if ($code -eq 0) { return }
-        if ($code -eq 3) {
-            foreach ($package in @('astemes_lib_lunit', 'astemes_lib_lunit_cli')) {
-                & $Vipm install -y $package --labview-version 2026 --labview-bitness 64 `
-                    --timeout 240 --verbose --show-progress
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Required package $package failed to install: $LASTEXITCODE"
-                }
-            }
-            return
+        if ($code -eq 3 -and -not $usingFiles) {
+            Write-Warning 'VIPM name lookup failed; installing verified public VIP files instead.'
+            $targets = @(Get-LUnitPackageFiles)
+            if ($targets.Count -ne 2) { throw 'Expected both required LUnit package files.' }
+            $usingFiles = $true
+            & $Vipm install -y @targets --labview-version 2026 --labview-bitness 64 `
+                --timeout 240 --verbose --show-progress
+            $code = $LASTEXITCODE
         }
+        if ($code -eq 0) { return }
         if ($code -ne 124 -or $attempt -eq 2) {
             throw "Required LUnit installation failed: $code (attempt $attempt/2)."
         }
