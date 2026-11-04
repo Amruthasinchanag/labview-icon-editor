@@ -63,8 +63,7 @@ jobs:
             'LVIE_IMAGE_BUILT=false' >> $env:GITHUB_ENV
           } else {
             Write-Warning 'Dependency image could not be pulled. Building required dependencies locally; installation failures will fail this job.'
-            & .\Tooling\Build-LUnitWindowsImage.ps1 -Image $env:LABVIEW_IMAGE `
-              -PublicRepositoryUrl 'https://github.com/${{ github.repository }}.git'
+            & .\Tooling\Build-LUnitWindowsImage.ps1 -Image $env:LABVIEW_IMAGE
             'LVIE_IMAGE_BUILT=true' >> $env:GITHUB_ENV
           }
 

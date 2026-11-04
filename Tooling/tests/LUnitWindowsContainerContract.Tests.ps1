@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+﻿#Requires -Version 7.0
 #Requires -Modules Pester
 
 Describe 'Windows LUnit container contract' {
@@ -16,7 +16,7 @@ Describe 'Windows LUnit container contract' {
         $script:reportPath = Join-Path $TestDrive 'lunit-results\lunit.xml'
     }
 
-    Describe 'LUnit dependency installation recovery' {
+    Describe 'LUnit package file deployment' {
         BeforeAll {
             $path = Join-Path $PSScriptRoot '..\Run-LUnitWindowsContainer.ps1'
             $tokens = $null
@@ -27,104 +27,75 @@ Describe 'Windows LUnit container contract' {
             $function = $ast.Find({
                 param($node)
                 $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                $node.Name -eq 'Install-LUnitPackages'
+                $node.Name -eq 'Install-LUnitPackageFiles'
             }, $true)
             . ([scriptblock]::Create($function.Extent.Text))
-            $refresh = $ast.Find({
-                param($node)
-                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
-                $node.Name -eq 'Refresh-VipmPackages'
-            }, $true)
-            . ([scriptblock]::Create($refresh.Extent.Text))
-            function Invoke-TestVipm {}
-            function Stop-SetupProcesses {}
-            function Start-TestLabVIEW {}
-            function Initialize-VipmDesktopSettings {}
-            function Get-LUnitPackageFiles {}
+            function Get-LUnitPackageFile { param($Package, [string]$Directory) }
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+            function New-TestPackage {
+                param([string]$Name, [string[]]$Files)
+                $root = Join-Path $TestDrive "src-$Name"
+                foreach ($file in $Files) {
+                    $full = Join-Path $root $file
+                    New-Item -ItemType Directory -Path (Split-Path $full) -Force | Out-Null
+                    Set-Content -LiteralPath $full -Value $file
+                }
+                $zip = Join-Path $TestDrive "$Name.vip"
+                if (Test-Path $zip) { Remove-Item $zip }
+                [System.IO.Compression.ZipFile]::CreateFromDirectory($root, $zip)
+                $zip
+            }
         }
 
         BeforeEach {
-            $script:codes = [System.Collections.Generic.Queue[int]]::new()
-            Mock Invoke-TestVipm { $global:LASTEXITCODE = $script:codes.Dequeue() }
-            Mock Stop-SetupProcesses {}
-            Mock Start-TestLabVIEW {}
-            Mock Initialize-VipmDesktopSettings {}
-            Mock Start-Sleep {}
-            Mock Get-LUnitPackageFiles { @('C:\packages\lunit.vip', 'C:\packages\cli.vip') }
+            $script:LUnitPackages = @(
+                [ordered]@{ Name = 'astemes_lib_lunit'; Version = '1'; MD5 = 'x'; Folder = 'LUnit' }
+                [ordered]@{ Name = 'astemes_lib_lunit_cli'; Version = '1'; MD5 = 'x'; Folder = 'LUnit CLI' }
+            )
+            $script:destination = Join-Path $TestDrive ('lv-' + [guid]::NewGuid().ToString('N'))
+            $script:work = Join-Path $TestDrive ('work-' + [guid]::NewGuid().ToString('N'))
+            $script:framework = New-TestPackage 'framework' @(
+                'File Group 0\vi.lib\Astemes\LUnit\LUnit.lvlib',
+                'File Group 0\resource\Framework\Providers\provider.ini',
+                'PostInstall.vi')
+            $script:cliPackage = New-TestPackage 'cli' @('File Group 0\vi.lib\Astemes\LUnit CLI\LUnitCLI\RunOperation.vi')
+            Mock Get-LUnitPackageFile {
+                if ($Package.Name -eq 'astemes_lib_lunit') { $script:framework } else { $script:cliPackage }
+            }
         }
 
-        It 'does not restart after a successful batch install' {
-            $script:codes.Enqueue(0)
-            Install-LUnitPackages -Vipm Invoke-TestVipm
-            Should -Invoke Invoke-TestVipm -Times 1 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
+        It 'copies only each package vi.lib\Astemes tree into LabVIEW' {
+            Install-LUnitPackageFiles -Destination $script:destination -WorkDirectory $script:work
+            Join-Path $script:destination 'vi.lib\Astemes\LUnit\LUnit.lvlib' | Should -Exist
+            Join-Path $script:destination 'vi.lib\Astemes\LUnit CLI\LUnitCLI\RunOperation.vi' | Should -Exist
+            Join-Path $script:destination 'resource' | Should -Not -Exist
+            Join-Path $script:destination 'PostInstall.vi' | Should -Not -Exist
+            Should -Invoke Get-LUnitPackageFile -Times 2 -Exactly
         }
 
-        It 'restarts the stack once after an engine timeout' {
-            $script:codes.Enqueue(124)
-            $script:codes.Enqueue(0)
-            Install-LUnitPackages -Vipm Invoke-TestVipm
-            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
-            Should -Invoke Start-TestLabVIEW -Times 1 -Exactly
-            Should -Invoke Initialize-VipmDesktopSettings -Times 1 -Exactly
+        It 'replaces an existing deployment instead of nesting it' {
+            Install-LUnitPackageFiles -Destination $script:destination -WorkDirectory $script:work
+            Install-LUnitPackageFiles -Destination $script:destination -WorkDirectory $script:work
+            Join-Path $script:destination 'vi.lib\Astemes\LUnit\LUnit' | Should -Not -Exist
         }
 
-        It 'fails after two timeouts without trying packages individually' {
-            $script:codes.Enqueue(124)
-            $script:codes.Enqueue(124)
-            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*attempt 2/2*'
-            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+        It 'fails when a package lacks its expected vi.lib folder' {
+            $script:cliPackage = New-TestPackage 'cli-bad' @('File Group 0\examples\readme.txt')
+            { Install-LUnitPackageFiles -Destination $script:destination -WorkDirectory $script:work } |
+                Should -Throw '*does not contain vi.lib\Astemes\LUnit CLI*'
         }
 
-        It 'surfaces non-timeout failures without restarting' {
-            $script:codes.Enqueue(8)
-            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*failed: 8*'
-            Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
+        It 'fails when the CLI operation entry point is missing' {
+            $script:cliPackage = New-TestPackage 'cli-noop' @('File Group 0\vi.lib\Astemes\LUnit CLI\readme.txt')
+            { Install-LUnitPackageFiles -Destination $script:destination -WorkDirectory $script:work } |
+                Should -Throw '*RunOperation.vi*'
         }
 
-        It 'uses public files only for a resolution failure' {
-            foreach ($code in @(3, 0)) { $script:codes.Enqueue($code) }
-            Install-LUnitPackages -Vipm Invoke-TestVipm
-            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
-            Should -Invoke Get-LUnitPackageFiles -Times 1 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 0 -Exactly
-        }
-
-        It 'does not accept a failed local file installation as success' {
-            foreach ($code in @(3, 3)) { $script:codes.Enqueue($code) }
-            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*Required LUnit installation failed: 3*'
-            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
-        }
-
-        It 'reuses local files after a timeout without downloading again' {
-            foreach ($code in @(3, 124, 0)) { $script:codes.Enqueue($code) }
-            Install-LUnitPackages -Vipm Invoke-TestVipm
-            Should -Invoke Invoke-TestVipm -Times 3 -Exactly
-            Should -Invoke Get-LUnitPackageFiles -Times 1 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
-        }
-
-        It 'surfaces download failures before attempting a local install' {
-            $script:codes.Enqueue(3)
-            Mock Get-LUnitPackageFiles { throw 'Publisher checksum mismatch' }
-            { Install-LUnitPackages -Vipm Invoke-TestVipm } | Should -Throw '*checksum mismatch*'
-            Should -Invoke Invoke-TestVipm -Times 1 -Exactly
-        }
-
-        It 'restarts once after a refresh timeout' {
-            foreach ($code in @(124, 0)) { $script:codes.Enqueue($code) }
-            Refresh-VipmPackages -Vipm Invoke-TestVipm
-            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
-        }
-
-        It 'fails after two refresh timeouts' {
-            foreach ($code in @(124, 124)) { $script:codes.Enqueue($code) }
-            { Refresh-VipmPackages -Vipm Invoke-TestVipm } | Should -Throw '*attempt 2/2*'
-            Should -Invoke Invoke-TestVipm -Times 2 -Exactly
-            Should -Invoke Stop-SetupProcesses -Times 1 -Exactly
+        It 'surfaces download or checksum failures' {
+            Mock Get-LUnitPackageFile { throw 'Publisher checksum mismatch' }
+            { Install-LUnitPackageFiles -Destination $script:destination -WorkDirectory $script:work } |
+                Should -Throw '*checksum mismatch*'
         }
     }
 
@@ -139,43 +110,34 @@ Describe 'Windows LUnit container contract' {
         $env:GITHUB_STEP_SUMMARY = $script:oldSummary
     }
 
-    It 'builds and reuses required secret-free Windows dependencies and native LUnit CLI' {
+    It 'builds and reuses a VIPM-free Windows dependency image and native LUnit CLI' {
         $script:workflow | Should -Match 'runs-on: windows-2022'
         $dockerfile = Get-Content (Join-Path $repoRoot 'Tooling\containers\lunit-windows.Dockerfile') -Raw
         $dockerfile | Should -Match 'FROM nationalinstruments/labview:2026q1-windows'
-        $dockerfile | Should -Match '-Stage Setup -PublicRepositoryUrl'
+        $dockerfile | Should -Match '-Stage Setup;'
         $dockerfile | Should -Match 'dependency-manifest.json'
-        $dockerfile | Should -Not -Match 'VIPM_SERIAL_NUMBER|activate'
+        $dockerfile | Should -Not -Match '(?i)vipm-setup|installers/|PUBLIC_REPOSITORY_URL|VIPM_SERIAL_NUMBER|activate'
+        $build = Get-Content (Join-Path $repoRoot 'Tooling\Build-LUnitWindowsImage.ps1') -Raw
+        $build | Should -Not -Match '(?i)vipm|mingit|PublicRepositoryUrl'
         $script:workflow | Should -Match 'Get-FileHash'
-        $script:workflow | Should -Match 'Build-LUnitWindowsImage.ps1'
+        $script:workflow | Should -Match 'Build-LUnitWindowsImage.ps1 -Image \$env:LABVIEW_IMAGE'
+        $script:workflow | Should -Not -Match 'PublicRepositoryUrl'
         $script:workflow | Should -Match 'docker push'
         $script:workflow | Should -Match "github.event_name != 'pull_request'"
         $script:workflow | Should -Not -Match 'secrets\.VIPM_|-Stage Setup'
         $script:workflow | Should -Match '-Stage Test'
         $helper = Get-Content (Join-Path $repoRoot 'Tooling\Run-LUnitWindowsContainer.ps1') -Raw
-        $helper | Should -Match '\$activatePro = -not \[string\]::IsNullOrWhiteSpace\(\$env:VIPM_SERIAL_NUMBER\)'
-        $helper | Should -Match "(?s)if \(-not \`$activatePro\) \{\s*\`$env:VIPM_COMMUNITY_EDITION = '1'"
-        $helper | Should -Match '(?s)if \(\$activatePro\) \{.*?& \$vipm activate --serial-number \$env:VIPM_SERIAL_NUMBER'
-        $helper | Should -Match 'Save-VipmSettingsCopy'
-        $helper | Should -Not -Match "Copy-Item[^\r\n]*vipm-Settings\.ini" -Because 'the uploaded settings copy must go through redaction'
-        $helper | Should -Match 'vipm-26\.3\.3954-windows-setup\.exe'
-        $helper | Should -Not -Match 'vipm-setup-latest-preview'
-        $helper | Should -Match 'safe\.directory C:/workspace'
+        $helper | Should -Not -Match '(?i)vipm\.exe|& \$vipm|VIPM_|git init|mingit'
+        $helper | Should -Match "Name = 'astemes_lib_lunit'; Version = '2\.0\.13\.6'; MD5 = '57bc42bcfdfcf898ef5e00651992a015'"
+        $helper | Should -Match "Name = 'astemes_lib_lunit_cli'; Version = '1\.7\.1\.32'; MD5 = '1d82a4f44e0fdb257b048e80ed2de254'"
+        $helper | Should -Match 'https://www\.jkisoft\.com/packages/packages/'
+        $helper | Should -Match 'Get-FileHash -LiteralPath \$path -Algorithm MD5'
+        $helper | Should -Match 'Install-LUnitPackageFiles -Destination \$labviewRoot'
+        $helper | Should -Match "installMethod = 'verified-vip-file-copy'"
         $helper | Should -Match "Set-Location 'C:\\workspace'"
-        $helper | Should -Match 'Initialize-VipmDesktopSettings -Vipm \$vipm'
-        $helper | Should -Match 'Set-VipmFirstLaunchDone'
-        $helper | Should -Match "VIPM_DESKTOP_LIVELINESS_TIMEOUT = '120'"
-        $helper | Should -Match 'Remove-Item Env:LV_RTE_HEADLESS'
-        $helper | Should -Match 'attempt -le 2'
-        $helper | Should -Match 'Stop-SetupProcesses'
-        $helper | Should -Match 'Refresh-VipmPackages -Vipm \$vipm'
-        $helper | Should -Match "directory = 'C:\\workspace\\\.lunit-packages'"
-        $helper | Should -Not -Match "Join-Path \`$env:TEMP 'lvie-lunit-packages'"
-        $helper | Should -Not -Match 'Tested 0="TRUE"'
-        $helper | Should -Match 'C:\\ProgramData\\JKI\\VIPM\\Settings\.ini'
-        $helper | Should -Match "targets = @\('astemes_lib_lunit', 'astemes_lib_lunit_cli'\)"
         $helper | Should -Match 'Start-TestLabVIEW -Project \$project'
         $helper | Should -Match '-OperationName LUnit'
+        $helper | Should -Match "-AdditionalOperationDirectory \(Join-Path \`$labviewRoot 'vi\.lib\\Astemes\\LUnit CLI'\)"
         $helper | Should -Match '-LogToConsole TRUE -Headless'
         $helper | Should -Not -Match 'g-cli'
     }
