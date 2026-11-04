@@ -98,6 +98,41 @@ jobs:
             -File C:\workspace\Tooling\Run-LUnitWindowsContainer.ps1 -Stage Test
           if ($LASTEXITCODE -ne 0) { throw 'Windows LUnit execution failed; see Test.log.' }
 
+      - name: Summarize unit test failures
+        if: always() && env.LVIE_CONTAINER_CREATED == 'true'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = "$env:GITHUB_WORKSPACE\lunit-results\lunit.xml"
+          '## LUnit Test Diagnostics' >> $env:GITHUB_STEP_SUMMARY
+          if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            'No JUnit report was produced. Download the LUnit reports and logs artifact and check Test.log and the LabVIEW logs.' >> $env:GITHUB_STEP_SUMMARY
+            return
+          }
+          $settings = [System.Xml.XmlReaderSettings]::new()
+          $settings.DtdProcessing = [System.Xml.DtdProcessing]::Prohibit
+          $settings.XmlResolver = $null
+          $reader = [System.Xml.XmlReader]::Create($path, $settings)
+          try {
+            $report = [System.Xml.XmlDocument]::new()
+            $report.XmlResolver = $null
+            $report.Load($reader)
+          } finally {
+            $reader.Dispose()
+          }
+          $failedTests = $report.SelectNodes('//testcase[failure or error]')
+          if ($failedTests.Count -eq 0) {
+            'No failed test cases were recorded in the JUnit report.' >> $env:GITHUB_STEP_SUMMARY
+          }
+          foreach ($testCase in $failedTests) {
+            "### $($testCase.GetAttribute('classname')) : $($testCase.GetAttribute('name'))" >> $env:GITHUB_STEP_SUMMARY
+            foreach ($failure in $testCase.SelectNodes('failure | error')) {
+              '````text' >> $env:GITHUB_STEP_SUMMARY
+              $failure.GetAttribute('message') >> $env:GITHUB_STEP_SUMMARY
+              $failure.InnerText >> $env:GITHUB_STEP_SUMMARY
+              '````' >> $env:GITHUB_STEP_SUMMARY
+            }
+          }
+
       - name: Validate JUnit report and test discovery
         run: |
           $ErrorActionPreference = 'Stop'
