@@ -170,6 +170,41 @@ Describe 'Windows LUnit container contract' {
         { & $script:validate } | Should -Throw '*failures count*'
     }
 
+    Context 'temporary known tag failure' {
+        BeforeAll {
+            function Set-KnownTestCase {
+                param([string]$Name = 'Test Write Read Library Icon Data.vi', [string]$Body)
+                $case = "<testcase classname='Library Icon Data' name='$Name'>$Body</testcase>"
+                (Get-Content $script:reportPath -Raw).Replace("<testcase name='test10'/>", $case).Replace("failures='0'", "failures='1'") |
+                    Set-Content $script:reportPath
+            }
+            $script:tagFailure = "<failure message='Expected:NI.Lib.VIIconTemplate(String)&#xA;Actual:  NI_IconEditor(String)' type='Pass if Equal'>Tag Used (26.0)</failure>"
+            $script:summaryFailure = "<failure message='' type='Test Case'>Passed:&#xA;Library Write and Read Match&#xA;Failed:&#xA;Tag Used (26.0)</failure>"
+        }
+
+        It 'tolerates the exact tag mismatch and reports it' {
+            Set-KnownTestCase -Body ($script:tagFailure + $script:summaryFailure)
+            { & $script:validate } | Should -Not -Throw
+            Get-Content $env:GITHUB_STEP_SUMMARY -Raw | Should -Match 'Known failure tolerated temporarily'
+        }
+
+        It 'rejects a different assertion failure in the same test' {
+            $other = "<failure message='Expected:1(I32)&#xA;Actual:  2(I32)' type='Pass if Equal'>Library Write and Read Match</failure>"
+            Set-KnownTestCase -Body ($script:tagFailure + $other + $script:summaryFailure)
+            { & $script:validate } | Should -Throw '*test failures or errors*'
+        }
+
+        It 'rejects an error in the same test' {
+            Set-KnownTestCase -Body ($script:tagFailure + "<error message='Error 7'/>")
+            { & $script:validate } | Should -Throw '*test failures or errors*'
+        }
+
+        It 'rejects the same tag mismatch in another test' {
+            Set-KnownTestCase -Name 'Test Library Icon Tag.vi' -Body $script:tagFailure
+            { & $script:validate } | Should -Throw '*test failures or errors*'
+        }
+    }
+
     It 'rejects a missing report' {
         Remove-Item -LiteralPath $script:reportPath
         { & $script:validate } | Should -Throw
