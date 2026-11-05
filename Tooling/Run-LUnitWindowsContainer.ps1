@@ -23,7 +23,7 @@ $script:LUnitPackages = @(
 function Start-TestLabVIEW {
     param([string]$Project)
 
-    $arguments = @('--headless')
+    $arguments = @()
     if ($Project) {
         $arguments += "`"$Project`""
     }

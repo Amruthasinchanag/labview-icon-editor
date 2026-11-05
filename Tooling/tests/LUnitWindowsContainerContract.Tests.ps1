@@ -136,6 +136,8 @@ Describe 'Windows LUnit container contract' {
         $helper | Should -Match "installMethod = 'verified-vip-file-copy'"
         $helper | Should -Match "Set-Location 'C:\\workspace'"
         $helper | Should -Match 'Start-TestLabVIEW -Project \$project'
+        $helper | Should -Not -Match '--headless'
+        $helper | Should -Match "(?s)Start-TestLabVIEW -Project \`$project\s+& \`$cli -OperationName LUnit"
         $helper | Should -Match '-OperationName LUnit'
         $helper | Should -Match "-AdditionalOperationDirectory \(Join-Path \`$labviewRoot 'vi\.lib\\Astemes\\LUnit CLI'\)"
         $helper | Should -Match '-LogToConsole TRUE -Headless'
@@ -182,10 +184,9 @@ Describe 'Windows LUnit container contract' {
             $script:summaryFailure = "<failure message='' type='Test Case'>Passed:&#xA;Library Write and Read Match&#xA;Failed:&#xA;Tag Used (26.0)</failure>"
         }
 
-        It 'tolerates the exact tag mismatch and reports it' {
+        It 'rejects the exact tag mismatch in the fork experiment' {
             Set-KnownTestCase -Body ($script:tagFailure + $script:summaryFailure)
-            { & $script:validate } | Should -Not -Throw
-            Get-Content $env:GITHUB_STEP_SUMMARY -Raw | Should -Match 'Known failure tolerated temporarily'
+            { & $script:validate } | Should -Throw '*test failures or errors*'
         }
 
         It 'rejects a different assertion failure in the same test' {

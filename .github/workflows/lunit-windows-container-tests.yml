@@ -150,12 +150,8 @@ jobs:
           if ($report.DocumentElement.Name -notin @('testsuite', 'testsuites')) {
             throw 'Expected a testsuite or testsuites root element.'
           }
-          # TEMPORARY known failure: in headless CLI runs, plain Library:Save keeps the NI_IconEditor tag instead of
-          # renaming it to NI.Lib.VIIconTemplate (the IDE renames it). Tolerated only for this exact tag mismatch;
-          # remove once the save behaviour is resolved with the maintainers.
-          $knownFailures = @{
-            'Library Icon Data::Test Write Read Library Icon Data.vi' = 'NI\.Lib\.VIIconTemplate[\s\S]*NI_IconEditor'
-          }
+          # Fork experiment: no tolerated failures, including the library icon tag mismatch.
+          $knownFailures = @{}
           $unexpected = @()
           $tolerated = @()
           foreach ($testCase in $report.SelectNodes('//testcase[failure or error]')) {
